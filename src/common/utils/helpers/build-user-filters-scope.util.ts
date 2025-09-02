@@ -1,9 +1,9 @@
 import { Role } from 'src/common/enums/role.enum';
 
 interface UserToken {
-  role: Role;
+  role: Role;           // global: 'servus_admin' | 'volunteer'
   tenantId: string;
-  branchId?: string;
+  branchId?: string;    // presente para branch-scoped (ex.: branch admin / líder)
 }
 
 interface UserQueryFilters {
@@ -12,41 +12,53 @@ interface UserQueryFilters {
   branchId?: string;
 }
 
+interface BuildFiltersOptions {
+  /** Quando true, força listar apenas voluntários (ex.: líder) */
+  isLeader?: boolean;
+}
+
+/**
+ * Constrói filtros de listagem respeitando o escopo do usuário.
+ * - ServusAdmin: livre para filtrar tenant/branch/role.
+ * - Demais: força tenantId do token; se tiver branchId no token, força a mesma branch.
+ *   Se não tiver branchId (tenant admin), aceita branchId do query.
+ * - Se opts.isLeader === true, restringe a role=volunteer.
+ */
 export function buildUserFiltersFromScope(
   user: UserToken,
   query: UserQueryFilters = {},
+  opts: BuildFiltersOptions = {},
 ) {
-  const filters: any = {};
+  const filters: Record<string, any> = {};
 
-  switch (user.role) {
-    case Role.SuperAdmin:
-      // Pode filtrar qualquer tenant ou branch se informado
-      if (query.tenantId) filters.tenantId = query.tenantId;
-      if (query.branchId) filters.branchId = query.branchId;
-      break;
-
-    case Role.Admin:
-      // Sempre força tenant do token
-      filters.tenantId = user.tenantId;
-
-      // Pode filtrar por branch dentro do próprio tenant
-      if (query.branchId) filters.branchId = query.branchId;
-      break;
-
-    case Role.Leader:
-      // Sempre força tenant e branch do token
-      filters.tenantId = user.tenantId;
-      filters.branchId = user.branchId;
-      filters.role = Role.Volunteer; // Líder só pode ver voluntários
-      break;
+  // 🟣 Superadmin: pode tudo
+  if (user.role === Role.ServusAdmin) {
+    if (query.tenantId) filters.tenantId = query.tenantId;
+    if (query.branchId) filters.branchId = query.branchId;
+    if (query.role)     filters.role     = query.role;
+    return filters;
   }
 
-  // Filtro por role (apenas se permitido)
-  if (query.role) {
-    const canFilterByRole = [Role.SuperAdmin, Role.Admin].includes(user.role);
-    if (canFilterByRole) {
-      filters.role = query.role;
+  // 🔵 Qualquer outro usuário: força tenant do token
+  filters.tenantId = user.tenantId;
+
+  // Se o token tem branchId (branch-scoped: líder / branch admin), força essa branch
+  if (user.branchId) {
+    filters.branchId = user.branchId;
+  } else {
+    // Sem branch no token (ex.: tenant admin) → pode filtrar por branch informada
+    if (query.branchId) {
+      filters.branchId = query.branchId;
     }
+  }
+
+  // (Opcional) Se o chamador é líder nesse escopo → só vê voluntários
+  if (opts.isLeader) {
+    filters.role = Role.Volunteer;
+  } else if (query.role) {
+    // Apenas SuperAdmin deveria filtrar por role arbitrária.
+    // Se você quiser permitir TenantAdmin escolher role, descomente a linha abaixo:
+    // filters.role = query.role;
   }
 
   return filters;

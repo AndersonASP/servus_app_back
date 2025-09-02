@@ -10,6 +10,7 @@ import {
   IsDateString
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ContextValidationDto } from 'src/common/dto/context-validation.dto';
 
 class EnderecoDto {
   @IsOptional() @IsString() cep?: string;
@@ -33,13 +34,12 @@ class EventoPadraoDto {
   @IsOptional() @IsString() tipo?: string;
 }
 
-export class CreateTenantDto {
+export class CreateTenantDto extends ContextValidationDto {
   @ApiProperty()
   @IsString()
   name: string;
 
-  @IsOptional() @IsString()
-  tenantId?: string;
+  // tenantId vem do contexto (path param ou header)
 
   @IsOptional() @IsString()
   description?: string;

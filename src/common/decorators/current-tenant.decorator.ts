@@ -3,7 +3,7 @@ import { TenantRequest } from '../middlewares/tenant.middleware';
 
 export const CurrentTenant = createParamDecorator(
   (_: unknown, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest<TenantRequest>();
-    return request.tenantId;
+    const req = ctx.switchToHttp().getRequest<TenantRequest>();
+    return req.tenantSlug ?? (req as any).user?.tenantId ?? undefined;
   },
 );

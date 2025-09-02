@@ -1,13 +1,15 @@
-import { Injectable, NestMiddleware, NotFoundException } from '@nestjs/common';
+// src/common/middlewares/tenant.middleware.ts
+import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import * as jwt from 'jsonwebtoken';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Tenant } from '../../modules/tenants/schemas/tenant.schema';
+import { Role } from '../enums/role.enum';
 
 export interface TenantRequest extends Request {
-  tenantId?: string;
-  user?: { role?: string; tenantId?: string };
+  tenantSlug?: string; // slug da igreja (ex: igreja001)
+  branchId?: string;   // ID da branch
+  ministryId?: string; // ID do ministério
 }
 
 @Injectable()
@@ -15,58 +17,66 @@ export class TenantMiddleware implements NestMiddleware {
   constructor(@InjectModel(Tenant.name) private tenantModel: Model<Tenant>) {}
 
   async use(req: TenantRequest, res: Response, next: NextFunction) {
-    let tenantId: string | undefined;
-    let userRole: string | undefined;
-
-    // 1️⃣ Tenta capturar do token JWT
-    if (req.headers.authorization) {
-      try {
-        const token = req.headers.authorization.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default_secret') as {
-          tenantId?: string;
-          role?: string;
-        };
-        tenantId = decoded?.tenantId;
-        userRole = decoded?.role;
-        (req as any).user = decoded;
-      } catch (err) {
-        console.warn('Token inválido ou sem tenantId');
-      }
-    }
-
-    // 2️⃣ Se não veio do token, tenta pegar do header padrão
-    if (!tenantId && req.headers['x-tenant-id']) {
-      tenantId = String(req.headers['x-tenant-id']);
-    }
-
-    // 3️⃣ Subdomínio
-    if (!tenantId && req.hostname && req.hostname.includes('.')) {
-      const subdomain = req.hostname.split('.')[0];
-      if (subdomain !== 'www' && subdomain !== 'api') {
-        tenantId = subdomain;
-      }
-    }
-
-    // ✅ Se for superadmin, pode prosseguir sem tenantId
-    if (userRole === 'superadmin') {
-      req.tenantId = tenantId || undefined;
+    // 🔓 Rotas de auth não exigem tenant
+    const isAuthRoute = req.path.startsWith('/auth/');
+    if (isAuthRoute) {
       return next();
     }
 
-    // ❌ Se não encontrou tenantId e não é superadmin
-    if (!tenantId) {
-      return res.status(400).json({
-        message: 'Tenant ID não informado. Envie no header "X-Tenant-ID" ou no token JWT.',
-      });
+    // 1) Tenta ler do header padrão (prioridade mais alta)
+    let tenantSlug =
+      (req.headers['x-tenant-id'] as string | undefined)?.trim() ||
+      undefined;
+
+    // 2) Tenta pegar do param (rotas do tipo /tenants/:tenantId/...)
+    if (!tenantSlug && typeof req.params?.tenantId === 'string') {
+      tenantSlug = req.params.tenantId.trim() || undefined;
     }
 
-    // ✅ Valida se tenant existe
-    const tenantExists = await this.tenantModel.findOne({ tenantId, isActive: true });
-    if (!tenantExists) {
-      throw new NotFoundException('Tenant não encontrado ou inativo.');
+    // 3) Tenta do subdomínio (meu-tenant.api.meudominio.com)
+    if (!tenantSlug && req.hostname && req.hostname.includes('.')) {
+      const sub = req.hostname.split('.')[0];
+      if (sub && !['www', 'api'].includes(sub)) {
+        tenantSlug = sub;
+      }
     }
 
-    req.tenantId = tenantId;
-    next();
+    // Resolve branch ID
+    let branchId = 
+      (req.headers['x-branch-id'] as string | undefined)?.trim() ||
+      req.params?.branchId?.trim() ||
+      undefined;
+
+    // Resolve ministry ID
+    let ministryId = 
+      (req.headers['x-ministry-id'] as string | undefined)?.trim() ||
+      req.params?.ministryId?.trim() ||
+      undefined;
+
+    // 4) Se o JwtAuthGuard já populou user, respeite ServusAdmin
+    const user = (req as any).user as { role?: Role } | undefined;
+    const isServusAdmin = user?.role === Role.ServusAdmin;
+
+    // 5) Validação opcional do tenant (apenas se foi fornecido)
+    //    Não levantamos erro se não veio tenant — as Policies das rotas que exigem vão cobrar.
+    if (tenantSlug) {
+      const exists = await this.tenantModel
+        .exists({ tenantId: tenantSlug, isActive: true })
+        .lean();
+
+      // Se veio um slug inválido, já informa 404 cedo
+      if (!exists && !isServusAdmin) {
+        return res
+          .status(404)
+          .json({ message: 'Tenant não encontrado ou inativo.' });
+      }
+    }
+
+    // 6) Anexa no request para consumo posterior (guards, services, etc.)
+    req.tenantSlug = tenantSlug;
+    req.branchId = branchId;
+    req.ministryId = ministryId;
+
+    return next();
   }
 }

@@ -1,0 +1,722 @@
+{
+  "info": {
+    "name": "ServusApp API - Collection Completa",
+    "description": "Collection completa para testar todas as funcionalidades da API ServusApp",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "x-tenant-id",
+      "value": "igreja001",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 AUTHENTICATION",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"servus@admin.com\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-tenant-id",
+                "value": "{{x-tenant-id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Get User Context",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me/context",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me", "context"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏢 TENANTS",
+      "item": [
+        {
+          "name": "Create Tenant with Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantData\": {\n    \"tenantId\": \"igreja002\",\n    \"name\": \"Segunda Igreja\",\n    \"description\": \"Nova igreja criada via API\",\n    \"plan\": \"basic\",\n    \"maxBranches\": 3\n  },\n  \"adminData\": {\n    \"name\": \"Admin Segunda Igreja\",\n    \"email\": \"admin@igreja2.com\",\n    \"password\": \"123456\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tenants/with-admin",
+              "host": ["{{base_url}}"],
+              "path": ["tenants", "with-admin"]
+            }
+          }
+        },
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tenants",
+              "host": ["{{base_url}}"],
+              "path": ["tenants"]
+            }
+          }
+        },
+        {
+          "name": "Get Tenant by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tenants/{{x-tenant-id}}",
+              "host": ["{{base_url}}"],
+              "path": ["tenants", "{{x-tenant-id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏗️ BRANCHES",
+      "item": [
+        {
+          "name": "Create Branch with Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branchData\": {\n    \"branchId\": \"{{x-tenant-id}}-filial03\",\n    \"name\": \"Filial 03\",\n    \"description\": \"Terceira filial criada via API\"\n  },\n  \"adminData\": {\n    \"name\": \"Admin Filial 3\",\n    \"email\": \"admin@filial3.com\",\n    \"password\": \"123456\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tenants/{{x-tenant-id}}/branches/with-admin",
+              "host": ["{{base_url}}"],
+              "path": ["tenants", "{{x-tenant-id}}", "branches", "with-admin"]
+            }
+          }
+        },
+        {
+          "name": "List Branches",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tenants/{{x-tenant-id}}/branches",
+              "host": ["{{base_url}}"],
+              "path": ["tenants", "{{x-tenant-id}}", "branches"]
+            }
+          }
+        },
+        {
+          "name": "Get Branch by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tenants/{{x-tenant-id}}/branches/igreja001-filial01",
+              "host": ["{{base_url}}"],
+              "path": ["tenants", "{{x-tenant-id}}", "branches", "igreja001-filial01"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 USERS - CRIAÇÃO HIERÁRQUICA",
+      "item": [
+        {
+          "name": "Create User with Membership (Tenant Scope)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userData\": {\n    \"name\": \"Novo Líder Matriz\",\n    \"email\": \"novo.lider@matriz.com\",\n    \"password\": \"123456\"\n  },\n  \"membershipData\": {\n    \"role\": \"leader\",\n    \"ministryId\": \"louvor-matriz\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/tenants/{{x-tenant-id}}/with-membership",
+              "host": ["{{base_url}}"],
+              "path": ["users", "tenants", "{{x-tenant-id}}", "with-membership"]
+            }
+          }
+        },
+        {
+          "name": "Create User with Membership (Branch Scope)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userData\": {\n    \"name\": \"Novo Voluntário Filial 1\",\n    \"email\": \"novo.vol@filial1.com\",\n    \"password\": \"123456\"\n  },\n  \"membershipData\": {\n    \"role\": \"volunteer\",\n    \"ministryId\": \"kids-filial01\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/tenants/{{x-tenant-id}}/branches/igreja001-filial01/with-membership",
+              "host": ["{{base_url}}"],
+              "path": ["users", "tenants", "{{x-tenant-id}}", "branches", "igreja001-filial01", "with-membership"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔍 USERS - LISTAGEM E DASHBOARDS",
+      "item": [
+        {
+          "name": "List Users by Role (Tenant)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/tenants/{{x-tenant-id}}/by-role/leader",
+              "host": ["{{base_url}}"],
+              "path": ["users", "tenants", "{{x-tenant-id}}", "by-role", "leader"]
+            }
+          }
+        },
+        {
+          "name": "List Users by Role (Branch)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/tenants/{{x-tenant-id}}/branches/igreja001-filial01/by-role/volunteer",
+              "host": ["{{base_url}}"],
+              "path": ["users", "tenants", "{{x-tenant-id}}", "branches", "igreja001-filial01", "by-role", "volunteer"]
+            }
+          }
+        },
+        {
+          "name": "List Volunteers by Ministry",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/tenants/{{x-tenant-id}}/ministries/louvor-matriz/volunteers",
+              "host": ["{{base_url}}"],
+              "path": ["users", "tenants", "{{x-tenant-id}}", "ministries", "louvor-matriz", "volunteers"]
+            }
+          }
+        },
+        {
+          "name": "Get Users Dashboard (Tenant)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/tenants/{{x-tenant-id}}/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["users", "tenants", "{{x-tenant-id}}", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Get Users Dashboard (Branch)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/tenants/{{x-tenant-id}}/branches/igreja001-filial01/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["users", "tenants", "{{x-tenant-id}}", "branches", "igreja001-filial01", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Search Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/search?q=admin&tenantId={{x-tenant-id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "admin"
+                },
+                {
+                  "key": "tenantId",
+                  "value": "{{x-tenant-id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📤 EXPORTAÇÃO DE DADOS",
+      "item": [
+        {
+          "name": "Export Users by Role (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/tenants/{{x-tenant-id}}/by-role/volunteer/export?format=csv",
+              "host": ["{{base_url}}"],
+              "path": ["users", "tenants", "{{x-tenant-id}}", "by-role", "volunteer", "export"],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Dashboard (Excel)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/tenants/{{x-tenant-id}}/dashboard/export?format=excel",
+              "host": ["{{base_url}}"],
+              "path": ["users", "tenants", "{{x-tenant-id}}", "dashboard", "export"],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "excel"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔔 NOTIFICAÇÕES",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"]
+            }
+          }
+        },
+        {
+          "name": "Get Notification Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications/stats",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications/notification-id/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "notification-id", "read"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 MÉTRICAS",
+      "item": [
+        {
+          "name": "Record User Activity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activityType\": \"login\",\n  \"description\": \"User logged in\",\n  \"metadata\": {\n    \"ipAddress\": \"192.168.1.1\",\n    \"userAgent\": \"PostmanRuntime/7.32.3\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/metrics/activity",
+              "host": ["{{base_url}}"],
+              "path": ["metrics", "activity"]
+            }
+          }
+        },
+        {
+          "name": "Get User Engagement",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/metrics/users/{{x-tenant-id}}/engagement",
+              "host": ["{{base_url}}"],
+              "path": ["metrics", "users", "{{x-tenant-id}}", "engagement"]
+            }
+          }
+        },
+        {
+          "name": "Get Tenant Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/metrics/tenants/{{x-tenant-id}}",
+              "host": ["{{base_url}}"],
+              "path": ["metrics", "tenants", "{{x-tenant-id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📈 RELATÓRIOS",
+      "item": [
+        {
+          "name": "Generate Users Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"users\",\n  \"filters\": {\n    \"tenantId\": \"{{x-tenant-id}}\",\n    \"roles\": [\"volunteer\", \"leader\"]\n  },\n  \"groupBy\": \"branch\",\n  \"metrics\": [\"count\", \"profile_completeness\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/reports/generate",
+              "host": ["{{base_url}}"],
+              "path": ["reports", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Generate Engagement Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"engagement\",\n  \"filters\": {\n    \"tenantId\": \"{{x-tenant-id}}\",\n    \"dateRange\": {\n      \"startDate\": \"2025-01-01\",\n      \"endDate\": \"2025-12-31\"\n    }\n  },\n  \"groupBy\": \"month\",\n  \"metrics\": [\"active_users\", \"login_frequency\", \"interaction_score\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/reports/generate",
+              "host": ["{{base_url}}"],
+              "path": ["reports", "generate"]
+            }
+          }
+        },
+        {
+          "name": "List Saved Reports",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reports",
+              "host": ["{{base_url}}"],
+              "path": ["reports"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "⛪ MINISTÉRIOS",
+      "item": [
+        {
+          "name": "Create Ministry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Novo Ministério\",\n  \"description\": \"Ministério criado via API\",\n  \"ministryFunctions\": [\"ensino\", \"evangelismo\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ministries",
+              "host": ["{{base_url}}"],
+              "path": ["ministries"]
+            }
+          }
+        },
+        {
+          "name": "List Ministries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ministries",
+              "host": ["{{base_url}}"],
+              "path": ["ministries"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏥 HEALTH",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+} 

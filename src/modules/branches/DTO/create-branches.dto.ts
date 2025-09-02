@@ -7,6 +7,7 @@ import {
   IsEmail
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ContextValidationDto } from 'src/common/dto/context-validation.dto';
 
 class EnderecoDto {
   @IsOptional() @IsString() cep?: string;
@@ -30,14 +31,12 @@ class EventoPadraoDto {
   @IsOptional() @IsString() tipo?: string;
 }
 
-export class CreateBranchDto {
+export class CreateBranchDto extends ContextValidationDto {
   @ApiProperty()
   @IsString()
   name: string;
 
-  @IsOptional()
-  @IsString()
-  branchId?: string;
+  // branchId vem do contexto (path param ou header)
 
   @IsOptional()
   @IsString()
@@ -56,8 +55,7 @@ export class CreateBranchDto {
   @IsOptional() @IsString()
   whatsappOficial?: string;
 
-  @IsOptional() @IsString()
-  tenant?: string; // receberemos o _id do tenant
+  // tenant vem do contexto (path param ou header)
 
   @IsOptional() @IsString()
   responsavel?: string;

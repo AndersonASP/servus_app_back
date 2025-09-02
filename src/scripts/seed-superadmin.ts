@@ -1,38 +1,47 @@
-import { connect, model } from 'mongoose';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from '../app.module';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { User } from '../modules/users/schema/user.schema';
+import { Role } from '../common/enums/role.enum';
 import * as bcrypt from 'bcrypt';
-import { UserSchema, User } from '../modules/users/schema/user.schema'
 
-async function seedSuperAdmin() {
+async function bootstrap() {
+  const app = await NestFactory.createApplicationContext(AppModule);
+  
   try {
-    await connect(process.env.MONGO_URI || 'mongodb://localhost:27017/servus');
-    console.log('✅ Conectado ao banco.');
-
-    const UserModel = model<User>('User', UserSchema);
-
-    const email = 'superadmin@servus.com';
-    const exists = await UserModel.findOne({ email });
-
-    if (exists) {
-      console.log('⚠️ SuperAdmin já existe.');
-      process.exit(0);
+    const userModel = app.get<Model<User>>('User');
+    
+    console.log('🔐 Criando Super Admin...');
+    
+    // Verificar se já existe
+    const existingAdmin = await userModel.findOne({ email: 'servus@admin.com' });
+    if (existingAdmin) {
+      console.log('✅ Super Admin já existe:', existingAdmin.email);
+      return;
     }
-
-    const hashedPassword = await bcrypt.hash('!Servus1108', 10);
-
-    await UserModel.create({
-      name: 'Super Admin',
-      email,
+    
+    // Criar super admin
+    const hashedPassword = await bcrypt.hash('123456', 10);
+    const superAdmin = await userModel.create({
+      name: 'Servus Super Admin',
+      email: 'servus@admin.com',
       password: hashedPassword,
-      role: 'superadmin',
-      tenantId: null,
+      role: Role.ServusAdmin,
+      isActive: true,
     });
-
-    console.log('✅ SuperAdmin criado com sucesso.');
-    process.exit(0);
+    
+    console.log('✅ Super Admin criado com sucesso!');
+    console.log('📧 Email:', superAdmin.email);
+    console.log('🔑 Senha: 123456');
+    console.log('👑 Role:', superAdmin.role);
+    console.log('🆔 ID:', superAdmin._id);
+    
   } catch (error) {
-    console.error('❌ Erro ao criar SuperAdmin:', error.message);
-    process.exit(1);
+    console.error('❌ Erro ao criar Super Admin:', error.message);
+  } finally {
+    await app.close();
   }
 }
 
-seedSuperAdmin();
+bootstrap();

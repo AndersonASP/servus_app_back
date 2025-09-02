@@ -1,17 +1,31 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { UsersService } from './services/users.service';
+import { CacheModule } from '@nestjs/cache-manager';
 import { UsersController } from './users.controller';
+import { UsersService } from './services/users.service';
+import { ExportService } from './services/export.service';
 import { User, UserSchema } from './schema/user.schema';
+import { Membership, MembershipSchema } from 'src/modules/membership/schemas/membership.schema';
+import { Tenant, TenantSchema } from 'src/modules/tenants/schemas/tenant.schema';
+import { Branch, BranchSchema } from 'src/modules/branches/schemas/branch.schema';
+import { Ministry, MinistrySchema } from 'src/modules/ministries/schemas/ministry.schema';
+import { cacheConfig } from 'src/config/cache.config';
+import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
+      { name: Membership.name, schema: MembershipSchema },
+      { name: Tenant.name, schema: TenantSchema },
+      { name: Branch.name, schema: BranchSchema },
+      { name: Ministry.name, schema: MinistrySchema },
     ]),
+    CacheModule.register(cacheConfig),
+    NotificationsModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService],
-  exports: [UsersService], // <-- caso queira usar UsersService em outros módulos
+  providers: [UsersService, ExportService],
+  exports: [UsersService],
 })
 export class UsersModule {}

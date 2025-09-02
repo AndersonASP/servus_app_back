@@ -8,6 +8,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { TenantModule } from '../tenants/tenants.module';
 import { BranchModule } from '../branches/branches.modules';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Membership, MembershipSchema } from '../membership/schemas/membership.schema';
+import { Tenant, TenantSchema } from '../tenants/schemas/tenant.schema';
 
 @Module({
   imports: [
@@ -16,9 +19,13 @@ import { BranchModule } from '../branches/branches.modules';
     TenantModule,
     BranchModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'aServus1108',
-      signOptions: { expiresIn: '15m' },
+      secret: process.env.JWT_ACCESS_SECRET || 'default-access-secret-change-in-production',
+      signOptions: { expiresIn: '1h' }, // Aumentado para 1 hora para facilitar testes
     }),
+    MongooseModule.forFeature([
+      { name: Membership.name, schema: MembershipSchema },
+      { name: Tenant.name, schema: TenantSchema },
+    ]),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, GoogleStrategy],

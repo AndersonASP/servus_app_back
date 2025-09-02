@@ -1,18 +1,19 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  InternalServerErrorException,
-} from '@nestjs/common';
-import { UsersService } from '../../users/services/users.service';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { Membership } from 'src/modules/membership/schemas/membership.schema';
+import { Tenant } from 'src/modules/tenants/schemas/tenant.schema';
+import { MembershipRole, Role } from 'src/common/enums/role.enum';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { UsersService } from 'src/modules/users/services/users.service';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
-import { LoginUserDto } from '../DTO/login-user.dto';
 import { OAuth2Client } from 'google-auth-library';
-import * as jwt from 'jsonwebtoken';
+import { LoginUserDto } from '../DTO/login-user.dto';
+import { LoginResponseDto, UserContextDto } from '../DTO/login-response.dto';
+import { getCombinedPermissions } from 'src/common/utils/permissions.util';
 import { randomBytes } from 'crypto';
-import { Role } from 'src/common/enums/role.enum';
-import { TenantService } from 'src/modules/tenants/services/tenants.service';
-import { BranchService } from 'src/modules/branches/services/branches.service';
+import * as bcrypt from 'bcryptjs';
+import { ConfigService } from '@nestjs/config';
+import { JwtConfig } from '../../../config/jwt.config';
 
 @Injectable()
 export class AuthService {
@@ -21,162 +22,549 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
-    private readonly tenantService: TenantService,
-    private readonly branchService: BranchService,
+    private readonly configService: ConfigService,
+    
+    @InjectModel(Membership.name) private readonly memModel: Model<Membership>,
+    @InjectModel(Tenant.name)     private readonly tenantModel: Model<Tenant>,
   ) {
     this.googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID?.trim());
   }
 
-  async login(loginDto: LoginUserDto, deviceId: string) {
+  // 🔐 Login por e-mail/senha (tenantSlug opcional para montar contexto)
+  async login(loginDto: LoginUserDto, deviceId: string, tenantSlug?: string) {
     const user = await this.usersService.findByEmail(loginDto.email);
-    if (!user) throw new UnauthorizedException('Usuário não encontrado');
+    const invalid = new UnauthorizedException('Usuário ou senha inválidos');
 
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.password,
-    );
-    if (!isPasswordValid) throw new UnauthorizedException('Senha incorreta');
+    if (!user) throw invalid;
+    if (!user.password) {
+      throw new UnauthorizedException('Esta conta não possui senha. Entre com Google ou defina uma senha.');
+    }
 
-    return this.generateTokens(user, deviceId, true);
+    const ok = await bcrypt.compare(loginDto.password ?? '', user.password);
+    if (!ok) throw invalid;
+
+    return this.generateTokensAndResponse(user, deviceId, {
+      isNewSession: true,
+      tenantSlug
+    });
   }
 
-  async googleLogin(idToken: string, deviceId = 'google-default') {
+  // 🔐 Login Google (tenantSlug opcional para montar contexto)
+  async googleLogin(idToken: string, deviceId: string, tenantSlug?: string) {
     if (!idToken) throw new UnauthorizedException('Token Google ausente');
 
-    // DEBUG: Exibir dados do token
-    const decoded: any = jwt.decode(idToken);
-    console.log('🔹 Token AUD:', decoded?.aud);
-    console.log('🔹 ENV GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID);
+    const ticket = await this.googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID?.trim() as string,
+    });
+    const payload = ticket.getPayload();
+    if (!payload?.email) throw new UnauthorizedException('Google token sem e-mail');
 
-    try {
-      const ticket = await this.googleClient.verifyIdToken({
-        idToken,
-        audience: process.env.GOOGLE_CLIENT_ID?.trim() as string,
-      });
+    const email    = payload.email!;
+    const name     = payload.name ?? '';
+    const picture  = payload.picture ?? '';
+    const googleId = payload.sub ?? '';
 
-      const payload = ticket.getPayload();
-      if (!payload) throw new UnauthorizedException('Token Google inválido');
-
-      const email = payload.email ?? '';
-      const name = payload.name ?? '';
-      const picture = payload.picture ?? '';
-      const googleId = payload.sub ?? '';
-
-      if (!email) {
-        throw new UnauthorizedException(
-          'E-mail não encontrado no token Google',
-        );
-      }
-
-      // Busca ou cria o usuário
-      let user = await this.usersService.findByEmail(email);
-      if (!user) {
-        user = await this.usersService.create(
-          {
-            name,
-            email,
-            password: null,
-            role: Role.Volunteer,
-            googleId,
-            picture,
-          },
-          'defaultTenant',
-        );
-      }
-
-      return this.generateTokens(user, deviceId); // ✅ Passando deviceId
-    } catch (error) {
-      console.error('❌ Erro Google Login:', error.message);
-      throw new InternalServerErrorException(
-        `Falha na validação do token Google: ${error.message}`,
+    let user = await this.usersService.findByEmail(email);
+    if (!user) {
+      // Usuário global; vínculos vêm via Membership
+      user = await this.usersService.create(
+        { name, email, password: null, role: Role.Volunteer, googleId, picture },
+        'system', // createdBy
+        tenantSlug, // tenantId
       );
     }
+
+    return this.generateTokensAndResponse(user, deviceId, {
+      isNewSession: true,
+      tenantSlug,
+    });
   }
 
-  private async generateTokens(
-    user: any,
+  private async generateTokensAndResponse(
+    user: any, // Temporariamente usando any para evitar erro de import
     deviceId: string,
-    isNewSession = false,
-    absoluteExpiry?: Date,
-  ) {
-    const payload = {
-      sub: user._id,
+    opts?: {
+      isNewSession?: boolean;
+      absoluteExpiry?: Date;
+      tenantSlug?: string;
+    }
+  ): Promise<LoginResponseDto> {
+    const now = new Date();
+    const sessionExpiry = new Date(now.getTime() + (this.configService.get('JWT_REFRESH_EXPIRES_IN') || 604800) * 1000);
+    const absoluteExpiry = opts?.absoluteExpiry || new Date(now.getTime() + (this.configService.get('JWT_ABSOLUTE_EXPIRES_IN') || 2592000) * 1000);
+
+    // Gerar refresh token
+    const refreshToken = this.jwtService.sign(
+      {
+        sub: user._id.toString(),
+        deviceId,
+        type: 'refresh',
+      },
+      {
+        secret: JwtConfig.refresh.secret,
+        expiresIn: JwtConfig.refresh.expiresIn,
+      }
+    );
+
+    // 🆕 Preparar claims de segurança para o access token
+    const securityClaims = {
+      sub: user._id.toString(),
       email: user.email,
       role: user.role,
-      tenantId: user.tenantId,
-      branchId: user.branchId ?? null,
+      deviceId,
+      type: 'access',
+      // Contexto de segurança (será preenchido abaixo)
+      tenantId: null as string | null,
+      branchId: null as string | null,
+      membershipRole: null as string | null,
+      permissions: [] as string[],
     };
 
-    const accessToken = this.jwtService.sign(payload);
-
-    const refreshToken = randomBytes(40).toString('hex');
+    // Salvar refresh token no usuário
     await this.usersService.addRefreshToken(
-      user._id,
+      user._id.toString(),
       refreshToken,
       deviceId,
-      isNewSession,
+      opts?.isNewSession ?? true,
       absoluteExpiry,
     );
 
-    const tenant = await this.tenantService.findById(user.tenantId);
-
-    let branch;
-    if (user.branchId) {
-      branch = await this.branchService.findById(user.branchId);
-    }
-    console.log(user)
-    return {
-      access_token: accessToken,
+    // 🆕 Preparar resposta base (sem dados sensíveis)
+    const response: LoginResponseDto = {
+      access_token: '', // Será preenchido abaixo
       refresh_token: refreshToken,
+      token_type: 'Bearer',
+      expires_in: JwtConfig.access.expiresIn, // Usa configuração centralizada
       user: {
-        id: user._id,
+        id: user._id.toString(),
         email: user.email,
         name: user.name,
-        role: user.role,
-        picture: user.picture
+        // Só inclui picture se existir
+        ...(user.picture && { picture: user.picture }),
       },
-      tenant: {
-        id: tenant._id,
-        tenantId: tenant.tenantId,
-        name: tenant.name,
-        logoUrl: tenant.logoUrl,
-        description: tenant.description,
-      },
-      branch: branch
-        ? {
-            id: branch._id,
-            branchId: branch.branchId,
-            name: branch.name,
-          }
-        : null,
+      // 🚫 REMOVIDO: tenant, branches, memberships do body
+      // Esses dados agora vêm do JWT token
     };
+
+    // 🎯 Contexto específico (apenas se tenantSlug foi fornecido)
+    if (opts?.tenantSlug) {
+      const tenant = await this.tenantModel
+        .findOne({ tenantId: opts.tenantSlug, isActive: true })
+        .select('_id tenantId name logoUrl')
+        .lean();
+
+      if (tenant) {
+        // Buscar memberships do usuário neste tenant
+        const memberships = await this.memModel.find({
+          user: user._id,
+          tenant: tenant._id,
+          isActive: true,
+        })
+        .populate({ 
+          path: 'branch', 
+          select: '_id branchId name',
+          match: { isActive: true }
+        })
+        .populate({ 
+          path: 'ministry', 
+          select: '_id name',
+          match: { isActive: true }
+        })
+        .select('role branch ministry')
+        .lean();
+
+        if (memberships.length > 0) {
+          // 🆕 Atualizar claims de segurança com dados do tenant específico
+          const mainMembership = memberships[0];
+          securityClaims.tenantId = tenant.tenantId;
+          securityClaims.branchId = (mainMembership.branch as any)?.branchId || null;
+          securityClaims.membershipRole = mainMembership.role;
+          securityClaims.permissions = getCombinedPermissions(user.role, mainMembership.role as MembershipRole);
+
+          // 🆕 Adicionar dados não sensíveis na resposta (apenas para UI)
+          response.tenant = {
+            id: tenant._id.toString(),
+            tenantId: tenant.tenantId,
+            name: tenant.name,
+            // Só inclui logoUrl se existir
+            ...(tenant.logoUrl && { logoUrl: tenant.logoUrl }),
+          };
+
+          // Processar memberships (apenas dados não sensíveis)
+          response.memberships = memberships.map(m => ({
+            id: m._id.toString(),
+            role: m.role as MembershipRole,
+            permissions: getCombinedPermissions(user.role, m.role as MembershipRole), // ✅ Adicionado de volta
+            // Só inclui branch se existir e estiver ativa
+            ...(m.branch && {
+              branch: {
+                id: m.branch._id.toString(),
+                branchId: (m.branch as any).branchId,
+                name: (m.branch as any).name,
+              }
+            }),
+            // Só inclui ministry se existir e estiver ativo
+            ...(m.ministry && {
+              ministry: {
+                id: m.ministry._id.toString(),
+                name: (m.ministry as any).name,
+              }
+            }),
+          }));
+
+          // Extrair branches únicas
+          const uniqueBranches = new Map();
+          memberships.forEach(m => {
+            if (m.branch) {
+              const branchId = m.branch._id.toString();
+              if (!uniqueBranches.has(branchId)) {
+                uniqueBranches.set(branchId, {
+                  id: branchId,
+                  branchId: (m.branch as any).branchId,
+                  name: (m.branch as any).name,
+                });
+              }
+            }
+          });
+
+          if (uniqueBranches.size > 0) {
+            response.branches = Array.from(uniqueBranches.values());
+          }
+        }
+      }
+    } else {
+          // 🆕 Se não foi fornecido tenantSlug, busca todos os memberships ativos do usuário
+    console.log('🔍 Buscando todos os memberships do usuário...');
+    
+    const allMemberships = await this.memModel.find({
+      user: user._id,
+      isActive: true,
+    })
+    .populate({ 
+      path: 'tenant', 
+      select: '_id tenantId name logoUrl',
+      match: { isActive: true }
+    })
+    .populate({ 
+      path: 'branch', 
+      select: '_id branchId name',
+      match: { isActive: true }
+    })
+    .populate({ 
+      path: 'ministry', 
+      select: '_id name',
+      match: { isActive: true }
+    })
+    .select('role branch ministry tenant')
+    .lean();
+
+    console.log(`📋 Encontrados ${allMemberships.length} memberships ativos`);
+
+          if (allMemberships.length > 0) {
+        // 🆕 TRATAMENTO ESPECIAL PARA SERVUSADMIN
+        if (user.role === Role.ServusAdmin) {
+          console.log('👑 ServusAdmin detectado - definindo permissões globais');
+          
+          // ServusAdmin tem acesso global sem depender de membership
+          securityClaims.tenantId = 'servus-system';
+          securityClaims.branchId = null;
+          securityClaims.membershipRole = 'servus_admin';
+          securityClaims.permissions = getCombinedPermissions(user.role); // Apenas permissões globais
+          
+          console.log('🔐 ServusAdmin - claims definidos:', {
+            tenantId: securityClaims.tenantId,
+            membershipRole: securityClaims.membershipRole,
+            permissions: securityClaims.permissions.length
+          });
+        } else {
+          // 🆕 Atualizar claims de segurança com dados do primeiro membership
+          const firstMembership = allMemberships[0];
+          if (firstMembership.tenant) {
+            securityClaims.tenantId = (firstMembership.tenant as any).tenantId;
+            securityClaims.branchId = (firstMembership.branch as any)?.branchId || null;
+            securityClaims.membershipRole = firstMembership.role;
+            securityClaims.permissions = getCombinedPermissions(user.role, firstMembership.role as MembershipRole);
+          }
+        }
+
+        // Processar todos os memberships (apenas dados não sensíveis)
+        response.memberships = allMemberships.map(m => ({
+          id: m._id.toString(),
+          role: m.role as MembershipRole,
+          permissions: getCombinedPermissions(user.role, m.role as MembershipRole), // ✅ Adicionado de volta
+          // Inclui tenant se existir
+          ...(m.tenant && {
+            tenant: {
+              id: m.tenant._id.toString(),
+              tenantId: (m.tenant as any).tenantId,
+              name: (m.tenant as any).name,
+              ...((m.tenant as any).logoUrl && { logoUrl: (m.tenant as any).logoUrl }),
+            }
+          }),
+          // Só inclui branch se existir e estiver ativa
+          ...(m.branch && {
+            branch: {
+              id: m.branch._id.toString(),
+              branchId: (m.branch as any).branchId,
+              name: (m.branch as any).name,
+            }
+          }),
+          // Só inclui ministry se existir e estiver ativo
+          ...(m.ministry && {
+            ministry: {
+              id: m.ministry._id.toString(),
+              name: (m.ministry as any).name,
+            }
+          }),
+        }));
+
+        // Se o usuário tem apenas um tenant, define como tenant principal
+        const uniqueTenants = new Map();
+        allMemberships.forEach(m => {
+          if (m.tenant) {
+            const tenantId = m.tenant._id.toString();
+            if (!uniqueTenants.has(tenantId)) {
+              uniqueTenants.set(tenantId, {
+                id: tenantId,
+                tenantId: (m.tenant as any).tenantId,
+                name: (m.tenant as any).name,
+                ...((m.tenant as any).logoUrl && { logoUrl: (m.tenant as any).logoUrl }),
+              });
+            }
+          }
+        });
+
+        if (uniqueTenants.size === 1) {
+          // Usuário tem apenas um tenant, define como principal
+          const mainTenant = uniqueTenants.values().next().value;
+          response.tenant = mainTenant;
+          console.log(`✅ Tenant principal definido: ${mainTenant.name} (${mainTenant.tenantId})`);
+        } else if (uniqueTenants.size > 1) {
+          // Usuário tem múltiplos tenants, não define um como principal
+          console.log(`⚠️ Usuário tem ${uniqueTenants.size} tenants - não definindo principal`);
+        }
+
+        // Extrair branches únicas de todos os memberships
+        const uniqueBranches = new Map();
+        allMemberships.forEach(m => {
+          if (m.branch) {
+            const branchId = m.branch._id.toString();
+            if (!uniqueBranches.has(branchId)) {
+              uniqueBranches.set(branchId, {
+                id: branchId,
+                branchId: (m.branch as any).branchId,
+                name: (m.branch as any).name,
+              });
+            }
+          }
+        });
+
+        if (uniqueBranches.size > 0) {
+          response.branches = Array.from(uniqueBranches.values());
+          console.log(`🏢 Encontradas ${uniqueBranches.size} branches únicas`);
+        }
+      }
+    }
+
+    // 🆕 Gerar access token com claims de segurança
+    const accessToken = this.jwtService.sign(
+      securityClaims,
+      {
+        secret: JwtConfig.access.secret,
+        expiresIn: JwtConfig.access.expiresIn,
+      }
+    );
+
+    // 🆕 Atualizar resposta com o token gerado
+    response.access_token = accessToken;
+
+    console.log('🔐 Login response (seguro):', {
+      user: response.user.name,
+      role: securityClaims.role,
+      tenantId: securityClaims.tenantId,
+      branchId: securityClaims.branchId,
+      membershipRole: securityClaims.membershipRole,
+      permissions: securityClaims.permissions.length,
+    });
+
+    return response;
   }
 
-  async refreshToken(token: string, deviceId: string) {
+  async refreshToken(token: string, deviceId: string, tenantSlug?: string) {
     const user = await this.usersService.findByRefreshToken(token);
-    if (!user)
-      throw new UnauthorizedException('Refresh token inválido ou expirado');
+    if (!user) throw new UnauthorizedException('Refresh token inválido ou expirado');
 
     const session = user.refreshTokens.find((rt) => rt.token === token);
     if (!session) throw new UnauthorizedException('Sessão não encontrada');
 
-    // Verifica expiração absoluta
-    if (
-      session.absoluteExpiry &&
-      new Date() > new Date(session.absoluteExpiry)
-    ) {
+    if (session.absoluteExpiry && new Date() > new Date(session.absoluteExpiry)) {
       await this.usersService.removeRefreshToken(user._id.toString(), token);
       throw new UnauthorizedException('Sessão expirada, faça login novamente');
     }
 
-    // ✅ Captura absoluteExpiry ANTES de apagar
     const preservedAbsoluteExpiry = session.absoluteExpiry;
-
-    // Apaga token antigo
     await this.usersService.removeRefreshToken(user._id.toString(), token);
 
-    // Gera novos tokens usando a mesma absoluteExpiry
-    return this.generateTokens(user, deviceId, false, preservedAbsoluteExpiry);
+    // o front pode mandar o tenantSlug atual num header/param da rota de refresh se você quiser reaplicar contexto
+    return this.generateTokensAndResponse(user, deviceId, {
+      isNewSession: false,
+      absoluteExpiry: preservedAbsoluteExpiry,
+      tenantSlug,
+    });
+  }
+
+  async getUserContext(userId: string): Promise<UserContextDto> {
+    console.log('🔍 getUserContext - userId recebido:', userId);
+    console.log('🔍 getUserContext - tipo do userId:', typeof userId);
+    
+    // Buscar todos os memberships ativos do usuário
+    console.log('🔍 getUserContext - Buscando memberships para userId:', userId);
+    
+    // Converter userId para ObjectId
+    const userIdObjectId = new Types.ObjectId(userId);
+    console.log('🔍 getUserContext - userId convertido para ObjectId:', userIdObjectId);
+    
+    const allMemberships = await this.memModel.find({
+      user: userIdObjectId,
+      isActive: true,
+    })
+    .populate({ 
+      path: 'tenant', 
+      select: '_id tenantId name logoUrl',
+      match: { isActive: true }
+    })
+    .populate({ 
+      path: 'branch', 
+      select: '_id branchId name',
+      match: { isActive: true }
+    })
+    .populate({ 
+      path: 'ministry', 
+      select: '_id name',
+      match: { isActive: true }
+    })
+    .select('role branch ministry tenant')
+    .lean();
+
+    console.log('🔍 getUserContext - memberships encontrados:', allMemberships.length);
+    console.log('🔍 getUserContext - memberships detalhados:', JSON.stringify(allMemberships, null, 2));
+
+    // Buscar dados do usuário para combinar permissões
+    const user = await this.usersService.findById(userId);
+    console.log('🔍 getUserContext - usuário encontrado:', user ? 'SIM' : 'NÃO');
+    if (!user) {
+      console.log('❌ getUserContext - usuário não encontrado para ID:', userId);
+      throw new UnauthorizedException('Usuário não encontrado');
+    }
+
+    console.log('🔍 getUserContext - usuário:', { id: user._id, email: user.email, name: user.name, role: user.role });
+
+    // 🔍 TRATAMENTO ESPECIAL PARA SERVUSADMIN
+    if (user.role === Role.ServusAdmin) {
+      console.log('👑 getUserContext - ServusAdmin detectado, retornando acesso global');
+      
+      // Para ServusAdmin, buscar TODOS os tenants ativos do sistema
+      const allTenants = await this.tenantModel.find({ isActive: true })
+        .select('_id tenantId name logoUrl')
+        .lean();
+      
+      console.log(`🔍 getUserContext - ServusAdmin: ${allTenants.length} tenants encontrados`);
+      
+      const tenants = allTenants.map(tenant => ({
+        id: tenant._id.toString(),
+        tenantId: tenant.tenantId,
+        name: tenant.name,
+        ...(tenant.logoUrl && { logoUrl: tenant.logoUrl }),
+        memberships: [{
+          id: 'servus-admin-global',
+          role: MembershipRole.TenantAdmin, // Role máximo para ServusAdmin
+          permissions: getCombinedPermissions(user.role, MembershipRole.TenantAdmin),
+          // ServusAdmin não tem branch/ministry específicos
+        }],
+        branches: [], // ServusAdmin vê todas as branches de todos os tenants
+      }));
+      
+      return { tenants };
+    }
+
+    // 👥 TRATAMENTO NORMAL PARA USUÁRIOS COM MEMBERSHIP
+    console.log('👥 getUserContext - Usuário normal, processando memberships');
+    console.log('🔍 getUserContext - Memberships encontrados:', allMemberships);
+    
+    // Agrupar por tenant
+    const tenantsMap = new Map();
+    
+    allMemberships.forEach(membership => {
+      console.log('🔍 Processando membership:', membership);
+      
+      if (!membership.tenant) {
+        console.log('❌ Membership sem tenant, pulando...');
+        return; // Skip se tenant foi removido/inativo
+      }
+      
+      const tenantData = membership.tenant as any;
+      const tenantId = tenantData.tenantId;
+      console.log('🔍 Tenant ID:', tenantId);
+      
+      if (!tenantsMap.has(tenantId)) {
+        tenantsMap.set(tenantId, {
+          id: tenantData._id.toString(),
+          tenantId: tenantData.tenantId,
+          name: tenantData.name,
+          // Só inclui logoUrl se existir
+          ...(tenantData.logoUrl && { logoUrl: tenantData.logoUrl }),
+          memberships: [],
+          branchesMap: new Map(),
+        });
+      }
+      
+      const tenant = tenantsMap.get(tenantId);
+      
+      // Adicionar membership
+      const membershipData: any = {
+        id: membership._id.toString(),
+        role: membership.role as MembershipRole,
+        permissions: getCombinedPermissions(user.role, membership.role as MembershipRole),
+      };
+      
+      // Adicionar branch se existir
+      if (membership.branch) {
+        const branchData = membership.branch as any;
+        membershipData.branch = {
+          id: branchData._id.toString(),
+          branchId: branchData.branchId,
+          name: branchData.name,
+        };
+        
+        // Adicionar ao mapa de branches únicas
+        tenant.branchesMap.set(branchData._id.toString(), membershipData.branch);
+      }
+      
+      // Adicionar ministry se existir
+      if (membership.ministry) {
+        const ministryData = membership.ministry as any;
+        membershipData.ministry = {
+          id: ministryData._id.toString(),
+          name: ministryData.name,
+        };
+      }
+      
+      console.log('🔍 Adicionando membership ao tenant:', membershipData);
+      tenant.memberships.push(membershipData);
+    });
+
+    // Converter para o formato final
+    const tenants = Array.from(tenantsMap.values()).map(tenant => ({
+      id: tenant.id,
+      tenantId: tenant.tenantId,
+      name: tenant.name,
+      ...(tenant.logoUrl && { logoUrl: tenant.logoUrl }),
+      memberships: tenant.memberships,
+      branches: Array.from(tenant.branchesMap.values()),
+    }));
+
+    return { tenants };
   }
 
   async logout(userId: string, deviceId: string) {

@@ -8,18 +8,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'aServus1108',
+      secretOrKey: process.env.JWT_ACCESS_SECRET || 'default-access-secret-change-in-production',
     });
   }
 
   async validate(payload: any) {
     // payload contém o que foi assinado no token
     return {
-      userId: payload.sub,
+      sub: payload.sub, // ID do usuário (MongoDB ObjectId como string)
       email: payload.email,
       role: payload.role,
-      tenantId: payload.tenantId,
-      branchId: payload.branchId ?? null,
+      name: payload.name,
+      picture: payload.picture,
+      // tenantId/branchId ficam fora do token; o tenant vem de header/subdomínio
     };
   }
 }

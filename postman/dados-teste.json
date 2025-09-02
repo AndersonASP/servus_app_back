@@ -1,0 +1,290 @@
+{
+  "dados_teste": {
+    "usuarios": {
+      "tenant_admin": {
+        "name": "Administrador da Igreja",
+        "email": "admin@igreja.com",
+        "password": "123456",
+        "role": "tenant_admin"
+      },
+      "branch_admin": {
+        "name": "Administrador da Filial",
+        "email": "branch.admin@igreja.com",
+        "password": "123456",
+        "role": "branch_admin"
+      },
+      "leader": {
+        "name": "Líder do Ministério",
+        "email": "lider@igreja.com",
+        "password": "123456",
+        "role": "leader"
+      },
+      "volunteer": {
+        "name": "Voluntário Ativo",
+        "email": "voluntario@igreja.com",
+        "password": "123456",
+        "role": "volunteer"
+      }
+    },
+    "tenants": {
+      "igreja_principal": {
+        "name": "Igreja Principal",
+        "slug": "igreja-principal",
+        "plan": "premium",
+        "description": "Igreja matriz com múltiplas filiais"
+      },
+      "igreja_nova": {
+        "name": "Igreja Nova",
+        "slug": "igreja-nova",
+        "plan": "basic",
+        "description": "Nova igreja em crescimento"
+      }
+    },
+    "branches": {
+      "filial_centro": {
+        "name": "Filial Centro",
+        "address": "Rua Central, 123 - Centro",
+        "phone": "(11) 3333-4444",
+        "email": "centro@igreja.com"
+      },
+      "filial_zona_sul": {
+        "name": "Filial Zona Sul",
+        "address": "Av. Paulista, 1000 - Zona Sul",
+        "phone": "(11) 4444-5555",
+        "email": "zona-sul@igreja.com"
+      }
+    },
+    "ministries": {
+      "musica": {
+        "name": "Ministério de Música",
+        "description": "Louvor e adoração",
+        "leader": "lider@igreja.com"
+      },
+      "jovens": {
+        "name": "Ministério de Jovens",
+        "description": "Atividades para jovens",
+        "leader": "lider@igreja.com"
+      },
+      "criancas": {
+        "name": "Ministério de Crianças",
+        "description": "Educação cristã infantil",
+        "leader": "lider@igreja.com"
+      }
+    },
+    "relatorios": {
+      "usuarios_mensal": {
+        "name": "Relatório Mensal de Usuários",
+        "description": "Visão geral mensal de todos os usuários",
+        "type": "users",
+        "filters": {
+          "userStatus": "active",
+          "profileCompleted": true
+        },
+        "groupBy": "branch",
+        "metrics": ["total", "active", "by_role", "by_branch"],
+        "visualization": "dashboard"
+      },
+      "engajamento_trimestral": {
+        "name": "Relatório de Engajamento Trimestral",
+        "description": "Análise de engajamento dos usuários",
+        "type": "engagement",
+        "filters": {
+          "dateRange": {
+            "startDate": "2024-01-01T00:00:00.000Z",
+            "endDate": "2024-03-31T23:59:59.999Z"
+          }
+        },
+        "metrics": ["profile_completion", "activity_score", "last_activity"],
+        "visualization": "chart"
+      }
+    },
+    "atividades": {
+      "login": {
+        "activityType": "login",
+        "description": "Usuário fez login no sistema",
+        "metadata": {
+          "ipAddress": "192.168.1.100",
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+      },
+      "profile_update": {
+        "activityType": "profile_update",
+        "description": "Usuário atualizou informações do perfil",
+        "metadata": {
+          "fieldsUpdated": ["bio", "skills", "availability"],
+          "previousValues": {
+            "bio": "Músico",
+            "skills": ["Música"]
+          }
+        }
+      },
+      "ministry_join": {
+        "activityType": "ministry_join",
+        "description": "Usuário se juntou a um ministério",
+        "metadata": {
+          "ministryName": "Ministério de Música",
+          "role": "volunteer",
+          "invitedBy": "lider@igreja.com"
+        }
+      },
+      "event_participation": {
+        "activityType": "event_participation",
+        "description": "Usuário participou de um evento",
+        "metadata": {
+          "eventName": "Ensaio de Louvor",
+          "eventDate": "2024-01-15T19:00:00.000Z",
+          "duration": "120",
+          "location": "Auditório Principal"
+        }
+      }
+    },
+    "filtros_comuns": {
+      "por_periodo": {
+        "dateRange": {
+          "startDate": "2024-01-01T00:00:00.000Z",
+          "endDate": "2024-12-31T23:59:59.999Z"
+        }
+      },
+      "por_role": {
+        "roles": ["leader", "volunteer"]
+      },
+      "por_status": {
+        "userStatus": "active"
+      },
+      "por_perfil": {
+        "profileCompleted": true
+      },
+      "por_habilidades": {
+        "skills": ["Música", "Canto", "Violão"]
+      }
+    },
+    "exemplos_exportacao": {
+      "usuarios_por_role": {
+        "endpoint": "/users/tenants/{{tenant_id}}/by-role/leader/export",
+        "format": "xlsx",
+        "query": "?format=xlsx&search=joão"
+      },
+      "dashboard_tenant": {
+        "endpoint": "/users/tenants/{{tenant_id}}/dashboard/export",
+        "format": "xlsx"
+      },
+      "voluntarios_ministry": {
+        "endpoint": "/users/tenants/{{tenant_id}}/ministries/{{ministry_id}}/volunteers/export",
+        "format": "csv",
+        "query": "?format=csv&branchId={{branch_id}}"
+      }
+    },
+    "configuracoes_cache": {
+      "ttl_padrao": 300,
+      "ttl_dashboard": 300,
+      "ttl_metricas": 3600,
+      "max_keys": 1000
+    },
+    "permissoes_por_role": {
+      "servus_admin": {
+        "description": "Acesso total ao sistema",
+        "endpoints": ["todos"],
+        "limites": ["nenhum"]
+      },
+      "tenant_admin": {
+        "description": "Administra todo o tenant",
+        "endpoints": [
+          "usuarios/*",
+          "branches/*",
+          "relatorios/*",
+          "metricas/*"
+        ],
+        "limites": ["apenas seu tenant"]
+      },
+      "branch_admin": {
+        "description": "Administra sua branch",
+        "endpoints": [
+          "usuarios/branch/*",
+          "relatorios/branch/*",
+          "metricas/branch/*"
+        ],
+        "limites": ["apenas sua branch"]
+      },
+      "leader": {
+        "description": "Lidera ministérios",
+        "endpoints": [
+          "usuarios/ministry/*",
+          "relatorios/ministry/*"
+        ],
+        "limites": ["apenas seus ministérios"]
+      },
+      "volunteer": {
+        "description": "Usuário básico",
+        "endpoints": [
+          "perfil/*",
+          "notificacoes/*",
+          "metricas/pessoal/*"
+        ],
+        "limites": ["apenas dados pessoais"]
+      }
+    }
+  },
+  "sequencia_testes": {
+    "teste_1_autenticacao": [
+      "1. Login com credenciais válidas",
+      "2. Copiar access_token da resposta",
+      "3. Configurar variável access_token na coleção",
+      "4. Testar Get User Context"
+    ],
+    "teste_2_criacao_usuarios": [
+      "1. Criar usuário com membership (tenant)",
+      "2. Criar usuário com membership (branch)",
+      "3. Simular auto-registro de voluntário",
+      "4. Completar perfil do voluntário"
+    ],
+    "teste_3_listagem_dashboards": [
+      "1. Listar usuários por role (tenant)",
+      "2. Listar usuários por role (branch)",
+      "3. Dashboard de usuários (tenant)",
+      "4. Dashboard de usuários (branch)",
+      "5. Busca global de usuários"
+    ],
+    "teste_4_exportacao": [
+      "1. Exportar usuários por role (Excel)",
+      "2. Exportar dashboard tenant (Excel)",
+      "3. Exportar dashboard branch (Excel)",
+      "4. Exportar voluntários por ministry (CSV)"
+    ],
+    "teste_5_notificacoes": [
+      "1. Listar notificações do usuário",
+      "2. Filtrar apenas não lidas",
+      "3. Ver estatísticas de notificações",
+      "4. Marcar notificação como lida",
+      "5. Marcar todas como lidas"
+    ],
+    "teste_6_metricas": [
+      "1. Registrar atividade do usuário",
+      "2. Ver métricas de engajamento pessoal",
+      "3. Ver atividades do usuário",
+      "4. Ver métricas do tenant",
+      "5. Ver métricas da branch",
+      "6. Dashboard consolidado de métricas"
+    ],
+    "teste_7_relatorios": [
+      "1. Ver templates disponíveis",
+      "2. Executar relatório de usuários",
+      "3. Executar relatório de engajamento",
+      "4. Executar relatório de crescimento",
+      "5. Relatório personalizado (habilidades)",
+      "6. Salvar configuração de relatório",
+      "7. Listar relatórios salvos",
+      "8. Executar relatório salvo"
+    ]
+  },
+  "urls_importantes": {
+    "backend": "http://localhost:3000",
+    "documentacao": "http://localhost:3000/api",
+    "health_check": "http://localhost:3000/health"
+  },
+  "comandos_terminal": {
+    "iniciar_backend": "npm run start:dev",
+    "build": "npm run build",
+    "test": "npm run test",
+    "test_e2e": "npm run test:e2e"
+  }
+} 

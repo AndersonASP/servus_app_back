@@ -37,6 +37,48 @@ export class User {
   @Prop({ default: true })
   isActive: boolean;
 
+  // ========================================
+  // 📱 CAMPOS PARA AUTO-REGISTRO
+  // ========================================
+  
+  @Prop({ required: false })
+  phone?: string;
+
+  @Prop({ required: false })
+  birthDate?: string;
+
+  @Prop({
+    type: {
+      cep: String,
+      rua: String,
+      numero: String,
+      bairro: String,
+      cidade: String,
+      estado: String,
+    },
+    required: false,
+  })
+  address?: {
+    cep?: string;
+    rua?: string;
+    numero?: string;
+    bairro?: string;
+    cidade?: string;
+    estado?: string;
+  };
+
+  @Prop({ required: false })
+  bio?: string; // Breve descrição sobre o usuário
+
+  @Prop({ type: [String], required: false })
+  skills?: string[]; // Habilidades/competências
+
+  @Prop({ required: false })
+  availability?: string; // Disponibilidade para servir
+
+  @Prop({ default: false })
+  profileCompleted: boolean; // Se o perfil foi completado
+
   @Prop({
     type: [
       {

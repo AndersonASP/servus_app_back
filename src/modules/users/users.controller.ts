@@ -7,16 +7,20 @@ import {
   Put,
   Delete,
   Req,
-  BadRequestException,
+  Res,
+  HttpStatus,
   ForbiddenException,
   Query,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { UsersService } from './services/users.service';
 import { CreateUserDto } from './DTO/create-user.dto';
 import { UpdateUserDto } from './DTO/update-user.dto';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { Role } from 'src/common/enums/role.enum';
-import { Public } from 'src/common/decorators/public.decorator';
+import { CreateUserWithMembershipDto } from './DTO/create-user-with-membership.dto';
+import { SelfRegistrationDto } from './DTO/self-registration.dto';
+import { RequiresPerm } from 'src/common/decorators/requires-perm.decorator';
+import { PERMS, Role, MembershipRole } from 'src/common/enums/role.enum';
+import { Authorize } from 'src/common/decorators/authorize/authorize.decorator';
 import { resolveTenantAndBranchScope } from 'src/common/utils/helpers/user-scope.util';
 import { buildUserFiltersFromScope } from 'src/common/utils/helpers/build-user-filters-scope.util';
 import { UserFilterDto } from './DTO/user-filter.dto';
@@ -25,59 +29,200 @@ import { UserFilterDto } from './DTO/user-filter.dto';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Public()
+  // ========================================
+  // 🔐 FLUXO 1: CRIAÇÃO INTERNA (ADMIN)
+  // ========================================
+
+  // 👤 Criar usuário com membership (tenant scope) - ADMIN
+  @Post('tenants/:tenantId/with-membership')
+  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_USERS, PERMS.MANAGE_BRANCH_VOLUNTEERS, PERMS.MANAGE_MINISTRY_VOLUNTEERS])
+  async createWithMembership(
+    @Param('tenantId') tenantId: string,
+    @Body() createUserWithMembershipDto: CreateUserWithMembershipDto,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const createdBy = req.user.email;
+    const creatorRole = req.user.role;
+    
+    // Buscar memberships do usuário atual
+    const creatorMemberships = await this.usersService.getUserMemberships(req.user.sub);
+
+    const result = await this.usersService.createWithMembership(
+      createUserWithMembershipDto.userData,
+      {
+        ...createUserWithMembershipDto.membershipData,
+        tenantId,
+        userId: '', // Será preenchido no service
+      },
+      createdBy,
+      creatorRole,
+      creatorMemberships,
+    );
+
+    // Retornar 201 com Location header
+    return res.status(HttpStatus.CREATED)
+      .header('Location', `/users/${result.user._id}`)
+      .json(result);
+  }
+
+  // 👤 Criar usuário na branch específica - ADMIN
+  @Post('tenants/:tenantId/branches/:branchId/with-membership')
+  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_USERS, PERMS.MANAGE_BRANCH_VOLUNTEERS, PERMS.MANAGE_MINISTRY_VOLUNTEERS])
+  async createWithMembershipInBranch(
+    @Param('tenantId') tenantId: string,
+    @Param('branchId') branchId: string,
+    @Body() body: { userData: any; membershipData: { role: MembershipRole; ministryId?: string } },
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const createdBy = req.user.email;
+    const creatorRole = req.user.role;
+    
+    // Buscar memberships do usuário atual
+    const creatorMemberships = await this.usersService.getUserMemberships(req.user.sub);
+
+    const result = await this.usersService.createWithMembership(
+      body.userData,
+      {
+        tenantId,
+        branchId,
+        ministryId: body.membershipData.ministryId,
+        role: body.membershipData.role,
+        userId: '', // Será preenchido no service
+      },
+      createdBy,
+      creatorRole,
+      creatorMemberships,
+    );
+
+    // Retornar 201 com Location header
+    return res.status(HttpStatus.CREATED)
+      .header('Location', `/users/${result.user._id}`)
+      .json(result);
+  }
+
+  // ========================================
+  // 🔓 FLUXO 2: AUTO-REGISTRO (VOLUNTÁRIO)
+  // ========================================
+
+  // 👤 Auto-registro via link de convite - VOLUNTÁRIO
+  @Post('self-register')
+  async selfRegister(
+    @Body() selfRegistrationDto: SelfRegistrationDto,
+    @Res() res: Response,
+  ) {
+    const result = await this.usersService.selfRegister(selfRegistrationDto);
+
+    // Retornar 201 com Location header
+    return res.status(HttpStatus.CREATED)
+      .header('Location', `/users/${result.user._id}`)
+      .json(result);
+  }
+
+  // 👤 Completar perfil após auto-registro - VOLUNTÁRIO
+  @Post('complete-profile/:userId')
+  async completeProfile(
+    @Param('userId') userId: string,
+    @Body() profileData: { name: string; phone?: string; birthDate?: string; address?: any },
+    @Res() res: Response,
+  ) {
+    const result = await this.usersService.completeProfile(userId, profileData);
+
+    return res.status(HttpStatus.OK).json(result);
+  }
+
+  // ========================================
+  // 🔐 FLUXO LEGADO: CRIAÇÃO SIMPLES (ADMIN)
+  // ========================================
+
+  // 🔐 Criação: ServusAdmin, TenantAdmin, BranchAdmin, Leader (cada um no seu escopo)
   @Post()
-  @Roles(Role.SuperAdmin, Role.Admin, Role.Leader)
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin],  tenantFrom: 'user' } },
+      { membership: { roles: [MembershipRole.BranchAdmin],  tenantFrom: 'user', allowNullBranch: true } },
+      { membership: { roles: [MembershipRole.Leader],       tenantFrom: 'user', allowNullBranch: true } },
+    ],
+  })
   async create(@Body() dto: CreateUserDto, @Req() req: any) {
-    const { role: requesterRole } = req.user;
-
-    // 🔒 Líder só pode criar voluntários
-    if (requesterRole === Role.Leader && dto.role !== Role.Volunteer) {
-      throw new ForbiddenException('Líder só pode criar voluntários');
-    }
-
-    // 🔐 Resolve tenant e branch com base segura
+    // 1) Resolve escopo coerente com quem está criando
     const { tenantId, branchId } = resolveTenantAndBranchScope(req.user, {
       dtoTenantId: dto.tenantId,
       dtoBranchId: dto.branchId,
     });
-    console.log(branchId);
 
-    const safeDto: CreateUserDto = {
-      ...dto,
-      tenantId,
+    // 2) Se é APENAS líder nesse escopo, só pode criar Volunteer
+    const isLeaderOnly = await this.usersService.isLeaderOnly(
+      req.user._id,
+      tenantId ?? '',
       branchId,
-    };
-    return this.usersService.create(safeDto, tenantId);
+    );
+    if (isLeaderOnly && dto.role !== Role.Volunteer) {
+      throw new ForbiddenException('Líder só pode criar voluntários.');
+    }
+
+    return this.usersService.create(dto, req.user.email, tenantId, branchId);
   }
 
+  // 🔎 Listar todos do tenant: ServusAdmin ou TenantAdmin
   @Get()
-  @Roles(Role.SuperAdmin, Role.Admin)
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
+      // Se quiser permitir BranchAdmin listar, descomente a linha abaixo:
+      // { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user', allowNullBranch: true } },
+    ],
+  })
   async findAll(@Req() req: any) {
     const tenantId = req.user.tenantId;
     return this.usersService.findAll(tenantId);
   }
 
-
+  // 🔎 Filtro com RBAC aplicado
   @Get('filter')
-  @Roles(Role.SuperAdmin, Role.Admin, Role.Leader)
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user', allowNullBranch: true } },
+      { membership: { roles: [MembershipRole.Leader],      tenantFrom: 'user', allowNullBranch: true } },
+    ],
+  })
   async filterUsers(@Query() query: UserFilterDto, @Req() req: any) {
     const filters = buildUserFiltersFromScope(req.user, query);
-    const page = parseInt(query.page || '1', 10);
+    const page  = parseInt(query.page  || '1', 10);
     const limit = parseInt(query.limit || '20', 10);
-
     return this.usersService.findWithFilters(filters, { page, limit });
   }
 
+  // 🔍 Detalhe
   @Get(':id')
-  @Roles(Role.SuperAdmin, Role.Admin, Role.Leader)
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user', allowNullBranch: true } },
+      { membership: { roles: [MembershipRole.Leader],      tenantFrom: 'user', allowNullBranch: true } },
+    ],
+  })
   async findOne(@Param('id') id: string, @Req() req: any) {
     const tenantId = req.user.tenantId;
     return this.usersService.findOne(id, tenantId);
   }
 
+  // ✏️ Atualização
   @Put(':id')
-  @Roles(Role.SuperAdmin, Role.Admin, Role.Leader)
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user', allowNullBranch: true } },
+      { membership: { roles: [MembershipRole.Leader],      tenantFrom: 'user', allowNullBranch: true } },
+    ],
+  })
   async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -87,10 +232,381 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto, tenantId);
   }
 
+  // 🗑️ Remoção
   @Delete(':id')
-  @Roles(Role.SuperAdmin, Role.Admin)
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
+      // Se quiser permitir BranchAdmin remover dentro da própria filial, avalie e descomente:
+      // { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user', allowNullBranch: true } },
+    ],
+  })
   async remove(@Param('id') id: string, @Req() req: any) {
     const tenantId = req.user.tenantId;
     return this.usersService.remove(id, tenantId);
+  }
+
+  // ========================================
+  // 🔍 FLUXO 3: LISTAGEM COM FILTROS POR ROLE
+  // ========================================
+
+  // 🔎 Listar usuários por role no tenant (TenantAdmin)
+  @Get('tenants/:tenantId/by-role/:role')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+    ],
+  })
+  async listUsersByRole(
+    @Param('tenantId') tenantId: string,
+    @Param('role') role: MembershipRole,
+    @Query() query: { page?: string; limit?: string; search?: string; branchId?: string },
+    @Req() req: any,
+  ) {
+    const page = parseInt(query.page || '1', 10);
+    const limit = parseInt(query.limit || '20', 10);
+    
+    return this.usersService.listUsersByRole(
+      tenantId,
+      role,
+      { page, limit, search: query.search, branchId: query.branchId },
+      req.user
+    );
+  }
+
+  // 🔎 Listar usuários por role na branch (BranchAdmin)
+  @Get('tenants/:tenantId/branches/:branchId/by-role/:role')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param', branchParam: 'branchId' } },
+    ],
+  })
+  async listUsersByRoleInBranch(
+    @Param('tenantId') tenantId: string,
+    @Param('branchId') branchId: string,
+    @Param('role') role: MembershipRole,
+    @Query() query: { page?: string; limit?: string; search?: string; ministryId?: string },
+    @Req() req: any,
+  ) {
+    const page = parseInt(query.page || '1', 10);
+    const limit = parseInt(query.limit || '20', 10);
+    
+    return this.usersService.listUsersByRoleInBranch(
+      tenantId,
+      branchId,
+      role,
+      { page, limit, search: query.search, ministryId: query.ministryId },
+      req.user
+    );
+  }
+
+  // 🔎 Listar voluntários por ministry (Leader)
+  @Get('tenants/:tenantId/ministries/:ministryId/volunteers')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+    ],
+  })
+  async listVolunteersByMinistry(
+    @Param('tenantId') tenantId: string,
+    @Param('ministryId') ministryId: string,
+    @Query() query: { page?: string; limit?: string; search?: string; branchId?: string },
+    @Req() req: any,
+  ) {
+    const page = parseInt(query.page || '1', 10);
+    const limit = parseInt(query.limit || '20', 10);
+    
+    return this.usersService.listVolunteersByMinistry(
+      tenantId,
+      ministryId,
+      { page, limit, search: query.search, branchId: query.branchId },
+      req.user
+    );
+  }
+
+  // 🔎 Dashboard de usuários por tenant (TenantAdmin)
+  @Get('tenants/:tenantId/dashboard')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+    ],
+  })
+  async getUsersDashboard(
+    @Param('tenantId') tenantId: string,
+    @Req() req: any,
+  ) {
+    return this.usersService.getUsersDashboard(tenantId, req.user);
+  }
+
+  // 🔎 Dashboard de usuários por branch (BranchAdmin)
+  @Get('tenants/:tenantId/branches/:branchId/dashboard')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param', branchParam: 'branchId' } },
+    ],
+  })
+  async getBranchUsersDashboard(
+    @Param('tenantId') tenantId: string,
+    @Param('branchId') branchId: string,
+    @Req() req: any,
+  ) {
+    return this.usersService.getBranchUsersDashboard(tenantId, branchId, req.user);
+  }
+
+  // 🔎 Buscar usuários por nome/email (com escopo baseado na role)
+  @Get('search')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'user' } },
+    ],
+  })
+  async searchUsers(
+    @Query() query: { q: string; page?: string; limit?: string },
+    @Req() req: any,
+  ) {
+    const page = parseInt(query.page || '1', 10);
+    const limit = parseInt(query.limit || '20', 10);
+    
+    return this.usersService.searchUsers(
+      query.q,
+      { page, limit },
+      req.user
+    );
+  }
+
+  // ========================================
+  // 📊 FLUXO 4: EXPORTAÇÃO DE DADOS
+  // ========================================
+
+  // 📊 Exportar usuários por role do tenant para CSV/Excel
+  @Get('tenants/:tenantId/by-role/:role/export')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+    ],
+  })
+  async exportUsersByRole(
+    @Param('tenantId') tenantId: string,
+    @Param('role') role: MembershipRole,
+    @Query() query: { format?: 'csv' | 'xlsx'; search?: string; branchId?: string },
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const format = query.format || 'xlsx';
+    
+    // Buscar todos os usuários (sem paginação para export)
+    const result = await this.usersService.listUsersByRole(
+      tenantId,
+      role,
+      { page: 1, limit: 10000, search: query.search, branchId: query.branchId },
+      req.user
+    );
+
+    // Transformar dados para exportação
+    const exportData = result.users.map(user => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.membership.role,
+      branchName: user.membership.branch?.name,
+      ministryName: user.membership.ministry?.name,
+      profileCompleted: user.profileCompleted,
+      skills: user.skills,
+      availability: user.availability,
+      createdAt: new Date(), // Simular data de criação
+      isActive: user.membership.isActive
+    }));
+
+    const filename = this.usersService.exportService.generateFilename(
+      `usuarios_${role}_tenant`,
+      tenantId,
+      format
+    );
+
+    if (format === 'csv') {
+      await this.usersService.exportService.exportUsersToCSV(exportData, filename, res);
+    } else {
+      await this.usersService.exportService.exportUsersToExcel(exportData, filename, res);
+    }
+  }
+
+  // 📊 Exportar usuários por role da branch para CSV/Excel
+  @Get('tenants/:tenantId/branches/:branchId/by-role/:role/export')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param', branchParam: 'branchId' } },
+    ],
+  })
+  async exportUsersByRoleInBranch(
+    @Param('tenantId') tenantId: string,
+    @Param('branchId') branchId: string,
+    @Param('role') role: MembershipRole,
+    @Query() query: { format?: 'csv' | 'xlsx'; search?: string; ministryId?: string },
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const format = query.format || 'xlsx';
+    
+    // Buscar todos os usuários da branch
+    const result = await this.usersService.listUsersByRoleInBranch(
+      tenantId,
+      branchId,
+      role,
+      { page: 1, limit: 10000, search: query.search, ministryId: query.ministryId },
+      req.user
+    );
+
+    // Transformar dados para exportação
+    const exportData = result.users.map(user => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.membership.role,
+      branchName: 'N/A', // Na branch específica
+      ministryName: user.membership.ministry?.name,
+      profileCompleted: user.profileCompleted,
+      skills: user.skills,
+      availability: user.availability,
+      createdAt: new Date(),
+      isActive: user.membership.isActive
+    }));
+
+    const filename = this.usersService.exportService.generateFilename(
+      `usuarios_${role}_branch`,
+      `${tenantId}_${branchId}`,
+      format
+    );
+
+    if (format === 'csv') {
+      await this.usersService.exportService.exportUsersToCSV(exportData, filename, res);
+    } else {
+      await this.usersService.exportService.exportUsersToExcel(exportData, filename, res);
+    }
+  }
+
+  // 📊 Exportar voluntários por ministry para CSV/Excel
+  @Get('tenants/:tenantId/ministries/:ministryId/volunteers/export')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+    ],
+  })
+  async exportVolunteersByMinistry(
+    @Param('tenantId') tenantId: string,
+    @Param('ministryId') ministryId: string,
+    @Query() query: { format?: 'csv' | 'xlsx'; search?: string; branchId?: string },
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const format = query.format || 'xlsx';
+    
+    // Buscar todos os voluntários do ministry
+    const result = await this.usersService.listVolunteersByMinistry(
+      tenantId,
+      ministryId,
+      { page: 1, limit: 10000, search: query.search, branchId: query.branchId },
+      req.user
+    );
+
+    // Transformar dados para exportação
+    const exportData = result.users.map(user => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: 'volunteer',
+      branchName: user.membership.branch?.name,
+      ministryName: 'N/A', // Ministry específico
+      profileCompleted: user.profileCompleted,
+      skills: user.skills,
+      availability: user.availability,
+      createdAt: new Date(),
+      isActive: user.membership.isActive
+    }));
+
+    const filename = this.usersService.exportService.generateFilename(
+      `voluntarios_ministry`,
+      `${tenantId}_${ministryId}`,
+      format
+    );
+
+    if (format === 'csv') {
+      await this.usersService.exportService.exportUsersToCSV(exportData, filename, res);
+    } else {
+      await this.usersService.exportService.exportUsersToExcel(exportData, filename, res);
+    }
+  }
+
+  // 📊 Exportar dashboard para Excel
+  @Get('tenants/:tenantId/dashboard/export')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+    ],
+  })
+  async exportTenantDashboard(
+    @Param('tenantId') tenantId: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    // Buscar dados do dashboard
+    const dashboardData = await this.usersService.getUsersDashboard(tenantId, req.user);
+
+    const filename = this.usersService.exportService.generateFilename(
+      'dashboard_tenant',
+      tenantId,
+      'xlsx'
+    );
+
+    await this.usersService.exportService.exportDashboardToExcel(dashboardData, filename, res);
+  }
+
+  // 📊 Exportar dashboard da branch para Excel
+  @Get('tenants/:tenantId/branches/:branchId/dashboard/export')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param', branchParam: 'branchId' } },
+    ],
+  })
+  async exportBranchDashboard(
+    @Param('tenantId') tenantId: string,
+    @Param('branchId') branchId: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    // Buscar dados do dashboard da branch
+    const dashboardData = await this.usersService.getBranchUsersDashboard(tenantId, branchId, req.user);
+
+    const filename = this.usersService.exportService.generateFilename(
+      'dashboard_branch',
+      `${tenantId}_${branchId}`,
+      'xlsx'
+    );
+
+    await this.usersService.exportService.exportDashboardToExcel(dashboardData, filename, res);
   }
 }

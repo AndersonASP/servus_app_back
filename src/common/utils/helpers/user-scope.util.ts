@@ -1,9 +1,9 @@
 import { Role } from '../../enums/role.enum';
 
 interface UserToken {
-  role: Role;
-  tenantId?: string;
-  branchId?: string;
+  role: Role;        // global: 'servus_admin' | 'volunteer'
+  tenantId?: string; // obrigatório para não-superadmin
+  branchId?: string; // presente para escopo de filial (branch admin / líder)
 }
 
 interface ScopeInput {
@@ -11,27 +11,21 @@ interface ScopeInput {
   dtoBranchId?: string;
 }
 
-export function resolveTenantAndBranchScope(
-  user: UserToken,
-  input: ScopeInput = {},
-) {
-  const isSuperAdmin = user.role === Role.SuperAdmin;
+export function resolveTenantAndBranchScope(user: UserToken, input: ScopeInput = {}) {
+  const isSuperAdmin = user.role === Role.ServusAdmin;
 
-  const tenantId = isSuperAdmin
-    ? input.dtoTenantId
-    : user.tenantId;
-
-  let branchId: string | undefined;
-
-  if (isSuperAdmin) {
-    branchId = input.dtoBranchId;
-  } else if (user.role === Role.Admin) {
-    // Admin de filial só pode criar para sua própria filial
-    branchId = user.branchId ?? input.dtoBranchId;
-  } else if (user.role === Role.Leader) {
-    // Líder só pode criar voluntários na sua própria filial
-    branchId = user.branchId;
+  // Tenant
+  const tenantId = isSuperAdmin ? (input.dtoTenantId ?? user.tenantId) : user.tenantId;
+  if (!isSuperAdmin && !tenantId) {
+    throw new Error('tenantId ausente no token do usuário.');
   }
+
+  // Branch
+  // - Se o token já traz branchId (usuário branch-scoped), força essa branch.
+  // - Senão, permite usar dtoBranchId (ex.: tenant admin escolhendo a filial).
+  const branchId = isSuperAdmin
+    ? input.dtoBranchId
+    : (user.branchId ?? input.dtoBranchId);
 
   return { tenantId, branchId };
 }

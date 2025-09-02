@@ -1,3 +1,12 @@
 import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
-export const DatabaseConfig = MongooseModule.forRoot(process.env.MONGO_URI || 'mongodb://localhost:27017/servus');
+export const DatabaseConfig = [
+  ConfigModule.forRoot({ isGlobal: true }),
+  MongooseModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      uri: config.get<string>('MONGO_URI'),
+    }),
+  }),
+];
