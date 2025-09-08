@@ -1,4 +1,9 @@
-import { IsString, IsOptional, IsNotEmpty, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNotEmpty,
+  IsDateString,
+} from 'class-validator';
 
 export class CompleteProfileDto {
   @IsString()
@@ -34,4 +39,4 @@ export class CompleteProfileDto {
   @IsOptional()
   @IsString()
   availability?: string; // Disponibilidade para servir
-} 
+}

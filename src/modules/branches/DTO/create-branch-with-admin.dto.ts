@@ -14,4 +14,4 @@ export class CreateBranchWithAdminDto {
   @ValidateNested()
   @Type(() => CreateUserDto)
   adminData?: CreateUserDto;
-} 
+}

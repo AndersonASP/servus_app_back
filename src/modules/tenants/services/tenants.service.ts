@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Tenant } from '../schemas/tenant.schema';
@@ -26,16 +31,16 @@ export class TenantService {
   private async generateUuidTenantId(): Promise<string> {
     let tenantId: string = '';
     let exists = true;
-    
+
     while (exists) {
       // Gera um UUIDv7 (timestamp-based, ordenável)
       tenantId = uuidv7();
-      
+
       // Verifica se já existe (extremamente improvável com UUIDv7)
       const existingTenant = await this.tenantModel.findOne({ tenantId });
       exists = !!existingTenant;
     }
-    
+
     return tenantId;
   }
 
@@ -44,22 +49,29 @@ export class TenantService {
    */
   private generateProvisionalPassword(): string {
     // Gera uma senha de 8 caracteres com letras e números
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let password = '';
-    
+
     for (let i = 0; i < 8; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    
+
     return password;
   }
 
   async create(createTenantDto: CreateTenantDto, createdBy: string) {
     const exists = await this.tenantModel.findOne({
-      $or: [{ name: createTenantDto.name }, { tenantId: createTenantDto.tenantId }]
+      $or: [
+        { name: createTenantDto.name },
+        { tenantId: createTenantDto.tenantId },
+      ],
     });
 
-    if (exists) throw new ConflictException('Já existe um tenant com esse nome ou tenantId.');
+    if (exists)
+      throw new ConflictException(
+        'Já existe um tenant com esse nome ou tenantId.',
+      );
 
     const baseId = (createTenantDto.tenantId || createTenantDto.name)
       .toLowerCase()
@@ -83,7 +95,7 @@ export class TenantService {
   async createWithAdmin(
     data: CreateTenantWithAdminDto,
     createdBy: string,
-    creatorRole: Role
+    creatorRole: Role,
   ) {
     // Verificar permissão
     if (creatorRole !== Role.ServusAdmin) {
@@ -94,8 +106,8 @@ export class TenantService {
     const existingTenant = await this.tenantModel.findOne({
       $or: [
         { name: data.tenantData.name },
-        { tenantId: data.tenantData.tenantId }
-      ]
+        { tenantId: data.tenantData.tenantId },
+      ],
     });
 
     if (existingTenant) {
@@ -105,7 +117,7 @@ export class TenantService {
     // Verificar se admin já existe (se fornecido)
     if (data.adminData) {
       const existingAdmin = await this.userModel.findOne({
-        email: data.adminData.email.toLowerCase().trim()
+        email: data.adminData.email.toLowerCase().trim(),
       });
 
       if (existingAdmin) {
@@ -136,7 +148,8 @@ export class TenantService {
       // Criar admin do tenant se fornecido
       if (data.adminData) {
         // Gerar senha provisória se não fornecida
-        provisionalPassword = data.adminData.password || this.generateProvisionalPassword();
+        provisionalPassword =
+          data.adminData.password || this.generateProvisionalPassword();
         const hashedPassword = await bcrypt.hash(provisionalPassword, 10);
 
         const admin = new this.userModel({
@@ -188,7 +201,6 @@ export class TenantService {
         ...(membershipResult && { membership: membershipResult }),
         ...(provisionalPassword && { provisionalPassword }),
       };
-
     } catch (error) {
       await session.abortTransaction();
       session.endSession();
@@ -210,10 +222,11 @@ export class TenantService {
     const updated = await this.tenantModel.findOneAndUpdate(
       { tenantId },
       { isActive: false },
-      { new: true }
+      { new: true },
     );
 
-    if (!updated) throw new NotFoundException('Tenant não encontrado para desativar.');
+    if (!updated)
+      throw new NotFoundException('Tenant não encontrado para desativar.');
     return updated;
   }
 }

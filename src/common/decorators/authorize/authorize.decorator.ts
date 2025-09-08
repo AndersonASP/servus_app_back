@@ -12,19 +12,19 @@ export type TenantSource = 'param' | 'header' | 'user';
 /** Regra de membership: satisfaz se existir um membership compatível */
 export type MembershipRule = {
   membership: {
-    roles: MembershipRole[];       // ex.: [TenantAdmin]
-    tenantFrom?: TenantSource;     // default: 'param'
-    tenantParam?: string;          // default: 'tenantId'
-    tenantHeader?: string;         // default: 'x-tenant-id'
+    roles: MembershipRole[]; // ex.: [TenantAdmin]
+    tenantFrom?: TenantSource; // default: 'param'
+    tenantParam?: string; // default: 'tenantId'
+    tenantHeader?: string; // default: 'x-tenant-id'
 
     // Escopo opcional
-    branchParam?: string;          // ex.: 'branchId'
-    ministryParam?: string;        // ex.: 'ministryId'
+    branchParam?: string; // ex.: 'branchId'
+    ministryParam?: string; // ex.: 'ministryId'
 
     // Se aceitar vínculo na matriz (branch null) / ministério null
-    allowNullBranch?: boolean;     // default: false
-    allowNullMinistry?: boolean;   // default: false
-  }
+    allowNullBranch?: boolean; // default: false
+    allowNullMinistry?: boolean; // default: false
+  };
 };
 
 /** Política: satisfaz se QUALQUER regra (anyOf) for verdadeira */

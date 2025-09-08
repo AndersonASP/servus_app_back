@@ -15,4 +15,4 @@ export class ContextValidationDto {
   @ValidateIf((o) => false) // Sempre rejeita
   @IsString()
   ministryId?: string;
-} 
+}

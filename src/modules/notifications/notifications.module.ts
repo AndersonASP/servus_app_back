@@ -5,7 +5,10 @@ import { NotificationsService } from './notifications.service';
 import { NotificationService } from './services/notification.service';
 import { EmailService } from './services/email.service';
 import { User, UserSchema } from 'src/modules/users/schema/user.schema';
-import { Membership, MembershipSchema } from 'src/modules/membership/schemas/membership.schema';
+import {
+  Membership,
+  MembershipSchema,
+} from 'src/modules/membership/schemas/membership.schema';
 
 @Module({
   imports: [

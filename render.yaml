@@ -1,0 +1,54 @@
+# Configuração para deploy no Render
+services:
+  - type: web
+    name: servus-backend
+    env: node
+    plan: starter
+    buildCommand: npm ci && npm run build:prod
+    startCommand: npm run start:prod:render
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: API_PREFIX
+        value: api
+      # MongoDB - Configure com sua string de conexão do MongoDB Atlas
+      - key: MONGO_URI
+        sync: false
+      # JWT Secrets - Configure com secrets seguros
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      # Redis - Configure com sua instância Redis
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: 6379
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: REDIS_DB
+        value: 0
+      # Google OAuth - Configure com suas credenciais do Google
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Email - Configure com suas credenciais de email
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: 587
+      - key: MAIL_USER
+        sync: false
+      - key: MAIL_PASS
+        sync: false
+      - key: MAIL_FROM
+        value: noreply@servusapp.com
+      # CORS - Configure com os domínios permitidos
+      - key: CORS_ORIGIN
+        value: https://servusapp.com,https://www.servusapp.com
+      # Logs
+      - key: LOG_LEVEL
+        value: warn

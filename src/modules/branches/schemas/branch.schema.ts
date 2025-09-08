@@ -58,11 +58,11 @@ export class Branch extends Document {
   @Prop({
     type: [
       {
-        dia: { type: String, required: true },      // domingo, quarta
-        horarios: { type: [String], required: true } // ["09:00", "19:30"]
-      }
+        dia: { type: String, required: true }, // domingo, quarta
+        horarios: { type: [String], required: true }, // ["09:00", "19:30"]
+      },
     ],
-    default: []
+    default: [],
   })
   diasCulto?: { dia: string; horarios: string[] }[];
 
@@ -73,10 +73,10 @@ export class Branch extends Document {
         nome: { type: String, required: true },
         dia: { type: String, required: true },
         horarios: { type: [String], required: true },
-        tipo: { type: String, default: 'culto' }
-      }
+        tipo: { type: String, default: 'culto' },
+      },
     ],
-    default: []
+    default: [],
   })
   eventosPadrao?: {
     nome: string;

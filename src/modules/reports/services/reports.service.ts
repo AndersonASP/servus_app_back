@@ -60,7 +60,7 @@ export class ReportsService {
     // Construir query base
     const matchStage: any = {
       tenant: new Types.ObjectId(filters.tenantId),
-      isActive: filters.userStatus !== 'inactive'
+      isActive: filters.userStatus !== 'inactive',
     };
 
     if (filters.userStatus === 'inactive') {
@@ -68,11 +68,15 @@ export class ReportsService {
     }
 
     if (filters.branchIds?.length) {
-      matchStage.branch = { $in: filters.branchIds.map(id => new Types.ObjectId(id)) };
+      matchStage.branch = {
+        $in: filters.branchIds.map((id) => new Types.ObjectId(id)),
+      };
     }
 
     if (filters.ministryIds?.length) {
-      matchStage.ministry = { $in: filters.ministryIds.map(id => new Types.ObjectId(id)) };
+      matchStage.ministry = {
+        $in: filters.ministryIds.map((id) => new Types.ObjectId(id)),
+      };
     }
 
     if (filters.roles?.length) {
@@ -82,7 +86,7 @@ export class ReportsService {
     if (filters.dateRange) {
       matchStage.createdAt = {
         $gte: filters.dateRange.startDate,
-        $lte: filters.dateRange.endDate
+        $lte: filters.dateRange.endDate,
       };
     }
 
@@ -94,8 +98,8 @@ export class ReportsService {
           from: 'users',
           localField: 'user',
           foreignField: '_id',
-          as: 'userData'
-        }
+          as: 'userData',
+        },
       },
       { $unwind: '$userData' },
       {
@@ -103,8 +107,8 @@ export class ReportsService {
           from: 'branches',
           localField: 'branch',
           foreignField: '_id',
-          as: 'branchData'
-        }
+          as: 'branchData',
+        },
       },
       { $unwind: { path: '$branchData', preserveNullAndEmptyArrays: true } },
       {
@@ -112,8 +116,8 @@ export class ReportsService {
           from: 'ministries',
           localField: 'ministry',
           foreignField: '_id',
-          as: 'ministryData'
-        }
+          as: 'ministryData',
+        },
       },
       { $unwind: { path: '$ministryData', preserveNullAndEmptyArrays: true } },
       {
@@ -129,23 +133,23 @@ export class ReportsService {
           skills: '$userData.skills',
           availability: '$userData.availability',
           createdAt: '$createdAt',
-          isActive: '$isActive'
-        }
-      }
+          isActive: '$isActive',
+        },
+      },
     ];
 
     // Aplicar filtros adicionais
     if (filters.profileCompleted !== undefined) {
       pipeline.push({
-        $match: { profileCompleted: filters.profileCompleted }
+        $match: { profileCompleted: filters.profileCompleted },
       });
     }
 
     if (filters.skills?.length) {
       pipeline.push({
         $match: {
-          skills: { $in: filters.skills }
-        }
+          skills: { $in: filters.skills },
+        },
       });
     }
 
@@ -157,7 +161,7 @@ export class ReportsService {
     return {
       data,
       summary,
-      charts: this.generateUsersCharts(data)
+      charts: this.generateUsersCharts(data),
     };
   }
 
@@ -169,21 +173,22 @@ export class ReportsService {
   }> {
     // Buscar usuários do tenant/branch/ministry
     const usersQuery: any = { tenant: filters.tenantId, isActive: true };
-    
+
     if (filters.branchIds?.length) {
       usersQuery.branch = { $in: filters.branchIds };
     }
-    
+
     if (filters.ministryIds?.length) {
       usersQuery.ministry = { $in: filters.ministryIds };
     }
 
-    const memberships = await this.memModel.find(usersQuery)
+    const memberships = await this.memModel
+      .find(usersQuery)
       .populate('user', 'name email profileCompleted')
       .populate('branch', 'name')
       .populate('ministry', 'name');
 
-    const engagementData = memberships.map(membership => {
+    const engagementData = memberships.map((membership) => {
       const user = membership.user as any;
       const profileScore = this.calculateProfileScore(user);
       const engagementLevel = this.calculateEngagementLevel(profileScore);
@@ -200,7 +205,7 @@ export class ReportsService {
         profileCompleted: user.profileCompleted,
         lastActivity: new Date(), // Simular - em produção, buscar da atividade
         activeDays: Math.floor(Math.random() * 30), // Simular
-        interactionScore: Math.floor(Math.random() * 100) // Simular
+        interactionScore: Math.floor(Math.random() * 100), // Simular
       };
     });
 
@@ -209,7 +214,7 @@ export class ReportsService {
     return {
       data: engagementData,
       summary,
-      charts: this.generateEngagementCharts(engagementData)
+      charts: this.generateEngagementCharts(engagementData),
     };
   }
 
@@ -219,7 +224,9 @@ export class ReportsService {
     summary: any;
     charts: any;
   }> {
-    const startDate = filters.dateRange?.startDate || new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const startDate =
+      filters.dateRange?.startDate ||
+      new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     const endDate = filters.dateRange?.endDate || new Date();
 
     // Crescimento por dia
@@ -238,25 +245,33 @@ export class ReportsService {
       const newUsersCount = await this.memModel.countDocuments({
         tenant: filters.tenantId,
         createdAt: { $gte: dayStart, $lt: dayEnd },
-        ...(filters.branchIds?.length && { branch: { $in: filters.branchIds } }),
-        ...(filters.roles?.length && { role: { $in: filters.roles } })
+        ...(filters.branchIds?.length && {
+          branch: { $in: filters.branchIds },
+        }),
+        ...(filters.roles?.length && { role: { $in: filters.roles } }),
       });
 
       const totalUsersCount = await this.memModel.countDocuments({
         tenant: filters.tenantId,
         createdAt: { $lte: dayEnd },
         isActive: true,
-        ...(filters.branchIds?.length && { branch: { $in: filters.branchIds } }),
-        ...(filters.roles?.length && { role: { $in: filters.roles } })
+        ...(filters.branchIds?.length && {
+          branch: { $in: filters.branchIds },
+        }),
+        ...(filters.roles?.length && { role: { $in: filters.roles } }),
       });
 
       growthData.push({
         date: currentDate.toISOString().split('T')[0],
         newUsers: newUsersCount,
         totalUsers: totalUsersCount,
-        growthRate: growthData.length > 0 
-          ? ((totalUsersCount - growthData[growthData.length - 1].totalUsers) / growthData[growthData.length - 1].totalUsers * 100)
-          : 0
+        growthRate:
+          growthData.length > 0
+            ? ((totalUsersCount -
+                growthData[growthData.length - 1].totalUsers) /
+                growthData[growthData.length - 1].totalUsers) *
+              100
+            : 0,
       });
 
       currentDate.setDate(currentDate.getDate() + 1);
@@ -267,28 +282,35 @@ export class ReportsService {
     return {
       data: growthData,
       summary,
-      charts: this.generateGrowthCharts(growthData)
+      charts: this.generateGrowthCharts(growthData),
     };
   }
 
   // 💾 Salvar configuração de relatório
-  async saveReportConfig(config: Omit<ReportConfig, 'id' | 'createdAt'>): Promise<ReportConfig> {
+  async saveReportConfig(
+    config: Omit<ReportConfig, 'id' | 'createdAt'>,
+  ): Promise<ReportConfig> {
     const reportConfig: ReportConfig = {
       ...config,
       id: this.generateId(),
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
     this.savedReports.push(reportConfig);
-    
-    console.log(`💾 Relatório salvo: ${reportConfig.name} por ${reportConfig.createdBy}`);
-    
+
+    console.log(
+      `💾 Relatório salvo: ${reportConfig.name} por ${reportConfig.createdBy}`,
+    );
+
     return reportConfig;
   }
 
   // 📋 Listar relatórios salvos
-  async getSavedReports(tenantId: string, createdBy?: string): Promise<ReportConfig[]> {
-    return this.savedReports.filter(report => {
+  async getSavedReports(
+    tenantId: string,
+    createdBy?: string,
+  ): Promise<ReportConfig[]> {
+    return this.savedReports.filter((report) => {
       const matchesTenant = report.filters.tenantId === tenantId;
       const matchesCreator = !createdBy || report.createdBy === createdBy;
       return matchesTenant && matchesCreator;
@@ -297,7 +319,7 @@ export class ReportsService {
 
   // 🔄 Executar relatório salvo
   async executeReport(reportId: string): Promise<any> {
-    const report = this.savedReports.find(r => r.id === reportId);
+    const report = this.savedReports.find((r) => r.id === reportId);
     if (!report) {
       throw new Error('Relatório não encontrado');
     }
@@ -322,7 +344,7 @@ export class ReportsService {
 
     return {
       reportConfig: report,
-      result
+      result,
     };
   }
 
@@ -334,7 +356,7 @@ export class ReportsService {
       filters: any;
       groupBy?: string;
       metrics: string[];
-    }
+    },
   ): Promise<any> {
     // Implementar lógica de relatório personalizado baseado na configuração
     const baseFilters: ReportFilter = { ...config.filters, tenantId };
@@ -352,27 +374,29 @@ export class ReportsService {
   }
 
   // 📊 Relatório de usuários por filial
-  private async generateUsersByBranchReport(filters: ReportFilter): Promise<any> {
+  private async generateUsersByBranchReport(
+    filters: ReportFilter,
+  ): Promise<any> {
     const pipeline: any[] = [
       {
         $match: {
           tenant: new Types.ObjectId(filters.tenantId),
-          isActive: true
-        }
+          isActive: true,
+        },
       },
       {
         $lookup: {
           from: 'branches',
           localField: 'branch',
           foreignField: '_id',
-          as: 'branchData'
-        }
+          as: 'branchData',
+        },
       },
-      { 
-        $unwind: { 
-          path: '$branchData', 
-          preserveNullAndEmptyArrays: true 
-        } 
+      {
+        $unwind: {
+          path: '$branchData',
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
         $group: {
@@ -380,46 +404,55 @@ export class ReportsService {
           branchId: { $first: '$branchData._id' },
           totalUsers: { $sum: 1 },
           roles: { $addToSet: '$role' },
-          users: { $push: '$$ROOT' }
-        }
+          users: { $push: '$$ROOT' },
+        },
       },
-      { 
-        $sort: { 
-          totalUsers: -1 
-        } 
-      }
+      {
+        $sort: {
+          totalUsers: -1,
+        },
+      },
     ];
 
     const data = await this.memModel.aggregate(pipeline);
-    
+
     return {
       data,
       summary: {
         totalBranches: data.length,
         totalUsers: data.reduce((sum, branch) => sum + branch.totalUsers, 0),
-        averageUsersPerBranch: data.length > 0 ? Math.round(data.reduce((sum, branch) => sum + branch.totalUsers, 0) / data.length) : 0
-      }
+        averageUsersPerBranch:
+          data.length > 0
+            ? Math.round(
+                data.reduce((sum, branch) => sum + branch.totalUsers, 0) /
+                  data.length,
+              )
+            : 0,
+      },
     };
   }
 
   // 🎯 Relatório de análise de habilidades
-  private async generateSkillsAnalysisReport(filters: ReportFilter): Promise<any> {
+  private async generateSkillsAnalysisReport(
+    filters: ReportFilter,
+  ): Promise<any> {
     const users = await this.userModel.find({
-      skills: { $exists: true, $ne: [] }
+      skills: { $exists: true, $ne: [] },
     });
 
     const skillsCount: { [skill: string]: number } = {};
     const skillsByRole: { [role: string]: { [skill: string]: number } } = {};
 
-    users.forEach(user => {
-      user.skills?.forEach(skill => {
+    users.forEach((user) => {
+      user.skills?.forEach((skill) => {
         skillsCount[skill] = (skillsCount[skill] || 0) + 1;
-        
+
         const userRole = user.role || 'volunteer';
         if (!skillsByRole[userRole]) {
           skillsByRole[userRole] = {};
         }
-        skillsByRole[userRole][skill] = (skillsByRole[userRole][skill] || 0) + 1;
+        skillsByRole[userRole][skill] =
+          (skillsByRole[userRole][skill] || 0) + 1;
       });
     });
 
@@ -433,36 +466,49 @@ export class ReportsService {
         topSkills,
         skillsByRole,
         totalUniqueSkills: Object.keys(skillsCount).length,
-        usersWithSkills: users.length
+        usersWithSkills: users.length,
       },
       summary: {
         mostPopularSkill: topSkills[0]?.skill || 'N/A',
-        averageSkillsPerUser: users.length > 0 ? Math.round(users.reduce((sum, user) => sum + (user.skills?.length || 0), 0) / users.length) : 0,
-        totalSkillsRegistered: Object.values(skillsCount).reduce((sum, count) => sum + count, 0)
-      }
+        averageSkillsPerUser:
+          users.length > 0
+            ? Math.round(
+                users.reduce(
+                  (sum, user) => sum + (user.skills?.length || 0),
+                  0,
+                ) / users.length,
+              )
+            : 0,
+        totalSkillsRegistered: Object.values(skillsCount).reduce(
+          (sum, count) => sum + count,
+          0,
+        ),
+      },
     };
   }
 
   // ⛪ Relatório de participação em ministérios
-  private async generateMinistryParticipationReport(filters: ReportFilter): Promise<any> {
+  private async generateMinistryParticipationReport(
+    filters: ReportFilter,
+  ): Promise<any> {
     const pipeline: any[] = [
       {
         $match: {
           tenant: new Types.ObjectId(filters.tenantId),
           isActive: true,
-          ministry: { $exists: true, $ne: null }
-        }
+          ministry: { $exists: true, $ne: null },
+        },
       },
       {
         $lookup: {
           from: 'ministries',
           localField: 'ministry',
           foreignField: '_id',
-          as: 'ministryData'
-        }
+          as: 'ministryData',
+        },
       },
-      { 
-        $unwind: '$ministryData' 
+      {
+        $unwind: '$ministryData',
       },
       {
         $group: {
@@ -470,30 +516,41 @@ export class ReportsService {
           ministryId: { $first: '$ministryData._id' },
           totalParticipants: { $sum: 1 },
           leaders: {
-            $sum: { $cond: [{ $eq: ['$role', 'leader'] }, 1, 0] }
+            $sum: { $cond: [{ $eq: ['$role', 'leader'] }, 1, 0] },
           },
           volunteers: {
-            $sum: { $cond: [{ $eq: ['$role', 'volunteer'] }, 1, 0] }
-          }
-        }
+            $sum: { $cond: [{ $eq: ['$role', 'volunteer'] }, 1, 0] },
+          },
+        },
       },
-      { 
-        $sort: { 
-          totalParticipants: -1 
-        } 
-      }
+      {
+        $sort: {
+          totalParticipants: -1,
+        },
+      },
     ];
 
     const data = await this.memModel.aggregate(pipeline);
-    
+
     return {
       data,
       summary: {
         totalMinistries: data.length,
-        totalParticipants: data.reduce((sum, ministry) => sum + ministry.totalParticipants, 0),
-        averageParticipantsPerMinistry: data.length > 0 ? Math.round(data.reduce((sum, ministry) => sum + ministry.totalParticipants, 0) / data.length) : 0,
-        mostActiveMinistry: data[0]?._id || 'N/A'
-      }
+        totalParticipants: data.reduce(
+          (sum, ministry) => sum + ministry.totalParticipants,
+          0,
+        ),
+        averageParticipantsPerMinistry:
+          data.length > 0
+            ? Math.round(
+                data.reduce(
+                  (sum, ministry) => sum + ministry.totalParticipants,
+                  0,
+                ) / data.length,
+              )
+            : 0,
+        mostActiveMinistry: data[0]?._id || 'N/A',
+      },
     };
   }
 
@@ -501,16 +558,17 @@ export class ReportsService {
   private calculateUsersSummary(data: any[]): any {
     const summary = {
       totalUsers: data.length,
-      activeUsers: data.filter(u => u.isActive).length,
-      completedProfiles: data.filter(u => u.profileCompleted).length,
+      activeUsers: data.filter((u) => u.isActive).length,
+      completedProfiles: data.filter((u) => u.profileCompleted).length,
       byRole: {} as { [role: string]: number },
-      byBranch: {} as { [branch: string]: number }
+      byBranch: {} as { [branch: string]: number },
     };
 
-    data.forEach(user => {
+    data.forEach((user) => {
       summary.byRole[user.role] = (summary.byRole[user.role] || 0) + 1;
       if (user.branch) {
-        summary.byBranch[user.branch] = (summary.byBranch[user.branch] || 0) + 1;
+        summary.byBranch[user.branch] =
+          (summary.byBranch[user.branch] || 0) + 1;
       }
     });
 
@@ -519,38 +577,70 @@ export class ReportsService {
 
   private calculateEngagementSummary(data: any[]): any {
     const totalUsers = data.length;
-    const highEngagement = data.filter(u => u.engagementLevel === 'high').length;
-    const mediumEngagement = data.filter(u => u.engagementLevel === 'medium').length;
-    const lowEngagement = data.filter(u => u.engagementLevel === 'low').length;
+    const highEngagement = data.filter(
+      (u) => u.engagementLevel === 'high',
+    ).length;
+    const mediumEngagement = data.filter(
+      (u) => u.engagementLevel === 'medium',
+    ).length;
+    const lowEngagement = data.filter(
+      (u) => u.engagementLevel === 'low',
+    ).length;
 
     return {
       totalUsers,
       engagementDistribution: {
         high: highEngagement,
         medium: mediumEngagement,
-        low: lowEngagement
+        low: lowEngagement,
       },
-      averageProfileScore: totalUsers > 0 ? Math.round(data.reduce((sum, u) => sum + u.profileScore, 0) / totalUsers) : 0,
-      averageInteractionScore: totalUsers > 0 ? Math.round(data.reduce((sum, u) => sum + u.interactionScore, 0) / totalUsers) : 0
+      averageProfileScore:
+        totalUsers > 0
+          ? Math.round(
+              data.reduce((sum, u) => sum + u.profileScore, 0) / totalUsers,
+            )
+          : 0,
+      averageInteractionScore:
+        totalUsers > 0
+          ? Math.round(
+              data.reduce((sum, u) => sum + u.interactionScore, 0) / totalUsers,
+            )
+          : 0,
     };
   }
 
   private calculateGrowthSummary(data: any[]): any {
-    const totalGrowth = data.length > 0 ? data[data.length - 1].totalUsers - data[0].totalUsers : 0;
-    const averageGrowthRate = data.length > 0 ? data.reduce((sum, d) => sum + d.growthRate, 0) / data.length : 0;
+    const totalGrowth =
+      data.length > 0
+        ? data[data.length - 1].totalUsers - data[0].totalUsers
+        : 0;
+    const averageGrowthRate =
+      data.length > 0
+        ? data.reduce((sum, d) => sum + d.growthRate, 0) / data.length
+        : 0;
     const newUsersTotal = data.reduce((sum, d) => sum + d.newUsers, 0);
 
     return {
       totalGrowth,
       averageGrowthRate: Math.round(averageGrowthRate * 100) / 100,
       newUsersTotal,
-      growthTrend: totalGrowth > 0 ? 'positive' : totalGrowth < 0 ? 'negative' : 'stable'
+      growthTrend:
+        totalGrowth > 0 ? 'positive' : totalGrowth < 0 ? 'negative' : 'stable',
     };
   }
 
   private calculateProfileScore(user: any): number {
-    const fields = ['name', 'email', 'phone', 'birthDate', 'address', 'bio', 'skills', 'availability'];
-    const filledFields = fields.filter(field => {
+    const fields = [
+      'name',
+      'email',
+      'phone',
+      'birthDate',
+      'address',
+      'bio',
+      'skills',
+      'availability',
+    ];
+    const filledFields = fields.filter((field) => {
       const value = user[field];
       return value && value !== '' && value !== null && value !== undefined;
     });
@@ -558,7 +648,9 @@ export class ReportsService {
     return Math.round((filledFields.length / fields.length) * 100);
   }
 
-  private calculateEngagementLevel(profileScore: number): 'high' | 'medium' | 'low' {
+  private calculateEngagementLevel(
+    profileScore: number,
+  ): 'high' | 'medium' | 'low' {
     if (profileScore >= 80) return 'high';
     if (profileScore >= 50) return 'medium';
     return 'low';
@@ -569,30 +661,38 @@ export class ReportsService {
       roleDistribution: this.createPieChart(data, 'role'),
       branchDistribution: this.createPieChart(data, 'branch'),
       profileCompletion: {
-        completed: data.filter(u => u.profileCompleted).length,
-        incomplete: data.filter(u => !u.profileCompleted).length
-      }
+        completed: data.filter((u) => u.profileCompleted).length,
+        incomplete: data.filter((u) => !u.profileCompleted).length,
+      },
     };
   }
 
   private generateEngagementCharts(data: any[]): any {
     return {
       engagementLevels: this.createPieChart(data, 'engagementLevel'),
-      profileScoreDistribution: this.createHistogram(data.map(u => u.profileScore))
+      profileScoreDistribution: this.createHistogram(
+        data.map((u) => u.profileScore),
+      ),
     };
   }
 
   private generateGrowthCharts(data: any[]): any {
     return {
-      userGrowthTimeline: data.map(d => ({ date: d.date, value: d.totalUsers })),
-      newUsersTimeline: data.map(d => ({ date: d.date, value: d.newUsers })),
-      growthRateTimeline: data.map(d => ({ date: d.date, value: d.growthRate }))
+      userGrowthTimeline: data.map((d) => ({
+        date: d.date,
+        value: d.totalUsers,
+      })),
+      newUsersTimeline: data.map((d) => ({ date: d.date, value: d.newUsers })),
+      growthRateTimeline: data.map((d) => ({
+        date: d.date,
+        value: d.growthRate,
+      })),
     };
   }
 
   private createPieChart(data: any[], field: string): any[] {
     const counts: { [key: string]: number } = {};
-    data.forEach(item => {
+    data.forEach((item) => {
       const value = item[field] || 'N/A';
       counts[value] = (counts[value] || 0) + 1;
     });
@@ -604,7 +704,7 @@ export class ReportsService {
     const bins = [0, 20, 40, 60, 80, 100];
     const histogram = bins.slice(0, -1).map((bin, index) => ({
       range: `${bin}-${bins[index + 1]}`,
-      count: values.filter(v => v >= bin && v < bins[index + 1]).length
+      count: values.filter((v) => v >= bin && v < bins[index + 1]).length,
     }));
 
     return histogram;
@@ -613,4 +713,4 @@ export class ReportsService {
   private generateId(): string {
     return `report_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   }
-} 
+}

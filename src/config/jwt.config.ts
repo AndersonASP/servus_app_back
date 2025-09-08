@@ -1,10 +1,12 @@
-export const JwtConfig = {
+import { ConfigService } from '@nestjs/config';
+
+export const JwtConfig = (configService: ConfigService) => ({
   access: {
-    secret: process.env.JWT_ACCESS_SECRET || 'default-access-secret-change-in-production',
-    expiresIn: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || '3600'), // 1 hora em segundos
+    secret: configService.get<string>('environment.jwt.accessSecret'),
+    expiresIn: configService.get<number>('environment.jwt.accessExpiresIn'),
   },
   refresh: {
-    secret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret-change-in-production',
-    expiresIn: parseInt(process.env.JWT_REFRESH_EXPIRES_IN || '604800'), // 7 dias em segundos
+    secret: configService.get<string>('environment.jwt.refreshSecret'),
+    expiresIn: configService.get<number>('environment.jwt.refreshExpiresIn'),
   },
-}; 
+});

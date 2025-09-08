@@ -10,7 +10,12 @@ export interface ActivityMetric {
   tenantId: string;
   branchId?: string;
   ministryId?: string;
-  activityType: 'login' | 'profile_update' | 'ministry_join' | 'event_participation' | 'interaction';
+  activityType:
+    | 'login'
+    | 'profile_update'
+    | 'ministry_join'
+    | 'event_participation'
+    | 'interaction';
   description: string;
   metadata: any;
   timestamp: Date;
@@ -52,7 +57,12 @@ export class MetricsService {
     activityType: ActivityMetric['activityType'],
     description: string,
     metadata: any = {},
-    context?: { branchId?: string; ministryId?: string; ipAddress?: string; userAgent?: string }
+    context?: {
+      branchId?: string;
+      ministryId?: string;
+      ipAddress?: string;
+      userAgent?: string;
+    },
   ): Promise<void> {
     const activity: ActivityMetric = {
       id: this.generateId(),
@@ -69,7 +79,9 @@ export class MetricsService {
     };
 
     this.activities.push(activity);
-    console.log(`📊 Atividade registrada: ${activityType} - ${description} para usuário ${userId}`);
+    console.log(
+      `📊 Atividade registrada: ${activityType} - ${description} para usuário ${userId}`,
+    );
 
     // Atualizar métricas de engajamento em tempo real
     await this.updateEngagementMetrics(userId, tenantId);
@@ -79,10 +91,10 @@ export class MetricsService {
   async calculateUserEngagement(
     userId: string,
     tenantId: string,
-    period: 'daily' | 'weekly' | 'monthly' = 'monthly'
+    period: 'daily' | 'weekly' | 'monthly' = 'monthly',
   ): Promise<EngagementMetrics> {
     const cacheKey = `${userId}_${tenantId}_${period}`;
-    
+
     // Verificar cache
     if (this.engagementCache.has(cacheKey)) {
       const cached = this.engagementCache.get(cacheKey)!;
@@ -108,19 +120,22 @@ export class MetricsService {
     }
 
     // Buscar atividades do período
-    const userActivities = this.activities.filter(a => 
-      a.userId === userId && 
-      a.tenantId === tenantId &&
-      a.timestamp >= startDate
+    const userActivities = this.activities.filter(
+      (a) =>
+        a.userId === userId &&
+        a.tenantId === tenantId &&
+        a.timestamp >= startDate,
     );
 
     // Calcular métricas
-    const loginCount = userActivities.filter(a => a.activityType === 'login').length;
-    
+    const loginCount = userActivities.filter(
+      (a) => a.activityType === 'login',
+    ).length;
+
     // Dias únicos com atividade
-    const activeDates = [...new Set(
-      userActivities.map(a => a.timestamp.toDateString())
-    )];
+    const activeDates = [
+      ...new Set(userActivities.map((a) => a.timestamp.toDateString())),
+    ];
     const activeDays = activeDates.length;
 
     // Buscar dados do usuário
@@ -131,24 +146,30 @@ export class MetricsService {
     const interactionScore = this.calculateInteractionScore(userActivities);
 
     // Última atividade
-    const lastActivity = userActivities.length > 0 
-      ? userActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0].timestamp
-      : new Date(0);
+    const lastActivity =
+      userActivities.length > 0
+        ? userActivities.sort(
+            (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
+          )[0].timestamp
+        : new Date(0);
 
     // Duração média de sessão (simulado)
-    const averageSessionDuration = this.calculateAverageSessionDuration(userActivities);
+    const averageSessionDuration =
+      this.calculateAverageSessionDuration(userActivities);
 
     // Ministérios participando
     const memberships = await this.memModel.find({
       user: userId,
       tenant: tenantId,
       isActive: true,
-      ministry: { $exists: true, $ne: null }
+      ministry: { $exists: true, $ne: null },
     });
     const ministriesJoined = memberships.length;
 
     // Eventos participados (simulado)
-    const eventsParticipated = userActivities.filter(a => a.activityType === 'event_participation').length;
+    const eventsParticipated = userActivities.filter(
+      (a) => a.activityType === 'event_participation',
+    ).length;
 
     const metrics: EngagementMetrics = {
       userId,
@@ -176,7 +197,7 @@ export class MetricsService {
   // 📊 Métricas agregadas do tenant
   async getTenantMetrics(
     tenantId: string,
-    period: 'daily' | 'weekly' | 'monthly' = 'monthly'
+    period: 'daily' | 'weekly' | 'monthly' = 'monthly',
   ): Promise<{
     totalUsers: number;
     activeUsers: number;
@@ -205,37 +226,42 @@ export class MetricsService {
     // Total de usuários do tenant
     const totalUsersCount = await this.memModel.countDocuments({
       tenant: tenantId,
-      isActive: true
+      isActive: true,
     });
 
     // Usuários ativos no período
-    const activeUserIds = [...new Set(
-      this.activities
-        .filter(a => a.tenantId === tenantId && a.timestamp >= startDate)
-        .map(a => a.userId)
-    )];
+    const activeUserIds = [
+      ...new Set(
+        this.activities
+          .filter((a) => a.tenantId === tenantId && a.timestamp >= startDate)
+          .map((a) => a.userId),
+      ),
+    ];
     const activeUsers = activeUserIds.length;
 
     // Novos usuários no período
     const newUsersCount = await this.memModel.countDocuments({
       tenant: tenantId,
       isActive: true,
-      createdAt: { $gte: startDate }
+      createdAt: { $gte: startDate },
     });
 
     // Taxa de engajamento
-    const engagementRate = totalUsersCount > 0 ? (activeUsers / totalUsersCount) * 100 : 0;
+    const engagementRate =
+      totalUsersCount > 0 ? (activeUsers / totalUsersCount) * 100 : 0;
 
     // Duração média de sessão do tenant
-    const tenantActivities = this.activities.filter(a => 
-      a.tenantId === tenantId && a.timestamp >= startDate
+    const tenantActivities = this.activities.filter(
+      (a) => a.tenantId === tenantId && a.timestamp >= startDate,
     );
-    const averageSessionDuration = this.calculateAverageSessionDuration(tenantActivities);
+    const averageSessionDuration =
+      this.calculateAverageSessionDuration(tenantActivities);
 
     // Top atividades
     const activityCounts: { [key: string]: number } = {};
-    tenantActivities.forEach(a => {
-      activityCounts[a.activityType] = (activityCounts[a.activityType] || 0) + 1;
+    tenantActivities.forEach((a) => {
+      activityCounts[a.activityType] =
+        (activityCounts[a.activityType] || 0) + 1;
     });
     const topActivities = Object.entries(activityCounts)
       .map(([type, count]) => ({ type, count }))
@@ -264,7 +290,7 @@ export class MetricsService {
   async getBranchMetrics(
     tenantId: string,
     branchId: string,
-    period: 'daily' | 'weekly' | 'monthly' = 'monthly'
+    period: 'daily' | 'weekly' | 'monthly' = 'monthly',
   ): Promise<any> {
     const now = new Date();
     let startDate: Date;
@@ -285,37 +311,48 @@ export class MetricsService {
     const branchMemberships = await this.memModel.find({
       tenant: tenantId,
       branch: branchId,
-      isActive: true
+      isActive: true,
     });
 
-    const branchUserIds = branchMemberships.map(m => m.user.toString());
+    const branchUserIds = branchMemberships.map((m) => m.user.toString());
 
     // Atividades da branch
-    const branchActivities = this.activities.filter(a => 
-      a.tenantId === tenantId && 
-      a.branchId === branchId && 
-      a.timestamp >= startDate
+    const branchActivities = this.activities.filter(
+      (a) =>
+        a.tenantId === tenantId &&
+        a.branchId === branchId &&
+        a.timestamp >= startDate,
     );
 
-    const activeUsers = [...new Set(branchActivities.map(a => a.userId))].length;
+    const activeUsers = [...new Set(branchActivities.map((a) => a.userId))]
+      .length;
     const totalUsers = branchUserIds.length;
-    const engagementRate = totalUsers > 0 ? (activeUsers / totalUsers) * 100 : 0;
+    const engagementRate =
+      totalUsers > 0 ? (activeUsers / totalUsers) * 100 : 0;
 
     return {
       totalUsers,
       activeUsers,
       engagementRate: Math.round(engagementRate * 100) / 100,
       activitiesCount: branchActivities.length,
-      averageSessionDuration: this.calculateAverageSessionDuration(branchActivities),
+      averageSessionDuration:
+        this.calculateAverageSessionDuration(branchActivities),
     };
   }
 
   // 🔄 Atualizar métricas de engajamento
-  private async updateEngagementMetrics(userId: string, tenantId: string): Promise<void> {
+  private async updateEngagementMetrics(
+    userId: string,
+    tenantId: string,
+  ): Promise<void> {
     // Invalidar cache para forçar recálculo
-    const periods: Array<'daily' | 'weekly' | 'monthly'> = ['daily', 'weekly', 'monthly'];
-    
-    periods.forEach(period => {
+    const periods: Array<'daily' | 'weekly' | 'monthly'> = [
+      'daily',
+      'weekly',
+      'monthly',
+    ];
+
+    periods.forEach((period) => {
       const cacheKey = `${userId}_${tenantId}_${period}`;
       this.engagementCache.delete(cacheKey);
     });
@@ -325,8 +362,17 @@ export class MetricsService {
   private calculateProfileCompleteness(user: any): number {
     if (!user) return 0;
 
-    const fields = ['name', 'email', 'phone', 'birthDate', 'address', 'bio', 'skills', 'availability'];
-    const filledFields = fields.filter(field => {
+    const fields = [
+      'name',
+      'email',
+      'phone',
+      'birthDate',
+      'address',
+      'bio',
+      'skills',
+      'availability',
+    ];
+    const filledFields = fields.filter((field) => {
       const value = user[field];
       return value && value !== '' && value !== null && value !== undefined;
     });
@@ -352,10 +398,12 @@ export class MetricsService {
   }
 
   // ⏱️ Calcular duração média de sessão
-  private calculateAverageSessionDuration(activities: ActivityMetric[]): number {
+  private calculateAverageSessionDuration(
+    activities: ActivityMetric[],
+  ): number {
     // Simulação - em produção, rastrear sessões reais
     const sessionDurations = activities
-      .filter(a => a.activityType === 'login')
+      .filter((a) => a.activityType === 'login')
       .map(() => Math.random() * 30 + 5); // 5-35 minutos
 
     if (sessionDurations.length === 0) return 0;
@@ -365,19 +413,22 @@ export class MetricsService {
   }
 
   // 📈 Calcular crescimento de usuários
-  private async calculateUserGrowth(tenantId: string, days: number): Promise<{ date: string; count: number }[]> {
+  private async calculateUserGrowth(
+    tenantId: string,
+    days: number,
+  ): Promise<{ date: string; count: number }[]> {
     const result: { date: string; count: number }[] = [];
-    
+
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dateString = date.toISOString().split('T')[0];
-      
+
       // Contar usuários criados até esta data
       const count = await this.memModel.countDocuments({
         tenant: tenantId,
         isActive: true,
-        createdAt: { $lte: date }
+        createdAt: { $lte: date },
       });
 
       result.push({ date: dateString, count });
@@ -387,25 +438,33 @@ export class MetricsService {
   }
 
   // 📊 Calcular tendências de engajamento
-  private async calculateEngagementTrends(tenantId: string, days: number): Promise<{ date: string; score: number }[]> {
+  private async calculateEngagementTrends(
+    tenantId: string,
+    days: number,
+  ): Promise<{ date: string; score: number }[]> {
     const result: { date: string; score: number }[] = [];
-    
+
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const startOfDay = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+      );
       const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-      
-      const dayActivities = this.activities.filter(a => 
-        a.tenantId === tenantId && 
-        a.timestamp >= startOfDay && 
-        a.timestamp < endOfDay
+
+      const dayActivities = this.activities.filter(
+        (a) =>
+          a.tenantId === tenantId &&
+          a.timestamp >= startOfDay &&
+          a.timestamp < endOfDay,
       );
 
       const score = this.calculateInteractionScore(dayActivities);
-      result.push({ 
-        date: date.toISOString().split('T')[0], 
-        score 
+      result.push({
+        date: date.toISOString().split('T')[0],
+        score,
       });
     }
 
@@ -420,20 +479,26 @@ export class MetricsService {
   // 📋 Listar atividades do usuário
   async getUserActivities(
     userId: string,
-    options: { page: number; limit: number; type?: string; startDate?: Date; endDate?: Date }
+    options: {
+      page: number;
+      limit: number;
+      type?: string;
+      startDate?: Date;
+      endDate?: Date;
+    },
   ): Promise<{ activities: ActivityMetric[]; total: number }> {
-    let filtered = this.activities.filter(a => a.userId === userId);
+    let filtered = this.activities.filter((a) => a.userId === userId);
 
     if (options.type) {
-      filtered = filtered.filter(a => a.activityType === options.type);
+      filtered = filtered.filter((a) => a.activityType === options.type);
     }
 
     if (options.startDate) {
-      filtered = filtered.filter(a => a.timestamp >= options.startDate!);
+      filtered = filtered.filter((a) => a.timestamp >= options.startDate!);
     }
 
     if (options.endDate) {
-      filtered = filtered.filter(a => a.timestamp <= options.endDate!);
+      filtered = filtered.filter((a) => a.timestamp <= options.endDate!);
     }
 
     // Ordenar por data decrescente
@@ -448,4 +513,4 @@ export class MetricsService {
       total: filtered.length,
     };
   }
-} 
+}

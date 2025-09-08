@@ -24,6 +24,7 @@ import { SelfRegistrationDto } from '../DTO/self-registration.dto';
 import { CompleteProfileDto } from '../DTO/complete-profile.dto';
 import { ExportService } from './export.service';
 import { NotificationService } from 'src/modules/notifications/services/notification.service';
+import { EmailService } from 'src/modules/notifications/services/email.service';
 import { Ministry } from 'src/modules/ministries/schemas/ministry.schema';
 
 // Interfaces para resolver problemas de tipagem com populate
@@ -77,11 +78,17 @@ export class UsersService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     exportService: ExportService,
     private readonly notificationService: NotificationService,
+    private readonly emailService: EmailService,
   ) {
     this.exportService = exportService;
   }
 
-  async create(createUserDto: CreateUserDto, createdBy: string, tenantId?: string, branchId?: string) {
+  async create(
+    createUserDto: CreateUserDto,
+    createdBy: string,
+    tenantId?: string,
+    branchId?: string,
+  ) {
     try {
       // ✅ Se não for superadmin, obrigar tenantId
       if (createUserDto.role !== Role.ServusAdmin && !tenantId) {
@@ -141,14 +148,12 @@ export class UsersService {
 
         await session.commitTransaction();
         return savedUser;
-
       } catch (error) {
         await session.abortTransaction();
         throw error;
       } finally {
         session.endSession();
       }
-
     } catch (error) {
       console.error('Erro ao criar usuário:', error.message);
       if (
@@ -173,18 +178,18 @@ export class UsersService {
     },
     createdBy: string,
     creatorRole: Role,
-    creatorMemberships: any[]
+    creatorMemberships: any[],
   ) {
     // Verificar permissões baseado na hierarquia
     const canCreate = this.validateUserCreationPermission(
       creatorRole,
       creatorMemberships,
-      membershipData
+      membershipData,
     );
 
     if (!canCreate) {
       throw new ForbiddenException(
-        'Você não tem permissão para criar usuários neste contexto'
+        'Você não tem permissão para criar usuários neste contexto',
       );
     }
 
@@ -193,7 +198,7 @@ export class UsersService {
 
     // Verificar se usuário já existe
     const existingUser = await this.userModel.findOne({
-      email: userData.email.toLowerCase().trim()
+      email: userData.email.toLowerCase().trim(),
     });
 
     if (existingUser) {
@@ -242,18 +247,61 @@ export class UsersService {
         await this.notificationService.notifyNewUser(
           savedUser,
           savedMembership,
-          createdBy
+          createdBy,
         );
       } catch (notificationError) {
-        console.error('❌ Erro ao enviar notificação:', notificationError.message);
+        console.error(
+          '❌ Erro ao enviar notificação:',
+          notificationError.message,
+        );
         // Não falhar a criação do usuário por erro de notificação
+      }
+
+      // 📧 Enviar email com credenciais se o usuário tem email
+      if (userData.email) {
+        try {
+          // Buscar informações do tenant
+          const tenant = await this.tenantModel.findById(membershipData.tenantId).select('name');
+          const tenantName = tenant?.name || 'Igreja';
+
+          // Buscar informações da branch se existir
+          let branchName: string | undefined;
+          if (membershipData.branchId) {
+            const branch = await this.branchModel.findById(membershipData.branchId).select('name');
+            branchName = branch?.name;
+          }
+
+          // Buscar informações do ministry se existir
+          let ministryName: string | undefined;
+          if (membershipData.ministryId) {
+            const ministry = await this.ministryModel.findById(membershipData.ministryId).select('name');
+            ministryName = ministry?.name;
+          }
+
+          await this.emailService.sendUserCredentials(
+            userData.email,
+            userData.name,
+            tenantName,
+            userData.password || 'temp123', // Senha fornecida ou temporária
+            membershipData.role,
+            branchName,
+            ministryName,
+          );
+          console.log(`✅ Email de credenciais enviado para ${userData.email}`);
+        } catch (emailError) {
+          console.error('❌ Erro ao enviar email de credenciais:', emailError);
+          // Não falhar a criação do usuário por erro de email
+        }
       }
 
       // 🧹 Limpar cache relacionado
       try {
         await this.clearTenantCache(membershipData.tenantId);
         if (membershipData.branchId) {
-          await this.clearBranchCache(membershipData.tenantId, membershipData.branchId);
+          await this.clearBranchCache(
+            membershipData.tenantId,
+            membershipData.branchId,
+          );
         }
       } catch (cacheError) {
         console.error('❌ Erro ao limpar cache:', cacheError.message);
@@ -266,7 +314,6 @@ export class UsersService {
         user: savedUser,
         membership: savedMembership,
       };
-
     } catch (error) {
       await session.abortTransaction();
       session.endSession();
@@ -279,7 +326,7 @@ export class UsersService {
   private validateUserCreationPermission(
     creatorRole: Role,
     creatorMemberships: any[],
-    membershipData: any
+    membershipData: any,
   ): { allowed: boolean; reason?: string } {
     // ServusAdmin pode criar qualquer um
     if (creatorRole === Role.ServusAdmin) {
@@ -287,37 +334,57 @@ export class UsersService {
     }
 
     // TenantAdmin pode criar: BranchAdmin, Leader, Volunteer
-    const isTenantAdmin = creatorMemberships.some(m =>
-      m.tenant.toString() === membershipData.tenantId &&
-      m.role === MembershipRole.TenantAdmin
+    const isTenantAdmin = creatorMemberships.some(
+      (m) =>
+        m.tenant.toString() === membershipData.tenantId &&
+        m.role === MembershipRole.TenantAdmin,
     );
 
     if (isTenantAdmin) {
-      if ([MembershipRole.BranchAdmin, MembershipRole.Leader, MembershipRole.Volunteer].includes(membershipData.role)) {
+      if (
+        [
+          MembershipRole.BranchAdmin,
+          MembershipRole.Leader,
+          MembershipRole.Volunteer,
+        ].includes(membershipData.role)
+      ) {
         return { allowed: true };
       }
-      return { allowed: false, reason: 'TenantAdmin não pode criar outros TenantAdmins' };
+      return {
+        allowed: false,
+        reason: 'TenantAdmin não pode criar outros TenantAdmins',
+      };
     }
 
     // BranchAdmin pode criar: Leader, Volunteer (apenas na sua branch)
-    const isBranchAdmin = creatorMemberships.some(m =>
-      m.tenant.toString() === membershipData.tenantId &&
-      m.branch?.toString() === membershipData.branchId &&
-      m.role === MembershipRole.BranchAdmin
+    const isBranchAdmin = creatorMemberships.some(
+      (m) =>
+        m.tenant.toString() === membershipData.tenantId &&
+        m.branch?.toString() === membershipData.branchId &&
+        m.role === MembershipRole.BranchAdmin,
     );
 
     if (isBranchAdmin) {
-      if ([MembershipRole.Leader, MembershipRole.Volunteer].includes(membershipData.role)) {
+      if (
+        [MembershipRole.Leader, MembershipRole.Volunteer].includes(
+          membershipData.role,
+        )
+      ) {
         return { allowed: true };
       }
-      return { allowed: false, reason: 'BranchAdmin não pode criar BranchAdmins ou TenantAdmins' };
+      return {
+        allowed: false,
+        reason: 'BranchAdmin não pode criar BranchAdmins ou TenantAdmins',
+      };
     }
 
     // Leader pode criar: Volunteer (apenas no seu ministry/branch)
-    const isLeader = creatorMemberships.some(m =>
-      m.tenant.toString() === membershipData.tenantId &&
-      (!membershipData.branchId || m.branch?.toString() === membershipData.branchId) &&
-      m.role === MembershipRole.Leader
+    const isLeader = creatorMemberships.some(
+      (m) =>
+        m.tenant.toString() === membershipData.tenantId &&
+        (!membershipData.branchId ||
+          m.branch?.toString() === membershipData.branchId) &&
+        m.role === MembershipRole.Leader,
     );
 
     if (isLeader) {
@@ -327,32 +394,46 @@ export class UsersService {
       return { allowed: false, reason: 'Leader só pode criar Volunteers' };
     }
 
-    return { allowed: false, reason: 'Sem permissão para criar usuários neste contexto' };
+    return {
+      allowed: false,
+      reason: 'Sem permissão para criar usuários neste contexto',
+    };
   }
 
   // 🔍 Validar contexto do membership (branch/ministry coerente)
   private async validateMembershipContext(
     membershipData: any,
-    creatorMemberships: any[]
+    creatorMemberships: any[],
   ): Promise<{ valid: boolean; reason?: string }> {
     // Verificar se tenant existe
-    const tenant = await this.tenantModel.findOne({ tenantId: membershipData.tenantId }).lean() as unknown as LeanTenant;
+    const tenant = (await this.tenantModel
+      .findOne({ tenantId: membershipData.tenantId })
+      .lean()) as unknown as LeanTenant;
     if (!tenant) {
       return { valid: false, reason: 'Tenant não encontrado' };
     }
 
     // Se branchId foi fornecido, validar se pertence ao tenant
     if (membershipData.branchId) {
-      const branch = await this.branchModel.findOne({ branchId: membershipData.branchId }).lean() as unknown as LeanBranch;
+      const branch = (await this.branchModel
+        .findOne({ branchId: membershipData.branchId })
+        .lean()) as unknown as LeanBranch;
       if (!branch || branch.tenant.toString() !== tenant._id.toString()) {
-        return { valid: false, reason: 'Branch não encontrada ou não pertence ao tenant' };
+        return {
+          valid: false,
+          reason: 'Branch não encontrada ou não pertence ao tenant',
+        };
       }
 
       // Verificar se o criador tem acesso a essa branch
-      const hasBranchAccess = creatorMemberships.some(m =>
-        (m.tenant as PopulatedTenant)._id.toString() === tenant._id.toString() &&
-        (m.role === MembershipRole.TenantAdmin || 
-         (m.branch && (m.branch as PopulatedBranch)._id.toString() === branch._id.toString()))
+      const hasBranchAccess = creatorMemberships.some(
+        (m) =>
+          (m.tenant as PopulatedTenant)._id.toString() ===
+            tenant._id.toString() &&
+          (m.role === MembershipRole.TenantAdmin ||
+            (m.branch &&
+              (m.branch as PopulatedBranch)._id.toString() ===
+                branch._id.toString())),
       );
 
       if (!hasBranchAccess) {
@@ -388,21 +469,35 @@ export class UsersService {
   async listUsersByRole(
     tenantId: string,
     role: MembershipRole,
-    options: { page: number; limit: number; search?: string; branchId?: string },
-    currentUser: any
+    options: {
+      page: number;
+      limit: number;
+      search?: string;
+      branchId?: string;
+    },
+    currentUser: any,
   ) {
     // Verificar se tenant existe
-    const tenant = await this.tenantModel.findOne({ tenantId }).lean() as unknown as LeanTenant;
+    const tenant = (await this.tenantModel
+      .findOne({ tenantId })
+      .lean()) as unknown as LeanTenant;
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
     }
 
     // Verificar se usuário tem permissão para ver este tenant
-    const canViewTenant = currentUser.role === Role.ServusAdmin ||
-      await this.hasMembershipInTenant(currentUser._id, tenant._id.toString(), [MembershipRole.TenantAdmin]);
+    const canViewTenant =
+      currentUser.role === Role.ServusAdmin ||
+      (await this.hasMembershipInTenant(
+        currentUser._id,
+        tenant._id.toString(),
+        [MembershipRole.TenantAdmin],
+      ));
 
     if (!canViewTenant) {
-      throw new ForbiddenException('Sem permissão para visualizar usuários deste tenant');
+      throw new ForbiddenException(
+        'Sem permissão para visualizar usuários deste tenant',
+      );
     }
 
     // Construir filtros baseados na role e opções
@@ -414,9 +509,13 @@ export class UsersService {
 
     // Filtrar por branch se especificado
     if (options.branchId) {
-      const branch = await this.branchModel.findOne({ branchId: options.branchId }).lean() as unknown as LeanBranch;
+      const branch = (await this.branchModel
+        .findOne({ branchId: options.branchId })
+        .lean()) as unknown as LeanBranch;
       if (!branch || branch.tenant.toString() !== tenant._id.toString()) {
-        throw new BadRequestException('Branch não encontrada ou não pertence ao tenant');
+        throw new BadRequestException(
+          'Branch não encontrada ou não pertence ao tenant',
+        );
       }
       filters['memberships.branch'] = branch._id;
     }
@@ -429,8 +528,8 @@ export class UsersService {
           from: 'users',
           localField: 'user',
           foreignField: '_id',
-          as: 'userData'
-        }
+          as: 'userData',
+        },
       },
       { $unwind: '$userData' },
       {
@@ -438,8 +537,8 @@ export class UsersService {
           from: 'branches',
           localField: 'branch',
           foreignField: '_id',
-          as: 'branchData'
-        }
+          as: 'branchData',
+        },
       },
       { $unwind: { path: '$branchData', preserveNullAndEmptyArrays: true } },
       {
@@ -447,8 +546,8 @@ export class UsersService {
           from: 'ministries',
           localField: 'ministry',
           foreignField: '_id',
-          as: 'ministryData'
-        }
+          as: 'ministryData',
+        },
       },
       { $unwind: { path: '$ministryData', preserveNullAndEmptyArrays: true } },
       {
@@ -464,10 +563,10 @@ export class UsersService {
             role: '$role',
             branch: '$branchData',
             ministry: '$ministryData',
-            isActive: '$isActive'
-          }
-        }
-      }
+            isActive: '$isActive',
+          },
+        },
+      },
     ]);
 
     // Aplicar busca por texto se especificado
@@ -475,15 +574,15 @@ export class UsersService {
       query.match({
         $or: [
           { name: { $regex: options.search, $options: 'i' } },
-          { email: { $regex: options.search, $options: 'i' } }
-        ]
+          { email: { $regex: options.search, $options: 'i' } },
+        ],
       });
     }
 
     // Contar total para paginação
     const totalQuery = this.memModel.aggregate([
       { $match: filters },
-      { $count: 'total' }
+      { $count: 'total' },
     ]);
 
     const [totalResult] = await totalQuery;
@@ -499,8 +598,8 @@ export class UsersService {
         page: options.page,
         limit: options.limit,
         total,
-        pages: Math.ceil(total / options.limit)
-      }
+        pages: Math.ceil(total / options.limit),
+      },
     };
   }
 
@@ -509,31 +608,50 @@ export class UsersService {
     tenantId: string,
     branchId: string,
     role: MembershipRole,
-    options: { page: number; limit: number; search?: string; ministryId?: string },
-    currentUser: any
+    options: {
+      page: number;
+      limit: number;
+      search?: string;
+      ministryId?: string;
+    },
+    currentUser: any,
   ) {
     // Verificar se tenant e branch existem
-    const tenant = await this.tenantModel.findOne({ tenantId }).lean() as unknown as LeanTenant;
+    const tenant = (await this.tenantModel
+      .findOne({ tenantId })
+      .lean()) as unknown as LeanTenant;
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
     }
 
-    const branch = await this.branchModel.findOne({ branchId }).lean() as unknown as LeanBranch;
+    const branch = (await this.branchModel
+      .findOne({ branchId })
+      .lean()) as unknown as LeanBranch;
     if (!branch) {
       throw new NotFoundException('Branch não encontrada');
     }
 
     // Verificar se branch pertence ao tenant
     if (branch.tenant.toString() !== tenant._id.toString()) {
-      throw new BadRequestException('Branch não pertence ao tenant especificado');
+      throw new BadRequestException(
+        'Branch não pertence ao tenant especificado',
+      );
     }
 
     // Verificar se usuário tem permissão para ver esta branch
-    const canViewBranch = currentUser.role === Role.ServusAdmin ||
-      await this.hasMembershipInBranch(currentUser._id, tenant._id.toString(), branch._id.toString(), [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin]);
+    const canViewBranch =
+      currentUser.role === Role.ServusAdmin ||
+      (await this.hasMembershipInBranch(
+        currentUser._id,
+        tenant._id.toString(),
+        branch._id.toString(),
+        [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin],
+      ));
 
     if (!canViewBranch) {
-      throw new ForbiddenException('Sem permissão para visualizar usuários desta branch');
+      throw new ForbiddenException(
+        'Sem permissão para visualizar usuários desta branch',
+      );
     }
 
     // Construir filtros
@@ -557,8 +675,8 @@ export class UsersService {
           from: 'users',
           localField: 'user',
           foreignField: '_id',
-          as: 'userData'
-        }
+          as: 'userData',
+        },
       },
       { $unwind: '$userData' },
       {
@@ -566,8 +684,8 @@ export class UsersService {
           from: 'ministries',
           localField: 'ministry',
           foreignField: '_id',
-          as: 'ministryData'
-        }
+          as: 'ministryData',
+        },
       },
       { $unwind: { path: '$ministryData', preserveNullAndEmptyArrays: true } },
       {
@@ -582,10 +700,10 @@ export class UsersService {
             _id: '$_id',
             role: '$role',
             ministry: '$ministryData',
-            isActive: '$isActive'
-          }
-        }
-      }
+            isActive: '$isActive',
+          },
+        },
+      },
     ]);
 
     // Aplicar busca por texto se especificado
@@ -593,15 +711,15 @@ export class UsersService {
       query.match({
         $or: [
           { name: { $regex: options.search, $options: 'i' } },
-          { email: { $regex: options.search, $options: 'i' } }
-        ]
+          { email: { $regex: options.search, $options: 'i' } },
+        ],
       });
     }
 
     // Contar total para paginação
     const totalQuery = this.memModel.aggregate([
       { $match: filters },
-      { $count: 'total' }
+      { $count: 'total' },
     ]);
 
     const [totalResult] = await totalQuery;
@@ -617,8 +735,8 @@ export class UsersService {
         page: options.page,
         limit: options.limit,
         total,
-        pages: Math.ceil(total / options.limit)
-      }
+        pages: Math.ceil(total / options.limit),
+      },
     };
   }
 
@@ -626,11 +744,18 @@ export class UsersService {
   async listVolunteersByMinistry(
     tenantId: string,
     ministryId: string,
-    options: { page: number; limit: number; search?: string; branchId?: string },
-    currentUser: any
+    options: {
+      page: number;
+      limit: number;
+      search?: string;
+      branchId?: string;
+    },
+    currentUser: any,
   ) {
     // Verificar se tenant e ministry existem
-    const tenant = await this.tenantModel.findOne({ tenantId }).lean() as unknown as LeanTenant;
+    const tenant = (await this.tenantModel
+      .findOne({ tenantId })
+      .lean()) as unknown as LeanTenant;
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
     }
@@ -642,15 +767,29 @@ export class UsersService {
 
     // Verificar se ministry pertence ao tenant
     if (ministry.tenantId !== tenant.tenantId) {
-      throw new BadRequestException('Ministry não pertence ao tenant especificado');
+      throw new BadRequestException(
+        'Ministry não pertence ao tenant especificado',
+      );
     }
 
     // Verificar se usuário tem permissão para ver este ministry
-    const canViewMinistry = currentUser.role === Role.ServusAdmin ||
-      await this.hasMembershipInMinistry(currentUser._id, tenant._id.toString(), ministryId, [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin, MembershipRole.Leader]);
+    const canViewMinistry =
+      currentUser.role === Role.ServusAdmin ||
+      (await this.hasMembershipInMinistry(
+        currentUser._id,
+        tenant._id.toString(),
+        ministryId,
+        [
+          MembershipRole.TenantAdmin,
+          MembershipRole.BranchAdmin,
+          MembershipRole.Leader,
+        ],
+      ));
 
     if (!canViewMinistry) {
-      throw new ForbiddenException('Sem permissão para visualizar voluntários deste ministry');
+      throw new ForbiddenException(
+        'Sem permissão para visualizar voluntários deste ministry',
+      );
     }
 
     // Construir filtros
@@ -663,9 +802,13 @@ export class UsersService {
 
     // Filtrar por branch se especificado
     if (options.branchId) {
-      const branch = await this.branchModel.findOne({ branchId: options.branchId }).lean() as unknown as LeanBranch;
+      const branch = (await this.branchModel
+        .findOne({ branchId: options.branchId })
+        .lean()) as unknown as LeanBranch;
       if (!branch || branch.tenant.toString() !== tenant._id.toString()) {
-        throw new BadRequestException('Branch não encontrada ou não pertence ao tenant');
+        throw new BadRequestException(
+          'Branch não encontrada ou não pertence ao tenant',
+        );
       }
       filters['memberships.branch'] = branch._id;
     }
@@ -678,8 +821,8 @@ export class UsersService {
           from: 'users',
           localField: 'user',
           foreignField: '_id',
-          as: 'userData'
-        }
+          as: 'userData',
+        },
       },
       { $unwind: '$userData' },
       {
@@ -687,8 +830,8 @@ export class UsersService {
           from: 'branches',
           localField: 'branch',
           foreignField: '_id',
-          as: 'branchData'
-        }
+          as: 'branchData',
+        },
       },
       { $unwind: { path: '$branchData', preserveNullAndEmptyArrays: true } },
       {
@@ -704,10 +847,10 @@ export class UsersService {
           membership: {
             _id: '$_id',
             branch: '$branchData',
-            isActive: '$isActive'
-          }
-        }
-      }
+            isActive: '$isActive',
+          },
+        },
+      },
     ]);
 
     // Aplicar busca por texto se especificado
@@ -715,15 +858,15 @@ export class UsersService {
       query.match({
         $or: [
           { name: { $regex: options.search, $options: 'i' } },
-          { email: { $regex: options.search, $options: 'i' } }
-        ]
+          { email: { $regex: options.search, $options: 'i' } },
+        ],
       });
     }
 
     // Contar total para paginação
     const totalQuery = this.memModel.aggregate([
       { $match: filters },
-      { $count: 'total' }
+      { $count: 'total' },
     ]);
 
     const [totalResult] = await totalQuery;
@@ -739,30 +882,39 @@ export class UsersService {
         page: options.page,
         limit: options.limit,
         total,
-        pages: Math.ceil(total / options.limit)
-      }
+        pages: Math.ceil(total / options.limit),
+      },
     };
   }
 
   // 🔎 Dashboard de usuários por tenant (TenantAdmin) - COM CACHE
   async getUsersDashboard(tenantId: string, currentUser: any) {
     // Verificar se tenant existe
-    const tenant = await this.tenantModel.findOne({ tenantId }).lean() as unknown as LeanTenant;
+    const tenant = (await this.tenantModel
+      .findOne({ tenantId })
+      .lean()) as unknown as LeanTenant;
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
     }
 
     // Verificar permissão
-    const canViewTenant = currentUser.role === Role.ServusAdmin ||
-      await this.hasMembershipInTenant(currentUser._id, tenant._id.toString(), [MembershipRole.TenantAdmin]);
+    const canViewTenant =
+      currentUser.role === Role.ServusAdmin ||
+      (await this.hasMembershipInTenant(
+        currentUser._id,
+        tenant._id.toString(),
+        [MembershipRole.TenantAdmin],
+      ));
 
     if (!canViewTenant) {
-      throw new ForbiddenException('Sem permissão para visualizar dashboard deste tenant');
+      throw new ForbiddenException(
+        'Sem permissão para visualizar dashboard deste tenant',
+      );
     }
 
     // Chave de cache única para o dashboard
     const cacheKey = `dashboard:tenant:${tenantId}`;
-    
+
     // Tentar buscar do cache primeiro
     const cachedData = await this.cacheManager.get(cacheKey);
     if (cachedData) {
@@ -770,22 +922,24 @@ export class UsersService {
       return cachedData;
     }
 
-    console.log(`🔄 Dashboard cache miss para tenant: ${tenantId} - gerando dados...`);
+    console.log(
+      `🔄 Dashboard cache miss para tenant: ${tenantId} - gerando dados...`,
+    );
 
     // Estatísticas por role
     const statsByRole = await this.memModel.aggregate([
       {
         $match: {
           tenant: tenant._id, // Usar o _id do tenant encontrado
-          isActive: true
-        }
+          isActive: true,
+        },
       },
       {
         $group: {
           _id: '$role',
-          count: { $sum: 1 }
-        }
-      }
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
     // Estatísticas por branch
@@ -794,16 +948,16 @@ export class UsersService {
         $match: {
           tenant: tenant._id, // Usar o _id do tenant encontrado
           isActive: true,
-          branch: { $exists: true, $ne: null }
-        }
+          branch: { $exists: true, $ne: null },
+        },
       },
       {
         $lookup: {
           from: 'branches',
           localField: 'branch',
           foreignField: '_id',
-          as: 'branchData'
-        }
+          as: 'branchData',
+        },
       },
       { $unwind: '$branchData' },
       {
@@ -811,9 +965,9 @@ export class UsersService {
           _id: '$branchData.name',
           branchId: { $first: '$branchData._id' },
           totalUsers: { $sum: 1 },
-          roles: { $addToSet: '$role' }
-        }
-      }
+          roles: { $addToSet: '$role' },
+        },
+      },
     ]);
 
     // Usuários recentes (últimos 7 dias)
@@ -822,16 +976,16 @@ export class UsersService {
         $match: {
           tenant: tenant._id, // Usar o _id do tenant encontrado
           isActive: true,
-          createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
-        }
+          createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        },
       },
       {
         $lookup: {
           from: 'users',
           localField: 'user',
           foreignField: '_id',
-          as: 'userData'
-        }
+          as: 'userData',
+        },
       },
       { $unwind: '$userData' },
       {
@@ -839,11 +993,11 @@ export class UsersService {
           name: '$userData.name',
           email: '$userData.email',
           role: '$role',
-          createdAt: '$createdAt'
-        }
+          createdAt: '$createdAt',
+        },
       },
       { $sort: { createdAt: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
     ]);
 
     const result = {
@@ -851,11 +1005,11 @@ export class UsersService {
       stats: {
         byRole: statsByRole,
         byBranch: statsByBranch,
-        totalUsers: statsByRole.reduce((sum, stat) => sum + stat.count, 0)
+        totalUsers: statsByRole.reduce((sum, stat) => sum + stat.count, 0),
       },
       recentUsers,
       cachedAt: new Date().toISOString(),
-      cacheKey
+      cacheKey,
     };
 
     // Salvar no cache por 5 minutos
@@ -866,42 +1020,64 @@ export class UsersService {
   }
 
   // 🔎 Dashboard de usuários por branch (BranchAdmin) - COM CACHE
-  async getBranchUsersDashboard(tenantId: string, branchId: string, currentUser: any) {
+  async getBranchUsersDashboard(
+    tenantId: string,
+    branchId: string,
+    currentUser: any,
+  ) {
     // Verificar se tenant e branch existem
-    const tenant = await this.tenantModel.findOne({ tenantId }).lean() as unknown as LeanTenant;
+    const tenant = (await this.tenantModel
+      .findOne({ tenantId })
+      .lean()) as unknown as LeanTenant;
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
     }
 
-    const branch = await this.branchModel.findOne({ branchId }).lean() as unknown as LeanBranch;
+    const branch = (await this.branchModel
+      .findOne({ branchId })
+      .lean()) as unknown as LeanBranch;
     if (!branch) {
       throw new NotFoundException('Branch não encontrada');
     }
 
     // Verificar se branch pertence ao tenant
     if (branch.tenant.toString() !== tenant._id.toString()) {
-      throw new BadRequestException('Branch não pertence ao tenant especificado');
+      throw new BadRequestException(
+        'Branch não pertence ao tenant especificado',
+      );
     }
 
     // Verificar permissão
-    const canViewBranch = currentUser.role === Role.ServusAdmin ||
-      await this.hasMembershipInBranch(currentUser._id, tenant._id.toString(), branch._id.toString(), [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin]);
+    const canViewBranch =
+      currentUser.role === Role.ServusAdmin ||
+      (await this.hasMembershipInBranch(
+        currentUser._id,
+        tenant._id.toString(),
+        branch._id.toString(),
+        [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin],
+      ));
 
     if (!canViewBranch) {
-      throw new ForbiddenException('Sem permissão para visualizar dashboard desta branch');
+      throw new ForbiddenException(
+        'Sem permissão para visualizar dashboard desta branch',
+      );
     }
 
     // Chave de cache única para o dashboard da branch
     const cacheKey = `dashboard:branch:${tenantId}:${branchId}`;
-    
+
     // Tentar buscar do cache primeiro
     const cachedData = await this.cacheManager.get(cacheKey);
     if (cachedData) {
-      console.log(`✅ Branch dashboard cache hit para: ${tenantId}/${branchId}`);
+      console.log(
+        `✅ Branch dashboard cache hit para: ${tenantId}/${branchId}`,
+      );
       return cachedData;
     }
 
-    console.log(`🔄 Branch dashboard cache miss para: ${tenantId}/${branchId} - gerando dados...`);
+    console.log(
+      `🔄 Branch dashboard cache miss para: ${tenantId}/${branchId} - gerando dados...`,
+    );
 
     // Estatísticas por role na branch
     const statsByRole = await this.memModel.aggregate([
@@ -909,15 +1085,15 @@ export class UsersService {
         $match: {
           tenant: tenant._id, // Usar o _id do tenant encontrado
           branch: branch._id, // Usar o _id da branch encontrada
-          isActive: true
-        }
+          isActive: true,
+        },
       },
       {
         $group: {
           _id: '$role',
-          count: { $sum: 1 }
-        }
-      }
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
     // Estatísticas por ministry na branch
@@ -927,16 +1103,16 @@ export class UsersService {
           tenant: tenant._id, // Usar o _id do tenant encontrado
           branch: branch._id, // Usar o _id da branch encontrada
           isActive: true,
-          ministry: { $exists: true, $ne: null }
-        }
+          ministry: { $exists: true, $ne: null },
+        },
       },
       {
         $lookup: {
           from: 'ministries',
           localField: 'ministry',
           foreignField: '_id',
-          as: 'ministryData'
-        }
+          as: 'ministryData',
+        },
       },
       { $unwind: '$ministryData' },
       {
@@ -944,9 +1120,9 @@ export class UsersService {
           _id: '$ministryData.name',
           ministryId: { $first: '$ministryData._id' },
           totalUsers: { $sum: 1 },
-          roles: { $addToSet: '$role' }
-        }
-      }
+          roles: { $addToSet: '$role' },
+        },
+      },
     ]);
 
     // Usuários recentes na branch
@@ -956,16 +1132,16 @@ export class UsersService {
           tenant: tenant._id, // Usar o _id do tenant encontrado
           branch: branch._id, // Usar o _id da branch encontrada
           isActive: true,
-          createdAt: { $gte: new Date(Date.now() - 7 * 60 * 60 * 1000) }
-        }
+          createdAt: { $gte: new Date(Date.now() - 7 * 60 * 60 * 1000) },
+        },
       },
       {
         $lookup: {
           from: 'users',
           localField: 'user',
           foreignField: '_id',
-          as: 'userData'
-        }
+          as: 'userData',
+        },
       },
       { $unwind: '$userData' },
       {
@@ -974,11 +1150,11 @@ export class UsersService {
           email: '$userData.email',
           role: '$role',
           ministry: '$ministry',
-          createdAt: '$createdAt'
-        }
+          createdAt: '$createdAt',
+        },
       },
       { $sort: { createdAt: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
     ]);
 
     const result = {
@@ -987,16 +1163,18 @@ export class UsersService {
       stats: {
         byRole: statsByRole,
         byMinistry: statsByMinistry,
-        totalUsers: statsByRole.reduce((sum, stat) => sum + stat.count, 0)
+        totalUsers: statsByRole.reduce((sum, stat) => sum + stat.count, 0),
       },
       recentUsers,
       cachedAt: new Date().toISOString(),
-      cacheKey
+      cacheKey,
     };
 
     // Salvar no cache por 5 minutos
     await this.cacheManager.set(cacheKey, result, 300);
-    console.log(`💾 Branch dashboard salvo no cache para: ${tenantId}/${branchId}`);
+    console.log(
+      `💾 Branch dashboard salvo no cache para: ${tenantId}/${branchId}`,
+    );
 
     return result;
   }
@@ -1005,7 +1183,7 @@ export class UsersService {
   async searchUsers(
     searchTerm: string,
     options: { page: number; limit: number },
-    currentUser: any
+    currentUser: any,
   ) {
     // Determinar escopo baseado na role do usuário
     let scopeFilter: any = {};
@@ -1016,9 +1194,9 @@ export class UsersService {
     } else {
       // Outros usuários só podem buscar no seu escopo
       const memberships = await this.getUserMemberships(currentUser._id);
-      
+
       if (memberships.length > 0) {
-        const tenantIds = memberships.map(m => (m.tenant as any)._id);
+        const tenantIds = memberships.map((m) => (m.tenant as any)._id);
         scopeFilter = { 'memberships.tenant': { $in: tenantIds } };
       }
     }
@@ -1031,25 +1209,25 @@ export class UsersService {
           from: 'users',
           localField: 'user',
           foreignField: '_id',
-          as: 'userData'
-        }
+          as: 'userData',
+        },
       },
       { $unwind: '$userData' },
       {
         $match: {
           $or: [
             { 'userData.name': { $regex: searchTerm, $options: 'i' } },
-            { 'userData.email': { $regex: searchTerm, $options: 'i' } }
-          ]
-        }
+            { 'userData.email': { $regex: searchTerm, $options: 'i' } },
+          ],
+        },
       },
       {
         $lookup: {
           from: 'branches',
           localField: 'branch',
           foreignField: '_id',
-          as: 'branchData'
-        }
+          as: 'branchData',
+        },
       },
       { $unwind: { path: '$branchData', preserveNullAndEmptyArrays: true } },
       {
@@ -1057,8 +1235,8 @@ export class UsersService {
           from: 'ministries',
           localField: 'ministry',
           foreignField: '_id',
-          as: 'ministryData'
-        }
+          as: 'ministryData',
+        },
       },
       { $unwind: { path: '$ministryData', preserveNullAndEmptyArrays: true } },
       {
@@ -1073,10 +1251,10 @@ export class UsersService {
             role: '$role',
             branch: '$branchData',
             ministry: '$ministryData',
-            isActive: '$isActive'
-          }
-        }
-      }
+            isActive: '$isActive',
+          },
+        },
+      },
     ]);
 
     // Contar total para paginação
@@ -1087,19 +1265,19 @@ export class UsersService {
           from: 'users',
           localField: 'user',
           foreignField: '_id',
-          as: 'userData'
-        }
+          as: 'userData',
+        },
       },
       { $unwind: '$userData' },
       {
         $match: {
           $or: [
             { 'userData.name': { $regex: searchTerm, $options: 'i' } },
-            { 'userData.email': { $regex: searchTerm, $options: 'i' } }
-          ]
-        }
+            { 'userData.email': { $regex: searchTerm, $options: 'i' } },
+          ],
+        },
       },
-      { $count: 'total' }
+      { $count: 'total' },
     ]);
 
     const [totalResult] = await totalQuery;
@@ -1116,8 +1294,8 @@ export class UsersService {
         page: options.page,
         limit: options.limit,
         total,
-        pages: Math.ceil(total / options.limit)
-      }
+        pages: Math.ceil(total / options.limit),
+      },
     };
   }
 
@@ -1126,36 +1304,50 @@ export class UsersService {
   // ========================================
 
   // Verificar se usuário tem membership em um tenant
-  private async hasMembershipInTenant(userId: string, tenantId: string, roles: MembershipRole[]): Promise<boolean> {
+  private async hasMembershipInTenant(
+    userId: string,
+    tenantId: string,
+    roles: MembershipRole[],
+  ): Promise<boolean> {
     const membership = await this.memModel.findOne({
       user: userId,
       tenant: tenantId,
       role: { $in: roles },
-      isActive: true
+      isActive: true,
     });
     return !!membership;
   }
 
   // Verificar se usuário tem membership em uma branch
-  private async hasMembershipInBranch(userId: string, tenantId: string, branchId: string, roles: MembershipRole[]): Promise<boolean> {
+  private async hasMembershipInBranch(
+    userId: string,
+    tenantId: string,
+    branchId: string,
+    roles: MembershipRole[],
+  ): Promise<boolean> {
     const membership = await this.memModel.findOne({
       user: userId,
       tenant: tenantId,
       branch: branchId,
       role: { $in: roles },
-      isActive: true
+      isActive: true,
     });
     return !!membership;
   }
 
   // Verificar se usuário tem membership em um ministry
-  private async hasMembershipInMinistry(userId: string, tenantId: string, ministryId: string, roles: MembershipRole[]): Promise<boolean> {
+  private async hasMembershipInMinistry(
+    userId: string,
+    tenantId: string,
+    ministryId: string,
+    roles: MembershipRole[],
+  ): Promise<boolean> {
     const membership = await this.memModel.findOne({
       user: userId,
       tenant: tenantId,
       ministry: ministryId,
       role: { $in: roles },
-      isActive: true
+      isActive: true,
     });
     return !!membership;
   }
@@ -1164,10 +1356,10 @@ export class UsersService {
   async selfRegister(selfRegistrationDto: SelfRegistrationDto) {
     // TODO: Implementar validação do invitationToken
     // Por enquanto, vamos assumir que é válido
-    
+
     // Verificar se usuário já existe
     const existingUser = await this.userModel.findOne({
-      email: selfRegistrationDto.email.toLowerCase().trim()
+      email: selfRegistrationDto.email.toLowerCase().trim(),
     });
 
     if (existingUser) {
@@ -1212,7 +1404,8 @@ export class UsersService {
 
     return {
       user: savedUser,
-      message: 'Usuário criado com sucesso. Complete seu perfil para continuar.',
+      message:
+        'Usuário criado com sucesso. Complete seu perfil para continuar.',
       nextStep: 'complete-profile',
     };
   }
@@ -1232,26 +1425,33 @@ export class UsersService {
         profileCompleted: true,
         updatedAt: new Date(),
       },
-      { new: true }
+      { new: true },
     );
 
     // 🔔 Enviar notificação de perfil completado
     try {
       // Buscar tenant e branch do usuário via membership
-      const membership = await this.memModel.findOne({
-        user: userId,
-        isActive: true
-      }).populate('tenant branch');
+      const membership = await this.memModel
+        .findOne({
+          user: userId,
+          isActive: true,
+        })
+        .populate('tenant branch');
 
       if (membership) {
         await this.notificationService.notifyProfileCompleted(
           updatedUser,
           (membership.tenant as any)._id.toString(),
-          membership.branch ? (membership.branch as any)._id.toString() : undefined
+          membership.branch
+            ? (membership.branch as any)._id.toString()
+            : undefined,
         );
       }
     } catch (notificationError) {
-      console.error('❌ Erro ao enviar notificação de perfil completado:', notificationError.message);
+      console.error(
+        '❌ Erro ao enviar notificação de perfil completado:',
+        notificationError.message,
+      );
       // Não falhar a atualização por erro de notificação
     }
 
@@ -1388,10 +1588,10 @@ export class UsersService {
    * e tiver ao menos um vínculo como leader (opcionalmente na mesma branch).
    */
   async isLeaderOnly(userId: string, tenantSlug: string, branchId?: string) {
-    const tenant = await this.tenantModel
+    const tenant = (await this.tenantModel
       .findOne({ tenantId: tenantSlug })
       .select('_id')
-      .lean() as unknown as { _id: Types.ObjectId };
+      .lean()) as unknown as { _id: Types.ObjectId };
     if (!tenant) return false;
 
     const base = {
@@ -1422,10 +1622,7 @@ export class UsersService {
 
   // 🧹 Método para limpar cache relacionado a um tenant
   async clearTenantCache(tenantId: string): Promise<void> {
-    const keys = [
-      `dashboard:tenant:${tenantId}`,
-      `users:tenant:${tenantId}:*`,
-    ];
+    const keys = [`dashboard:tenant:${tenantId}`, `users:tenant:${tenantId}:*`];
 
     for (const keyPattern of keys) {
       try {
@@ -1436,7 +1633,7 @@ export class UsersService {
             `users:tenant:${tenantId}:volunteers`,
             `users:tenant:${tenantId}:branch_admins`,
           ];
-          
+
           for (const key of specificKeys) {
             await this.cacheManager.del(key);
           }
@@ -1465,7 +1662,7 @@ export class UsersService {
             `users:branch:${tenantId}:${branchId}:leaders`,
             `users:branch:${tenantId}:${branchId}:volunteers`,
           ];
-          
+
           for (const key of specificKeys) {
             await this.cacheManager.del(key);
           }
@@ -1474,7 +1671,10 @@ export class UsersService {
         }
         console.log(`🧹 Branch cache limpo: ${keyPattern}`);
       } catch (error) {
-        console.error(`❌ Erro ao limpar branch cache ${keyPattern}:`, error.message);
+        console.error(
+          `❌ Erro ao limpar branch cache ${keyPattern}:`,
+          error.message,
+        );
       }
     }
   }

@@ -14,4 +14,4 @@ export class CreateTenantWithAdminDto {
   @ValidateNested()
   @Type(() => CreateUserDto)
   adminData?: CreateUserDto;
-} 
+}

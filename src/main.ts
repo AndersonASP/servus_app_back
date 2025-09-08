@@ -22,10 +22,7 @@ async function bootstrap() {
     .setDescription('Documentação da API Servus - Gestão de Voluntariado')
     .setVersion('1.0')
     .addBearerAuth()
-    .addApiKey(
-      { type: 'apiKey', name: 'x-tenant-id', in: 'header' },
-      'tenant',
-    )
+    .addApiKey({ type: 'apiKey', name: 'x-tenant-id', in: 'header' }, 'tenant')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

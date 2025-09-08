@@ -19,4 +19,4 @@ export class CreateUserWithMembershipDto {
   @ValidateNested()
   @Type(() => CreateUserMembershipDataDto)
   membershipData: CreateUserMembershipDataDto;
-} 
+}

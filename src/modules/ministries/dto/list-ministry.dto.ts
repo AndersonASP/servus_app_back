@@ -1,5 +1,12 @@
-import { Type } from 'class-transformer';
-import { IsBooleanString, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+import {
+  IsBooleanString,
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class ListMinistryDto {
   @IsOptional()
@@ -7,8 +14,17 @@ export class ListMinistryDto {
   search?: string; // busca por nome/slug
 
   @IsOptional()
-  @IsBooleanString()
-  isActive?: string; // 'true' | 'false'
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value === 'true';
+    }
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    return undefined;
+  })
+  @IsBoolean()
+  isActive?: boolean; // aceita 'true'/'false' ou true/false
 
   @IsOptional()
   @Type(() => Number)

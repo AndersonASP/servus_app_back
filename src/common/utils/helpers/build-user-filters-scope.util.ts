@@ -1,9 +1,9 @@
 import { Role } from 'src/common/enums/role.enum';
 
 interface UserToken {
-  role: Role;           // global: 'servus_admin' | 'volunteer'
+  role: Role; // global: 'servus_admin' | 'volunteer'
   tenantId: string;
-  branchId?: string;    // presente para branch-scoped (ex.: branch admin / líder)
+  branchId?: string; // presente para branch-scoped (ex.: branch admin / líder)
 }
 
 interface UserQueryFilters {
@@ -35,7 +35,7 @@ export function buildUserFiltersFromScope(
   if (user.role === Role.ServusAdmin) {
     if (query.tenantId) filters.tenantId = query.tenantId;
     if (query.branchId) filters.branchId = query.branchId;
-    if (query.role)     filters.role     = query.role;
+    if (query.role) filters.role = query.role;
     return filters;
   }
 

@@ -2,13 +2,27 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CacheModule } from '@nestjs/cache-manager';
 import { UsersController } from './users.controller';
+import { MembersController } from './controllers/members.controller';
 import { UsersService } from './services/users.service';
+import { MembersService } from './services/members.service';
 import { ExportService } from './services/export.service';
 import { User, UserSchema } from './schema/user.schema';
-import { Membership, MembershipSchema } from 'src/modules/membership/schemas/membership.schema';
-import { Tenant, TenantSchema } from 'src/modules/tenants/schemas/tenant.schema';
-import { Branch, BranchSchema } from 'src/modules/branches/schemas/branch.schema';
-import { Ministry, MinistrySchema } from 'src/modules/ministries/schemas/ministry.schema';
+import {
+  Membership,
+  MembershipSchema,
+} from 'src/modules/membership/schemas/membership.schema';
+import {
+  Tenant,
+  TenantSchema,
+} from 'src/modules/tenants/schemas/tenant.schema';
+import {
+  Branch,
+  BranchSchema,
+} from 'src/modules/branches/schemas/branch.schema';
+import {
+  Ministry,
+  MinistrySchema,
+} from 'src/modules/ministries/schemas/ministry.schema';
 import { cacheConfig } from 'src/config/cache.config';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 
@@ -24,8 +38,8 @@ import { NotificationsModule } from 'src/modules/notifications/notifications.mod
     CacheModule.register(cacheConfig),
     NotificationsModule,
   ],
-  controllers: [UsersController],
-  providers: [UsersService, ExportService],
-  exports: [UsersService],
+  controllers: [UsersController, MembersController],
+  providers: [UsersService, MembersService, ExportService],
+  exports: [UsersService, MembersService],
 })
 export class UsersModule {}

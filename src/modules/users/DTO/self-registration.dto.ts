@@ -1,4 +1,10 @@
-import { IsEmail, IsString, IsOptional, IsNotEmpty, IsUUID } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsOptional,
+  IsNotEmpty,
+  IsUUID,
+} from 'class-validator';
 
 export class SelfRegistrationDto {
   @IsEmail()
@@ -35,4 +41,4 @@ export class SelfRegistrationDto {
     cidade?: string;
     estado?: string;
   };
-} 
+}

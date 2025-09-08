@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Post, Patch, Delete, Param, Query, Req, Res, HttpStatus } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Query,
+  Req,
+  Res,
+  HttpStatus,
+} from '@nestjs/common';
 import { TemplatesService } from './templates.service';
 import { RequiresPerm } from 'src/common/decorators/requires-perm.decorator';
 import { PERMS } from 'src/common/enums/role.enum';
@@ -8,7 +20,12 @@ export class TemplatesController {
   constructor(private readonly templatesService: TemplatesService) {}
 
   @Post()
-  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCH_SCHEDULES, PERMS.MANAGE_MINISTRY_SCHEDULES, PERMS.MANAGE_MINISTRY_TEMPLATES])
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_BRANCH_SCHEDULES,
+    PERMS.MANAGE_MINISTRY_SCHEDULES,
+    PERMS.MANAGE_MINISTRY_TEMPLATES,
+  ])
   async create(
     @Param('tenantId') tenantId: string,
     @Param('branchId') branchId: string,
@@ -19,16 +36,30 @@ export class TemplatesController {
     const userId: string | undefined = req.user?.sub;
     if (!userId) throw new Error('userId ausente');
 
-    const result = await this.templatesService.create(tenantId, branchId, userId, dto);
-    
+    const result = await this.templatesService.create(
+      tenantId,
+      branchId,
+      userId,
+      dto,
+    );
+
     // Retornar 201 com Location header
-    return res.status(HttpStatus.CREATED)
-      .header('Location', `/tenants/${tenantId}/branches/${branchId}/templates/${result._id}`)
+    return res
+      .status(HttpStatus.CREATED)
+      .header(
+        'Location',
+        `/tenants/${tenantId}/branches/${branchId}/templates/${result._id}`,
+      )
       .json(result);
   }
 
   @Get()
-  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCH_SCHEDULES, PERMS.MANAGE_MINISTRY_SCHEDULES, PERMS.MANAGE_MINISTRY_TEMPLATES])
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_BRANCH_SCHEDULES,
+    PERMS.MANAGE_MINISTRY_SCHEDULES,
+    PERMS.MANAGE_MINISTRY_TEMPLATES,
+  ])
   async list(
     @Param('tenantId') tenantId: string,
     @Param('branchId') branchId: string,
@@ -38,7 +69,12 @@ export class TemplatesController {
   }
 
   @Get(':id')
-  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCH_SCHEDULES, PERMS.MANAGE_MINISTRY_SCHEDULES, PERMS.MANAGE_MINISTRY_TEMPLATES])
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_BRANCH_SCHEDULES,
+    PERMS.MANAGE_MINISTRY_SCHEDULES,
+    PERMS.MANAGE_MINISTRY_TEMPLATES,
+  ])
   async findOne(
     @Param('tenantId') tenantId: string,
     @Param('branchId') branchId: string,
@@ -48,7 +84,12 @@ export class TemplatesController {
   }
 
   @Patch(':id')
-  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCH_SCHEDULES, PERMS.MANAGE_MINISTRY_SCHEDULES, PERMS.MANAGE_MINISTRY_TEMPLATES])
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_BRANCH_SCHEDULES,
+    PERMS.MANAGE_MINISTRY_SCHEDULES,
+    PERMS.MANAGE_MINISTRY_TEMPLATES,
+  ])
   async update(
     @Param('tenantId') tenantId: string,
     @Param('branchId') branchId: string,
@@ -58,12 +99,17 @@ export class TemplatesController {
   ) {
     const userId = req.user?.sub;
     if (!userId) throw new Error('userId ausente');
-    
+
     return this.templatesService.update(tenantId, branchId, id, userId, dto);
   }
 
   @Delete(':id')
-  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCH_SCHEDULES, PERMS.MANAGE_MINISTRY_SCHEDULES, PERMS.MANAGE_MINISTRY_TEMPLATES])
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_BRANCH_SCHEDULES,
+    PERMS.MANAGE_MINISTRY_SCHEDULES,
+    PERMS.MANAGE_MINISTRY_TEMPLATES,
+  ])
   async remove(
     @Param('tenantId') tenantId: string,
     @Param('branchId') branchId: string,
@@ -72,7 +118,7 @@ export class TemplatesController {
   ) {
     const userId = req.user?.sub;
     if (!userId) throw new Error('userId ausente');
-    
+
     return this.templatesService.remove(tenantId, branchId, id, userId);
   }
 }

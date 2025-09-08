@@ -4,7 +4,7 @@ import {
   IsOptional,
   IsArray,
   ValidateNested,
-  IsEmail
+  IsEmail,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ContextValidationDto } from 'src/common/dto/context-validation.dto';
@@ -42,44 +42,56 @@ export class CreateBranchDto extends ContextValidationDto {
   @IsString()
   description?: string;
 
-  @ValidateNested() @Type(() => EnderecoDto)
+  @ValidateNested()
+  @Type(() => EnderecoDto)
   @IsOptional()
   endereco?: EnderecoDto;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   telefone?: string;
 
-  @IsOptional() @IsEmail()
+  @IsOptional()
+  @IsEmail()
   email?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   whatsappOficial?: string;
 
   // tenant vem do contexto (path param ou header)
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   responsavel?: string;
 
-  @ValidateNested({ each: true }) @Type(() => DiaCultoDto)
+  @ValidateNested({ each: true })
+  @Type(() => DiaCultoDto)
   @IsOptional()
   diasCulto?: DiaCultoDto[];
 
-  @ValidateNested({ each: true }) @Type(() => EventoPadraoDto)
+  @ValidateNested({ each: true })
+  @Type(() => EventoPadraoDto)
   @IsOptional()
   eventosPadrao?: EventoPadraoDto[];
 
-  @IsOptional() @IsArray()
+  @IsOptional()
+  @IsArray()
   modulosAtivos?: string[];
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   logoUrl?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   corTema?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   idioma?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   timezone?: string;
 }

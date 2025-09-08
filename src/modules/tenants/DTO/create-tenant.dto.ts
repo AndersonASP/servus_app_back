@@ -7,7 +7,7 @@ import {
   IsEmail,
   IsNumber,
   IsEnum,
-  IsDateString
+  IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ContextValidationDto } from 'src/common/dto/context-validation.dto';
@@ -41,90 +41,118 @@ export class CreateTenantDto extends ContextValidationDto {
 
   // tenantId vem do contexto (path param ou header)
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   description?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   cnpj?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   inscricaoEstadual?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   inscricaoMunicipal?: string;
 
-  @IsOptional() @IsEmail()
+  @IsOptional()
+  @IsEmail()
   email?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   telefone?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   site?: string;
 
-  @ValidateNested() @Type(() => EnderecoDto)
+  @ValidateNested()
+  @Type(() => EnderecoDto)
   @IsOptional()
   endereco?: EnderecoDto;
 
-  @IsOptional() @IsEnum(['basic', 'pro', 'enterprise'])
+  @IsOptional()
+  @IsEnum(['basic', 'pro', 'enterprise'])
   plan?: string;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   maxBranches?: number;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   planoAtivoDesde?: Date;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   planoExpiraEm?: Date;
 
-  @IsOptional() @IsEnum(['ativo', 'pendente', 'inadimplente'])
+  @IsOptional()
+  @IsEnum(['ativo', 'pendente', 'inadimplente'])
   statusPagamento?: string;
 
-  @IsOptional() @IsEnum(['cartao', 'boleto', 'pix'])
+  @IsOptional()
+  @IsEnum(['cartao', 'boleto', 'pix'])
   formaPagamentoPreferida?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   logoUrl?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   corTema?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   idioma?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   timezone?: string;
 
-  @ValidateNested({ each: true }) @Type(() => DiaCultoDto)
+  @ValidateNested({ each: true })
+  @Type(() => DiaCultoDto)
   @IsOptional()
   diasCulto?: DiaCultoDto[];
 
-  @ValidateNested({ each: true }) @Type(() => EventoPadraoDto)
+  @ValidateNested({ each: true })
+  @Type(() => EventoPadraoDto)
   @IsOptional()
   eventosPadrao?: EventoPadraoDto[];
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   canalComunicacaoPreferido?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   whatsappOficial?: string;
 
-  @IsOptional() @IsEmail()
+  @IsOptional()
+  @IsEmail()
   emailFinanceiro?: string;
 
-  @IsOptional() @IsEmail()
+  @IsOptional()
+  @IsEmail()
   emailSuporte?: string;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   limiteUsuarios?: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   limiteArmazenamento?: number;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   ultimoAcesso?: Date;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   notasInternas?: string;
 }

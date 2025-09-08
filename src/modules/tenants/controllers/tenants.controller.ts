@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Delete, Req, Res, HttpStatus } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Delete,
+  Req,
+  Res,
+  HttpStatus,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { TenantService } from '../services/tenants.service';
 import { CreateTenantDto } from '../DTO/create-tenant.dto';
@@ -35,7 +45,8 @@ export class TenantController {
     );
 
     // Retornar 201 com Location header
-    return res.status(HttpStatus.CREATED)
+    return res
+      .status(HttpStatus.CREATED)
       .header('Location', `/tenants/${result.tenant.tenantId}`)
       .json(result);
   }

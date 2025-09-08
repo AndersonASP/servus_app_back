@@ -12,8 +12,18 @@ export class ReportsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async generateUsersReport(
@@ -34,8 +44,18 @@ export class ReportsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async generateEngagementReport(
@@ -56,7 +76,12 @@ export class ReportsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async generateGrowthReport(
@@ -77,13 +102,24 @@ export class ReportsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async generateCustomReport(
     @Param('tenantId') tenantId: string,
-    @Body() config: {
+    @Body()
+    config: {
       type: string;
       filters: any;
       groupBy?: string;
@@ -99,13 +135,24 @@ export class ReportsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async saveReport(
     @Param('tenantId') tenantId: string,
-    @Body() reportConfig: {
+    @Body()
+    reportConfig: {
       name: string;
       description: string;
       type: 'users' | 'engagement' | 'activities' | 'growth' | 'custom';
@@ -138,8 +185,18 @@ export class ReportsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
       { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
     ],
   })
@@ -149,10 +206,13 @@ export class ReportsController {
     @Req() req: any,
   ) {
     // Leaders só podem ver seus próprios relatórios
-    const createdBy = req.user.role === Role.ServusAdmin || 
-      req.user.memberships?.some((m: any) => ['tenant_admin', 'branch_admin'].includes(m.role))
-      ? query.createdBy 
-      : req.user.email;
+    const createdBy =
+      req.user.role === Role.ServusAdmin ||
+      req.user.memberships?.some((m: any) =>
+        ['tenant_admin', 'branch_admin'].includes(m.role),
+      )
+        ? query.createdBy
+        : req.user.email;
 
     return this.reportsService.getSavedReports(tenantId, createdBy);
   }
@@ -162,13 +222,19 @@ export class ReportsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin, MembershipRole.Leader], tenantFrom: 'user' } },
+      {
+        membership: {
+          roles: [
+            MembershipRole.TenantAdmin,
+            MembershipRole.BranchAdmin,
+            MembershipRole.Leader,
+          ],
+          tenantFrom: 'user',
+        },
+      },
     ],
   })
-  async executeReport(
-    @Param('reportId') reportId: string,
-    @Req() req: any,
-  ) {
+  async executeReport(@Param('reportId') reportId: string, @Req() req: any) {
     return this.reportsService.executeReport(reportId);
   }
 
@@ -177,8 +243,18 @@ export class ReportsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async getReportTemplates(
@@ -192,7 +268,7 @@ export class ReportsController {
         description: 'Relatório completo de todos os usuários do tenant',
         type: 'users',
         metrics: ['total', 'active', 'by_role', 'by_branch'],
-        visualization: 'dashboard'
+        visualization: 'dashboard',
       },
       {
         id: 'engagement_analysis',
@@ -200,7 +276,7 @@ export class ReportsController {
         description: 'Análise detalhada do engajamento dos usuários',
         type: 'engagement',
         metrics: ['profile_completion', 'activity_score', 'last_activity'],
-        visualization: 'chart'
+        visualization: 'chart',
       },
       {
         id: 'monthly_growth',
@@ -208,7 +284,7 @@ export class ReportsController {
         description: 'Relatório de crescimento de usuários no último mês',
         type: 'growth',
         metrics: ['new_users', 'total_growth', 'growth_rate'],
-        visualization: 'chart'
+        visualization: 'chart',
       },
       {
         id: 'skills_inventory',
@@ -217,7 +293,7 @@ export class ReportsController {
         type: 'custom',
         customType: 'skills_analysis',
         metrics: ['top_skills', 'skills_by_role', 'skills_distribution'],
-        visualization: 'dashboard'
+        visualization: 'dashboard',
       },
       {
         id: 'ministry_participation',
@@ -225,8 +301,12 @@ export class ReportsController {
         description: 'Relatório de participação em ministérios por filial',
         type: 'custom',
         customType: 'ministry_participation',
-        metrics: ['participation_rate', 'leaders_vs_volunteers', 'growth_by_ministry'],
-        visualization: 'table'
+        metrics: [
+          'participation_rate',
+          'leaders_vs_volunteers',
+          'growth_by_ministry',
+        ],
+        visualization: 'table',
       },
       {
         id: 'branch_comparison',
@@ -234,9 +314,13 @@ export class ReportsController {
         description: 'Análise comparativa entre diferentes filiais',
         type: 'custom',
         customType: 'users_by_branch',
-        metrics: ['users_per_branch', 'engagement_by_branch', 'growth_by_branch'],
-        visualization: 'chart'
-      }
+        metrics: [
+          'users_per_branch',
+          'engagement_by_branch',
+          'growth_by_branch',
+        ],
+        visualization: 'chart',
+      },
     ];
   }
 
@@ -245,8 +329,18 @@ export class ReportsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async executeReportTemplate(
@@ -257,36 +351,36 @@ export class ReportsController {
   ) {
     // Configurações padrão para cada template
     const templateConfigs: { [key: string]: any } = {
-      'users_overview': {
+      users_overview: {
         type: 'users',
-        filters: { ...customFilters }
+        filters: { ...customFilters },
       },
-      'engagement_analysis': {
+      engagement_analysis: {
         type: 'engagement',
-        filters: { ...customFilters }
+        filters: { ...customFilters },
       },
-      'monthly_growth': {
+      monthly_growth: {
         type: 'growth',
         filters: {
           ...customFilters,
           dateRange: {
             startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-            endDate: new Date()
-          }
-        }
+            endDate: new Date(),
+          },
+        },
       },
-      'skills_inventory': {
+      skills_inventory: {
         type: 'skills_analysis',
-        filters: { ...customFilters }
+        filters: { ...customFilters },
       },
-      'ministry_participation': {
+      ministry_participation: {
         type: 'ministry_participation',
-        filters: { ...customFilters }
+        filters: { ...customFilters },
       },
-      'branch_comparison': {
+      branch_comparison: {
         type: 'users_by_branch',
-        filters: { ...customFilters }
-      }
+        filters: { ...customFilters },
+      },
     };
 
     const config = templateConfigs[templateId];
@@ -295,17 +389,26 @@ export class ReportsController {
     }
 
     if (config.type === 'users') {
-      return this.reportsService.generateUsersReport({ tenantId, ...config.filters });
+      return this.reportsService.generateUsersReport({
+        tenantId,
+        ...config.filters,
+      });
     } else if (config.type === 'engagement') {
-      return this.reportsService.generateEngagementReport({ tenantId, ...config.filters });
+      return this.reportsService.generateEngagementReport({
+        tenantId,
+        ...config.filters,
+      });
     } else if (config.type === 'growth') {
-      return this.reportsService.generateGrowthReport({ tenantId, ...config.filters });
+      return this.reportsService.generateGrowthReport({
+        tenantId,
+        ...config.filters,
+      });
     } else {
       return this.reportsService.generateCustomReport(tenantId, {
         type: config.type,
         filters: config.filters,
-        metrics: []
+        metrics: [],
       });
     }
   }
-} 
+}

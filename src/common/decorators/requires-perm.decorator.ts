@@ -9,12 +9,12 @@ export interface RequiresPermMetadata {
 
 export const RequiresPerm = (
   permissions: string | string[],
-  requireAll: boolean = false
+  requireAll: boolean = false,
 ) => {
   const perms = Array.isArray(permissions) ? permissions : [permissions];
-  
+
   return SetMetadata(REQUIRES_PERM_KEY, {
     permissions: perms,
     requireAll,
   } as RequiresPermMetadata);
-}; 
+};

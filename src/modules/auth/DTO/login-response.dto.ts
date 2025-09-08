@@ -2,20 +2,20 @@ import { MembershipRole } from 'src/common/enums/role.enum';
 
 // DTO para informações básicas de entidades
 export class TenantBasicDto {
-  id: string;          // MongoDB _id
-  tenantId: string;    // Slug público
+  id: string; // MongoDB _id
+  tenantId: string; // Slug público
   name: string;
   logoUrl?: string;
 }
 
 export class BranchBasicDto {
-  id: string;          // MongoDB _id  
-  branchId: string;    // Slug público
+  id: string; // MongoDB _id
+  branchId: string; // Slug público
   name: string;
 }
 
 export class MinistryBasicDto {
-  id: string;          // MongoDB _id
+  id: string; // MongoDB _id
   name: string;
 }
 
@@ -23,7 +23,7 @@ export class MinistryBasicDto {
 export class CurrentMembershipDto {
   id: string;
   role: MembershipRole;
-  permissions: string[];  // Lista de permissões derivadas do role
+  permissions: string[]; // Lista de permissões derivadas do role
   branch?: BranchBasicDto;
   ministry?: MinistryBasicDto;
 }
@@ -33,21 +33,21 @@ export class UserBasicDto {
   id: string;
   email: string;
   name: string;
-  role: string;        // Role global (servus_admin, volunteer)
-  picture?: string;    // Só inclui se existir
+  role: string; // Role global (servus_admin, volunteer)
+  picture?: string; // Só inclui se existir
 }
 
 // DTO de resposta do login (leve)
 export class LoginResponseDto {
   access_token: string;
   refresh_token: string;
-  token_type: string;   // "Bearer"
-  expires_in: number;   // Segundos até expirar
+  token_type: string; // "Bearer"
+  expires_in: number; // Segundos até expirar
   user: UserBasicDto;
-  
+
   // Contexto atual (apenas se tenant foi especificado)
   tenant?: TenantBasicDto;
-  branches?: BranchBasicDto[];        // Branches disponíveis no tenant atual
+  branches?: BranchBasicDto[]; // Branches disponíveis no tenant atual
   memberships?: CurrentMembershipDto[]; // Memberships no tenant atual
 }
 
@@ -67,4 +67,4 @@ export class UserContextDto {
     }[];
     branches: BranchBasicDto[];
   }[];
-} 
+}

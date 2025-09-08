@@ -95,11 +95,11 @@ export class Tenant extends Document {
   @Prop({
     type: [
       {
-        dia: { type: String, required: true },      // domingo, quarta
-        horarios: { type: [String], required: true } // ["09:00", "19:30"]
-      }
+        dia: { type: String, required: true }, // domingo, quarta
+        horarios: { type: [String], required: true }, // ["09:00", "19:30"]
+      },
     ],
-    default: []
+    default: [],
   })
   diasCulto?: { dia: string; horarios: string[] }[];
 
@@ -110,10 +110,10 @@ export class Tenant extends Document {
         nome: { type: String, required: true },
         dia: { type: String, required: true },
         horarios: { type: [String], required: true },
-        tipo: { type: String, default: 'culto' }
-      }
+        tipo: { type: String, default: 'culto' },
+      },
     ],
-    default: []
+    default: [],
   })
   eventosPadrao?: {
     nome: string;
@@ -154,6 +154,17 @@ export class Tenant extends Document {
 
   @Prop()
   createdBy?: string; // superadmin que criou o tenant
+
+  // 🔹 Feature Flags
+  @Prop({
+    type: {
+      functionsByMinistry: { type: Boolean, default: false },
+    },
+    default: {},
+  })
+  features?: {
+    functionsByMinistry?: boolean;
+  };
 }
 
 export const TenantSchema = SchemaFactory.createForClass(Tenant);

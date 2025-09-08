@@ -8,7 +8,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_ACCESS_SECRET || 'default-access-secret-change-in-production',
+      secretOrKey:
+        process.env.JWT_ACCESS_SECRET ||
+        'default-access-secret-change-in-production',
     });
   }
 
@@ -20,7 +22,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       role: payload.role,
       name: payload.name,
       picture: payload.picture,
-      // tenantId/branchId ficam fora do token; o tenant vem de header/subdomínio
+      // Incluir tenantId e branchId do token
+      tenantId: payload.tenantId,
+      branchId: payload.branchId,
+      membershipRole: payload.membershipRole,
+      permissions: payload.permissions,
     };
   }
 }

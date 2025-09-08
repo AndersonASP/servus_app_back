@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Headers, Get, Req, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Headers,
+  Get,
+  Req,
+  BadRequestException,
+} from '@nestjs/common';
 import { AuthService } from './services/auth.service';
 import { LoginUserDto } from './DTO/login-user.dto';
 import { GoogleLoginDto } from './DTO/google-login.dto';
@@ -40,7 +48,7 @@ export class AuthController {
     const userId = req.user.sub;
     const deviceId = req.headers['device-id'];
 
-    console.log('USER ID',userId);
+    console.log('USER ID', userId);
     console.log(deviceId);
     await this.authService.logout(userId, deviceId);
     return { success: true };
@@ -69,16 +77,27 @@ export class AuthController {
   async getUserContext(@Req() req: any): Promise<UserContextDto> {
     console.log('🔍 Controller getUserContext - req.user:', req.user);
     console.log('🔍 Controller getUserContext - req.user.sub:', req.user?.sub);
-    console.log('🔍 Controller getUserContext - tipo do sub:', typeof req.user?.sub);
-    console.log('🔍 Controller getUserContext - req.user completo:', JSON.stringify(req.user, null, 2));
-    
+    console.log(
+      '🔍 Controller getUserContext - tipo do sub:',
+      typeof req.user?.sub,
+    );
+    console.log(
+      '🔍 Controller getUserContext - req.user completo:',
+      JSON.stringify(req.user, null, 2),
+    );
+
     const userId = req.user.sub;
     if (!userId) {
-      console.log('❌ Controller getUserContext - userId não encontrado em req.user.sub');
-      console.log('❌ Controller getUserContext - req.user keys:', Object.keys(req.user || {}));
+      console.log(
+        '❌ Controller getUserContext - userId não encontrado em req.user.sub',
+      );
+      console.log(
+        '❌ Controller getUserContext - req.user keys:',
+        Object.keys(req.user || {}),
+      );
       throw new BadRequestException('User ID not found in token');
     }
-    
+
     return this.authService.getUserContext(userId);
   }
 }

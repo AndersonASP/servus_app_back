@@ -26,25 +26,36 @@ export async function resolveScope(
 ): Promise<RbacScope> {
   // 1) Servus admin: pode tudo (acima de qualquer tenant/branch)
   if (user.role === Role.ServusAdmin) {
-    return { isServusAdmin: true, isTenantAdmin: true, branchAdminIds: [], leaderPairs: [] };
+    return {
+      isServusAdmin: true,
+      isTenantAdmin: true,
+      branchAdminIds: [],
+      leaderPairs: [],
+    };
   }
 
   // 2) Escopo via memberships
-  const ms = await memModel.find({
-    user: user._id,
-    tenant: tenantOid,
-    isActive: true,
-  }).select('role branch ministry').lean();
+  const ms = await memModel
+    .find({
+      user: user._id,
+      tenant: tenantOid,
+      isActive: true,
+    })
+    .select('role branch ministry')
+    .lean();
 
-  const isTenantAdmin = ms.some(m => m.role === 'tenant_admin' && !m.branch);
+  const isTenantAdmin = ms.some((m) => m.role === 'tenant_admin' && !m.branch);
 
   const branchAdminIds = ms
-    .filter(m => m.role === 'branch_admin' && m.branch)
-    .map(m => m.branch as Types.ObjectId);
+    .filter((m) => m.role === 'branch_admin' && m.branch)
+    .map((m) => m.branch as Types.ObjectId);
 
   const leaderPairs = ms
-    .filter(m => m.role === 'leader' && m.ministry)
-    .map(m => ({ branch: m.branch as Types.ObjectId | undefined, ministry: m.ministry as Types.ObjectId }));
+    .filter((m) => m.role === 'leader' && m.ministry)
+    .map((m) => ({
+      branch: m.branch,
+      ministry: m.ministry as Types.ObjectId,
+    }));
 
   return { isServusAdmin: false, isTenantAdmin, branchAdminIds, leaderPairs };
 }
@@ -67,7 +78,7 @@ export function buildRbacMatch(scope: RbacScope) {
   // leader: restringe aos pares (branch,ministry) que lidera
   if (scope.leaderPairs.length) {
     blocks.push({
-      $or: scope.leaderPairs.map(p => ({
+      $or: scope.leaderPairs.map((p) => ({
         $and: [
           { ministry: p.ministry },
           ...(p.branch
@@ -96,7 +107,7 @@ export function ensureFiltersWithinScope(
   if (scope.branchAdminIds.length) {
     if (q.branchId) {
       const want = new Types.ObjectId(q.branchId);
-      const ok = scope.branchAdminIds.some(b => b.equals(want));
+      const ok = scope.branchAdminIds.some((b) => b.equals(want));
       if (!ok) throw new ForbiddenException('Filial fora do seu escopo');
     }
     return;
@@ -106,18 +117,18 @@ export function ensureFiltersWithinScope(
   if (scope.leaderPairs.length) {
     if (q.ministryId) {
       const want = new Types.ObjectId(q.ministryId);
-      const ok = scope.leaderPairs.some(p => p.ministry.equals(want));
+      const ok = scope.leaderPairs.some((p) => p.ministry.equals(want));
       if (!ok) throw new ForbiddenException('Ministério fora do seu escopo');
     }
 
     if (q.branchId) {
       const want = new Types.ObjectId(q.branchId);
-      const hasBranchLeader = scope.leaderPairs.some(p => p.branch);
+      const hasBranchLeader = scope.leaderPairs.some((p) => p.branch);
       if (!hasBranchLeader) {
         // líder apenas na matriz não pode “escolher” branch
         throw new ForbiddenException('Filial fora do seu escopo');
       }
-      const ok = scope.leaderPairs.some(p => p.branch?.equals(want));
+      const ok = scope.leaderPairs.some((p) => p.branch?.equals(want));
       if (!ok) throw new ForbiddenException('Filial fora do seu escopo');
     }
     return;

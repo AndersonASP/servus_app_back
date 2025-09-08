@@ -40,7 +40,10 @@ export class Ministry extends Document {
 export const MinistrySchema = SchemaFactory.createForClass(Ministry);
 
 // Índice único para tenant + branch + slug (permitindo branch null)
-MinistrySchema.index({ tenantId: 1, branchId: 1, slug: 1 }, { 
-  unique: true,
-  sparse: true // Permite múltiplos documentos com branchId null
-});
+MinistrySchema.index(
+  { tenantId: 1, branchId: 1, slug: 1 },
+  {
+    unique: true,
+    sparse: true, // Permite múltiplos documentos com branchId null
+  },
+);

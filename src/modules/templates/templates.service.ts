@@ -17,7 +17,13 @@ export class TemplatesService {
     return { _id: id, name: 'Template temporário' };
   }
 
-  async update(tenantId: string, branchId: string, id: string, userId: string, dto: any) {
+  async update(
+    tenantId: string,
+    branchId: string,
+    id: string,
+    userId: string,
+    dto: any,
+  ) {
     // TODO: Implementar atualização de template
     return { _id: id, ...dto };
   }

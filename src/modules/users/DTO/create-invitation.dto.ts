@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsUUID,
+} from 'class-validator';
 import { MembershipRole } from 'src/common/enums/role.enum';
 
 export class CreateInvitationDto {
@@ -40,4 +46,4 @@ export class CreateInvitationDto {
   @IsOptional()
   @IsString()
   invitedBy?: string; // Email de quem enviou o convite
-} 
+}

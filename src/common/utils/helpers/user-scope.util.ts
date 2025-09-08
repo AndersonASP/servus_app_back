@@ -1,7 +1,7 @@
 import { Role } from '../../enums/role.enum';
 
 interface UserToken {
-  role: Role;        // global: 'servus_admin' | 'volunteer'
+  role: Role; // global: 'servus_admin' | 'volunteer'
   tenantId?: string; // obrigatório para não-superadmin
   branchId?: string; // presente para escopo de filial (branch admin / líder)
 }
@@ -11,11 +11,16 @@ interface ScopeInput {
   dtoBranchId?: string;
 }
 
-export function resolveTenantAndBranchScope(user: UserToken, input: ScopeInput = {}) {
+export function resolveTenantAndBranchScope(
+  user: UserToken,
+  input: ScopeInput = {},
+) {
   const isSuperAdmin = user.role === Role.ServusAdmin;
 
   // Tenant
-  const tenantId = isSuperAdmin ? (input.dtoTenantId ?? user.tenantId) : user.tenantId;
+  const tenantId = isSuperAdmin
+    ? (input.dtoTenantId ?? user.tenantId)
+    : user.tenantId;
   if (!isSuperAdmin && !tenantId) {
     throw new Error('tenantId ausente no token do usuário.');
   }

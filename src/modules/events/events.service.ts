@@ -17,7 +17,13 @@ export class EventsService {
     return { _id: id, name: 'Evento temporário' };
   }
 
-  async update(tenantId: string, branchId: string, id: string, userId: string, dto: any) {
+  async update(
+    tenantId: string,
+    branchId: string,
+    id: string,
+    userId: string,
+    dto: any,
+  ) {
     // TODO: Implementar atualização de evento
     return { _id: id, ...dto };
   }

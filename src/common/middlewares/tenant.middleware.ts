@@ -8,7 +8,7 @@ import { Role } from '../enums/role.enum';
 
 export interface TenantRequest extends Request {
   tenantSlug?: string; // slug da igreja (ex: igreja001)
-  branchId?: string;   // ID da branch
+  branchId?: string; // ID da branch
   ministryId?: string; // ID do ministério
 }
 
@@ -25,8 +25,7 @@ export class TenantMiddleware implements NestMiddleware {
 
     // 1) Tenta ler do header padrão (prioridade mais alta)
     let tenantSlug =
-      (req.headers['x-tenant-id'] as string | undefined)?.trim() ||
-      undefined;
+      (req.headers['x-tenant-id'] as string | undefined)?.trim() || undefined;
 
     // 2) Tenta pegar do param (rotas do tipo /tenants/:tenantId/...)
     if (!tenantSlug && typeof req.params?.tenantId === 'string') {
@@ -42,13 +41,13 @@ export class TenantMiddleware implements NestMiddleware {
     }
 
     // Resolve branch ID
-    let branchId = 
+    const branchId =
       (req.headers['x-branch-id'] as string | undefined)?.trim() ||
       req.params?.branchId?.trim() ||
       undefined;
 
     // Resolve ministry ID
-    let ministryId = 
+    const ministryId =
       (req.headers['x-ministry-id'] as string | undefined)?.trim() ||
       req.params?.ministryId?.trim() ||
       undefined;
@@ -61,7 +60,7 @@ export class TenantMiddleware implements NestMiddleware {
     //    Não levantamos erro se não veio tenant — as Policies das rotas que exigem vão cobrar.
     if (tenantSlug) {
       const exists = await this.tenantModel
-        .exists({ tenantId: tenantSlug, isActive: true })
+        .findOne({ tenantId: tenantSlug, isActive: true })
         .lean();
 
       // Se veio um slug inválido, já informa 404 cedo

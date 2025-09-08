@@ -12,12 +12,28 @@ export class MetricsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin, MembershipRole.Leader, MembershipRole.Volunteer], tenantFrom: 'user' } },
+      {
+        membership: {
+          roles: [
+            MembershipRole.TenantAdmin,
+            MembershipRole.BranchAdmin,
+            MembershipRole.Leader,
+            MembershipRole.Volunteer,
+          ],
+          tenantFrom: 'user',
+        },
+      },
     ],
   })
   async recordActivity(
-    @Body() activityData: {
-      activityType: 'login' | 'profile_update' | 'ministry_join' | 'event_participation' | 'interaction';
+    @Body()
+    activityData: {
+      activityType:
+        | 'login'
+        | 'profile_update'
+        | 'ministry_join'
+        | 'event_participation'
+        | 'interaction';
       description: string;
       metadata?: any;
       branchId?: string;
@@ -27,7 +43,7 @@ export class MetricsController {
   ) {
     // Extrair tenant do usuário atual
     const tenantId = req.user.tenantId || 'default';
-    
+
     await this.metricsService.recordActivity(
       req.user._id,
       tenantId,
@@ -39,7 +55,7 @@ export class MetricsController {
         ministryId: activityData.ministryId,
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
-      }
+      },
     );
 
     return { message: 'Atividade registrada com sucesso' };
@@ -50,7 +66,17 @@ export class MetricsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin, MembershipRole.Leader, MembershipRole.Volunteer], tenantFrom: 'user' } },
+      {
+        membership: {
+          roles: [
+            MembershipRole.TenantAdmin,
+            MembershipRole.BranchAdmin,
+            MembershipRole.Leader,
+            MembershipRole.Volunteer,
+          ],
+          tenantFrom: 'user',
+        },
+      },
     ],
   })
   async getUserEngagement(
@@ -63,7 +89,7 @@ export class MetricsController {
     return this.metricsService.calculateUserEngagement(
       req.user._id,
       tenantId,
-      period
+      period,
     );
   }
 
@@ -72,16 +98,27 @@ export class MetricsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin, MembershipRole.Leader, MembershipRole.Volunteer], tenantFrom: 'user' } },
+      {
+        membership: {
+          roles: [
+            MembershipRole.TenantAdmin,
+            MembershipRole.BranchAdmin,
+            MembershipRole.Leader,
+            MembershipRole.Volunteer,
+          ],
+          tenantFrom: 'user',
+        },
+      },
     ],
   })
   async getUserActivities(
-    @Query() query: { 
-      page?: string; 
-      limit?: string; 
-      type?: string; 
-      startDate?: string; 
-      endDate?: string; 
+    @Query()
+    query: {
+      page?: string;
+      limit?: string;
+      type?: string;
+      startDate?: string;
+      endDate?: string;
     },
     @Req() req: any,
   ) {
@@ -104,7 +141,12 @@ export class MetricsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async getTenantMetrics(
@@ -121,8 +163,19 @@ export class MetricsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param', branchParam: 'branchId' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+          branchParam: 'branchId',
+        },
+      },
     ],
   })
   async getBranchMetrics(
@@ -140,8 +193,18 @@ export class MetricsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
       { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
     ],
   })
@@ -152,7 +215,11 @@ export class MetricsController {
     @Req() req: any,
   ) {
     const period = query.period || 'monthly';
-    return this.metricsService.calculateUserEngagement(userId, tenantId, period);
+    return this.metricsService.calculateUserEngagement(
+      userId,
+      tenantId,
+      period,
+    );
   }
 
   // 📊 Dashboard consolidado de métricas (TenantAdmin)
@@ -160,7 +227,12 @@ export class MetricsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async getMetricsDashboard(
@@ -169,10 +241,13 @@ export class MetricsController {
     @Req() req: any,
   ) {
     const period = query.period || 'monthly';
-    
+
     // Combinar métricas do tenant com dados adicionais
-    const tenantMetrics = await this.metricsService.getTenantMetrics(tenantId, period);
-    
+    const tenantMetrics = await this.metricsService.getTenantMetrics(
+      tenantId,
+      period,
+    );
+
     // Adicionar métricas comparativas (período anterior)
     let previousPeriod: 'daily' | 'weekly' | 'monthly';
     switch (period) {
@@ -201,7 +276,7 @@ export class MetricsController {
         userGrowth: tenantMetrics.userGrowth,
         engagementTrends: tenantMetrics.engagementTrends,
         topActivities: tenantMetrics.topActivities,
-      }
+      },
     };
   }
-} 
+}

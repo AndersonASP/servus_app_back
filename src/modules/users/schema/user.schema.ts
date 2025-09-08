@@ -40,7 +40,7 @@ export class User {
   // ========================================
   // 📱 CAMPOS PARA AUTO-REGISTRO
   // ========================================
-  
+
   @Prop({ required: false })
   phone?: string;
 

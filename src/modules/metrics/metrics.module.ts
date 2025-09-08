@@ -3,7 +3,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { MetricsController } from './metrics.controller';
 import { MetricsService } from './services/metrics.service';
 import { User, UserSchema } from 'src/modules/users/schema/user.schema';
-import { Membership, MembershipSchema } from 'src/modules/membership/schemas/membership.schema';
+import {
+  Membership,
+  MembershipSchema,
+} from 'src/modules/membership/schemas/membership.schema';
 
 @Module({
   imports: [
@@ -16,4 +19,4 @@ import { Membership, MembershipSchema } from 'src/modules/membership/schemas/mem
   providers: [MetricsService],
   exports: [MetricsService],
 })
-export class MetricsModule {} 
+export class MetricsModule {}

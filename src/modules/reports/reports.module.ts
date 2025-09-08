@@ -3,8 +3,14 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './services/reports.service';
 import { User, UserSchema } from 'src/modules/users/schema/user.schema';
-import { Membership, MembershipSchema } from 'src/modules/membership/schemas/membership.schema';
-import { Branch, BranchSchema } from 'src/modules/branches/schemas/branch.schema';
+import {
+  Membership,
+  MembershipSchema,
+} from 'src/modules/membership/schemas/membership.schema';
+import {
+  Branch,
+  BranchSchema,
+} from 'src/modules/branches/schemas/branch.schema';
 import { UsersModule } from 'src/modules/users/users.module';
 
 @Module({
@@ -20,4 +26,4 @@ import { UsersModule } from 'src/modules/users/users.module';
   providers: [ReportsService],
   exports: [ReportsService],
 })
-export class ReportsModule {} 
+export class ReportsModule {}

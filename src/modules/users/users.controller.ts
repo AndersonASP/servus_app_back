@@ -35,7 +35,12 @@ export class UsersController {
 
   // 👤 Criar usuário com membership (tenant scope) - ADMIN
   @Post('tenants/:tenantId/with-membership')
-  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_USERS, PERMS.MANAGE_BRANCH_VOLUNTEERS, PERMS.MANAGE_MINISTRY_VOLUNTEERS])
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_USERS,
+    PERMS.MANAGE_BRANCH_VOLUNTEERS,
+    PERMS.MANAGE_MINISTRY_VOLUNTEERS,
+  ])
   async createWithMembership(
     @Param('tenantId') tenantId: string,
     @Body() createUserWithMembershipDto: CreateUserWithMembershipDto,
@@ -44,9 +49,11 @@ export class UsersController {
   ) {
     const createdBy = req.user.email;
     const creatorRole = req.user.role;
-    
+
     // Buscar memberships do usuário atual
-    const creatorMemberships = await this.usersService.getUserMemberships(req.user.sub);
+    const creatorMemberships = await this.usersService.getUserMemberships(
+      req.user.sub,
+    );
 
     const result = await this.usersService.createWithMembership(
       createUserWithMembershipDto.userData,
@@ -61,26 +68,38 @@ export class UsersController {
     );
 
     // Retornar 201 com Location header
-    return res.status(HttpStatus.CREATED)
+    return res
+      .status(HttpStatus.CREATED)
       .header('Location', `/users/${result.user._id}`)
       .json(result);
   }
 
   // 👤 Criar usuário na branch específica - ADMIN
   @Post('tenants/:tenantId/branches/:branchId/with-membership')
-  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_USERS, PERMS.MANAGE_BRANCH_VOLUNTEERS, PERMS.MANAGE_MINISTRY_VOLUNTEERS])
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_USERS,
+    PERMS.MANAGE_BRANCH_VOLUNTEERS,
+    PERMS.MANAGE_MINISTRY_VOLUNTEERS,
+  ])
   async createWithMembershipInBranch(
     @Param('tenantId') tenantId: string,
     @Param('branchId') branchId: string,
-    @Body() body: { userData: any; membershipData: { role: MembershipRole; ministryId?: string } },
+    @Body()
+    body: {
+      userData: any;
+      membershipData: { role: MembershipRole; ministryId?: string };
+    },
     @Req() req: any,
     @Res() res: Response,
   ) {
     const createdBy = req.user.email;
     const creatorRole = req.user.role;
-    
+
     // Buscar memberships do usuário atual
-    const creatorMemberships = await this.usersService.getUserMemberships(req.user.sub);
+    const creatorMemberships = await this.usersService.getUserMemberships(
+      req.user.sub,
+    );
 
     const result = await this.usersService.createWithMembership(
       body.userData,
@@ -97,7 +116,8 @@ export class UsersController {
     );
 
     // Retornar 201 com Location header
-    return res.status(HttpStatus.CREATED)
+    return res
+      .status(HttpStatus.CREATED)
       .header('Location', `/users/${result.user._id}`)
       .json(result);
   }
@@ -115,7 +135,8 @@ export class UsersController {
     const result = await this.usersService.selfRegister(selfRegistrationDto);
 
     // Retornar 201 com Location header
-    return res.status(HttpStatus.CREATED)
+    return res
+      .status(HttpStatus.CREATED)
       .header('Location', `/users/${result.user._id}`)
       .json(result);
   }
@@ -124,7 +145,13 @@ export class UsersController {
   @Post('complete-profile/:userId')
   async completeProfile(
     @Param('userId') userId: string,
-    @Body() profileData: { name: string; phone?: string; birthDate?: string; address?: any },
+    @Body()
+    profileData: {
+      name: string;
+      phone?: string;
+      birthDate?: string;
+      address?: any;
+    },
     @Res() res: Response,
   ) {
     const result = await this.usersService.completeProfile(userId, profileData);
@@ -141,9 +168,23 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin],  tenantFrom: 'user' } },
-      { membership: { roles: [MembershipRole.BranchAdmin],  tenantFrom: 'user', allowNullBranch: true } },
-      { membership: { roles: [MembershipRole.Leader],       tenantFrom: 'user', allowNullBranch: true } },
+      {
+        membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'user',
+          allowNullBranch: true,
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.Leader],
+          tenantFrom: 'user',
+          allowNullBranch: true,
+        },
+      },
     ],
   })
   async create(@Body() dto: CreateUserDto, @Req() req: any) {
@@ -171,7 +212,9 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
+      {
+        membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' },
+      },
       // Se quiser permitir BranchAdmin listar, descomente a linha abaixo:
       // { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user', allowNullBranch: true } },
     ],
@@ -186,14 +229,28 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user', allowNullBranch: true } },
-      { membership: { roles: [MembershipRole.Leader],      tenantFrom: 'user', allowNullBranch: true } },
+      {
+        membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'user',
+          allowNullBranch: true,
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.Leader],
+          tenantFrom: 'user',
+          allowNullBranch: true,
+        },
+      },
     ],
   })
   async filterUsers(@Query() query: UserFilterDto, @Req() req: any) {
     const filters = buildUserFiltersFromScope(req.user, query);
-    const page  = parseInt(query.page  || '1', 10);
+    const page = parseInt(query.page || '1', 10);
     const limit = parseInt(query.limit || '20', 10);
     return this.usersService.findWithFilters(filters, { page, limit });
   }
@@ -203,9 +260,23 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user', allowNullBranch: true } },
-      { membership: { roles: [MembershipRole.Leader],      tenantFrom: 'user', allowNullBranch: true } },
+      {
+        membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'user',
+          allowNullBranch: true,
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.Leader],
+          tenantFrom: 'user',
+          allowNullBranch: true,
+        },
+      },
     ],
   })
   async findOne(@Param('id') id: string, @Req() req: any) {
@@ -218,9 +289,23 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user', allowNullBranch: true } },
-      { membership: { roles: [MembershipRole.Leader],      tenantFrom: 'user', allowNullBranch: true } },
+      {
+        membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'user',
+          allowNullBranch: true,
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.Leader],
+          tenantFrom: 'user',
+          allowNullBranch: true,
+        },
+      },
     ],
   })
   async update(
@@ -237,7 +322,9 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
+      {
+        membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' },
+      },
       // Se quiser permitir BranchAdmin remover dentro da própria filial, avalie e descomente:
       // { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user', allowNullBranch: true } },
     ],
@@ -256,23 +343,34 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async listUsersByRole(
     @Param('tenantId') tenantId: string,
     @Param('role') role: MembershipRole,
-    @Query() query: { page?: string; limit?: string; search?: string; branchId?: string },
+    @Query()
+    query: {
+      page?: string;
+      limit?: string;
+      search?: string;
+      branchId?: string;
+    },
     @Req() req: any,
   ) {
     const page = parseInt(query.page || '1', 10);
     const limit = parseInt(query.limit || '20', 10);
-    
+
     return this.usersService.listUsersByRole(
       tenantId,
       role,
       { page, limit, search: query.search, branchId: query.branchId },
-      req.user
+      req.user,
     );
   }
 
@@ -281,26 +379,43 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param', branchParam: 'branchId' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+          branchParam: 'branchId',
+        },
+      },
     ],
   })
   async listUsersByRoleInBranch(
     @Param('tenantId') tenantId: string,
     @Param('branchId') branchId: string,
     @Param('role') role: MembershipRole,
-    @Query() query: { page?: string; limit?: string; search?: string; ministryId?: string },
+    @Query()
+    query: {
+      page?: string;
+      limit?: string;
+      search?: string;
+      ministryId?: string;
+    },
     @Req() req: any,
   ) {
     const page = parseInt(query.page || '1', 10);
     const limit = parseInt(query.limit || '20', 10);
-    
+
     return this.usersService.listUsersByRoleInBranch(
       tenantId,
       branchId,
       role,
       { page, limit, search: query.search, ministryId: query.ministryId },
-      req.user
+      req.user,
     );
   }
 
@@ -309,25 +424,41 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
       { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
     ],
   })
   async listVolunteersByMinistry(
     @Param('tenantId') tenantId: string,
     @Param('ministryId') ministryId: string,
-    @Query() query: { page?: string; limit?: string; search?: string; branchId?: string },
+    @Query()
+    query: {
+      page?: string;
+      limit?: string;
+      search?: string;
+      branchId?: string;
+    },
     @Req() req: any,
   ) {
     const page = parseInt(query.page || '1', 10);
     const limit = parseInt(query.limit || '20', 10);
-    
+
     return this.usersService.listVolunteersByMinistry(
       tenantId,
       ministryId,
       { page, limit, search: query.search, branchId: query.branchId },
-      req.user
+      req.user,
     );
   }
 
@@ -336,7 +467,12 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async getUsersDashboard(
@@ -351,8 +487,19 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param', branchParam: 'branchId' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+          branchParam: 'branchId',
+        },
+      },
     ],
   })
   async getBranchUsersDashboard(
@@ -360,7 +507,11 @@ export class UsersController {
     @Param('branchId') branchId: string,
     @Req() req: any,
   ) {
-    return this.usersService.getBranchUsersDashboard(tenantId, branchId, req.user);
+    return this.usersService.getBranchUsersDashboard(
+      tenantId,
+      branchId,
+      req.user,
+    );
   }
 
   // 🔎 Buscar usuários por nome/email (com escopo baseado na role)
@@ -368,8 +519,12 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user' } },
+      {
+        membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'user' },
+      },
+      {
+        membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'user' },
+      },
       { membership: { roles: [MembershipRole.Leader], tenantFrom: 'user' } },
     ],
   })
@@ -379,12 +534,8 @@ export class UsersController {
   ) {
     const page = parseInt(query.page || '1', 10);
     const limit = parseInt(query.limit || '20', 10);
-    
-    return this.usersService.searchUsers(
-      query.q,
-      { page, limit },
-      req.user
-    );
+
+    return this.usersService.searchUsers(query.q, { page, limit }, req.user);
   }
 
   // ========================================
@@ -396,28 +547,34 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async exportUsersByRole(
     @Param('tenantId') tenantId: string,
     @Param('role') role: MembershipRole,
-    @Query() query: { format?: 'csv' | 'xlsx'; search?: string; branchId?: string },
+    @Query()
+    query: { format?: 'csv' | 'xlsx'; search?: string; branchId?: string },
     @Req() req: any,
     @Res() res: Response,
   ) {
     const format = query.format || 'xlsx';
-    
+
     // Buscar todos os usuários (sem paginação para export)
     const result = await this.usersService.listUsersByRole(
       tenantId,
       role,
       { page: 1, limit: 10000, search: query.search, branchId: query.branchId },
-      req.user
+      req.user,
     );
 
     // Transformar dados para exportação
-    const exportData = result.users.map(user => ({
+    const exportData = result.users.map((user) => ({
       _id: user._id,
       name: user.name,
       email: user.email,
@@ -429,19 +586,27 @@ export class UsersController {
       skills: user.skills,
       availability: user.availability,
       createdAt: new Date(), // Simular data de criação
-      isActive: user.membership.isActive
+      isActive: user.membership.isActive,
     }));
 
     const filename = this.usersService.exportService.generateFilename(
       `usuarios_${role}_tenant`,
       tenantId,
-      format
+      format,
     );
 
     if (format === 'csv') {
-      await this.usersService.exportService.exportUsersToCSV(exportData, filename, res);
+      await this.usersService.exportService.exportUsersToCSV(
+        exportData,
+        filename,
+        res,
+      );
     } else {
-      await this.usersService.exportService.exportUsersToExcel(exportData, filename, res);
+      await this.usersService.exportService.exportUsersToExcel(
+        exportData,
+        filename,
+        res,
+      );
     }
   }
 
@@ -450,31 +615,48 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param', branchParam: 'branchId' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+          branchParam: 'branchId',
+        },
+      },
     ],
   })
   async exportUsersByRoleInBranch(
     @Param('tenantId') tenantId: string,
     @Param('branchId') branchId: string,
     @Param('role') role: MembershipRole,
-    @Query() query: { format?: 'csv' | 'xlsx'; search?: string; ministryId?: string },
+    @Query()
+    query: { format?: 'csv' | 'xlsx'; search?: string; ministryId?: string },
     @Req() req: any,
     @Res() res: Response,
   ) {
     const format = query.format || 'xlsx';
-    
+
     // Buscar todos os usuários da branch
     const result = await this.usersService.listUsersByRoleInBranch(
       tenantId,
       branchId,
       role,
-      { page: 1, limit: 10000, search: query.search, ministryId: query.ministryId },
-      req.user
+      {
+        page: 1,
+        limit: 10000,
+        search: query.search,
+        ministryId: query.ministryId,
+      },
+      req.user,
     );
 
     // Transformar dados para exportação
-    const exportData = result.users.map(user => ({
+    const exportData = result.users.map((user) => ({
       _id: user._id,
       name: user.name,
       email: user.email,
@@ -486,19 +668,27 @@ export class UsersController {
       skills: user.skills,
       availability: user.availability,
       createdAt: new Date(),
-      isActive: user.membership.isActive
+      isActive: user.membership.isActive,
     }));
 
     const filename = this.usersService.exportService.generateFilename(
       `usuarios_${role}_branch`,
       `${tenantId}_${branchId}`,
-      format
+      format,
     );
 
     if (format === 'csv') {
-      await this.usersService.exportService.exportUsersToCSV(exportData, filename, res);
+      await this.usersService.exportService.exportUsersToCSV(
+        exportData,
+        filename,
+        res,
+      );
     } else {
-      await this.usersService.exportService.exportUsersToExcel(exportData, filename, res);
+      await this.usersService.exportService.exportUsersToExcel(
+        exportData,
+        filename,
+        res,
+      );
     }
   }
 
@@ -507,30 +697,41 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
       { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
     ],
   })
   async exportVolunteersByMinistry(
     @Param('tenantId') tenantId: string,
     @Param('ministryId') ministryId: string,
-    @Query() query: { format?: 'csv' | 'xlsx'; search?: string; branchId?: string },
+    @Query()
+    query: { format?: 'csv' | 'xlsx'; search?: string; branchId?: string },
     @Req() req: any,
     @Res() res: Response,
   ) {
     const format = query.format || 'xlsx';
-    
+
     // Buscar todos os voluntários do ministry
     const result = await this.usersService.listVolunteersByMinistry(
       tenantId,
       ministryId,
       { page: 1, limit: 10000, search: query.search, branchId: query.branchId },
-      req.user
+      req.user,
     );
 
     // Transformar dados para exportação
-    const exportData = result.users.map(user => ({
+    const exportData = result.users.map((user) => ({
       _id: user._id,
       name: user.name,
       email: user.email,
@@ -542,19 +743,27 @@ export class UsersController {
       skills: user.skills,
       availability: user.availability,
       createdAt: new Date(),
-      isActive: user.membership.isActive
+      isActive: user.membership.isActive,
     }));
 
     const filename = this.usersService.exportService.generateFilename(
       `voluntarios_ministry`,
       `${tenantId}_${ministryId}`,
-      format
+      format,
     );
 
     if (format === 'csv') {
-      await this.usersService.exportService.exportUsersToCSV(exportData, filename, res);
+      await this.usersService.exportService.exportUsersToCSV(
+        exportData,
+        filename,
+        res,
+      );
     } else {
-      await this.usersService.exportService.exportUsersToExcel(exportData, filename, res);
+      await this.usersService.exportService.exportUsersToExcel(
+        exportData,
+        filename,
+        res,
+      );
     }
   }
 
@@ -563,7 +772,12 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async exportTenantDashboard(
@@ -572,15 +786,22 @@ export class UsersController {
     @Res() res: Response,
   ) {
     // Buscar dados do dashboard
-    const dashboardData = await this.usersService.getUsersDashboard(tenantId, req.user);
+    const dashboardData = await this.usersService.getUsersDashboard(
+      tenantId,
+      req.user,
+    );
 
     const filename = this.usersService.exportService.generateFilename(
       'dashboard_tenant',
       tenantId,
-      'xlsx'
+      'xlsx',
     );
 
-    await this.usersService.exportService.exportDashboardToExcel(dashboardData, filename, res);
+    await this.usersService.exportService.exportDashboardToExcel(
+      dashboardData,
+      filename,
+      res,
+    );
   }
 
   // 📊 Exportar dashboard da branch para Excel
@@ -588,8 +809,19 @@ export class UsersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param', branchParam: 'branchId' } },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+          branchParam: 'branchId',
+        },
+      },
     ],
   })
   async exportBranchDashboard(
@@ -599,14 +831,22 @@ export class UsersController {
     @Res() res: Response,
   ) {
     // Buscar dados do dashboard da branch
-    const dashboardData = await this.usersService.getBranchUsersDashboard(tenantId, branchId, req.user);
+    const dashboardData = await this.usersService.getBranchUsersDashboard(
+      tenantId,
+      branchId,
+      req.user,
+    );
 
     const filename = this.usersService.exportService.generateFilename(
       'dashboard_branch',
       `${tenantId}_${branchId}`,
-      'xlsx'
+      'xlsx',
     );
 
-    await this.usersService.exportService.exportDashboardToExcel(dashboardData, filename, res);
+    await this.usersService.exportService.exportDashboardToExcel(
+      dashboardData,
+      filename,
+      res,
+    );
   }
 }

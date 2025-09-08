@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Tenant, TenantSchema } from './schemas/tenant.schema';
 import { User, UserSchema } from '../users/schema/user.schema';
-import { Membership, MembershipSchema } from '../membership/schemas/membership.schema';
+import {
+  Membership,
+  MembershipSchema,
+} from '../membership/schemas/membership.schema';
 import { TenantService } from './services/tenants.service';
 import { TenantController } from './controllers/tenants.controller';
 import { NotificationsModule } from '../notifications/notifications.module';

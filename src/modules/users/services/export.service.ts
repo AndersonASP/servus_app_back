@@ -20,9 +20,12 @@ export interface ExportUserData {
 
 @Injectable()
 export class ExportService {
-  
   // 📊 Exportar usuários para CSV
-  async exportUsersToCSV(users: ExportUserData[], filename: string, res: Response): Promise<void> {
+  async exportUsersToCSV(
+    users: ExportUserData[],
+    filename: string,
+    res: Response,
+  ): Promise<void> {
     try {
       // Definir campos para exportação
       const fields = [
@@ -34,10 +37,17 @@ export class ExportService {
         { label: 'Filial', value: 'branchName' },
         { label: 'Ministério', value: 'ministryName' },
         { label: 'Perfil Completo', value: 'profileCompleted' },
-        { label: 'Habilidades', value: (row: ExportUserData) => row.skills?.join(', ') || '' },
+        {
+          label: 'Habilidades',
+          value: (row: ExportUserData) => row.skills?.join(', ') || '',
+        },
         { label: 'Disponibilidade', value: 'availability' },
-        { label: 'Data de Criação', value: (row: ExportUserData) => row.createdAt.toISOString().split('T')[0] },
-        { label: 'Ativo', value: 'isActive' }
+        {
+          label: 'Data de Criação',
+          value: (row: ExportUserData) =>
+            row.createdAt.toISOString().split('T')[0],
+        },
+        { label: 'Ativo', value: 'isActive' },
       ];
 
       // Gerar CSV
@@ -46,12 +56,14 @@ export class ExportService {
 
       // Configurar headers de resposta
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${filename}.csv"`,
+      );
       res.setHeader('Content-Length', Buffer.byteLength(csv, 'utf8'));
 
       // Enviar CSV
       res.send(csv);
-      
     } catch (error) {
       console.error('❌ Erro ao exportar CSV:', error.message);
       throw new Error('Erro ao gerar exportação CSV');
@@ -59,7 +71,11 @@ export class ExportService {
   }
 
   // 📊 Exportar usuários para Excel
-  async exportUsersToExcel(users: ExportUserData[], filename: string, res: Response): Promise<void> {
+  async exportUsersToExcel(
+    users: ExportUserData[],
+    filename: string,
+    res: Response,
+  ): Promise<void> {
     try {
       // Criar workbook
       const workbook = new ExcelJS.Workbook();
@@ -78,7 +94,7 @@ export class ExportService {
         { header: 'Habilidades', key: 'skills', width: 30 },
         { header: 'Disponibilidade', key: 'availability', width: 25 },
         { header: 'Data de Criação', key: 'createdAt', width: 15 },
-        { header: 'Ativo', key: 'isActive', width: 10 }
+        { header: 'Ativo', key: 'isActive', width: 10 },
       ];
 
       // Estilizar header
@@ -86,12 +102,12 @@ export class ExportService {
       worksheet.getRow(1).fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF4472C4' }
+        fgColor: { argb: 'FF4472C4' },
       };
       worksheet.getRow(1).font = { color: { argb: 'FFFFFFFF' }, bold: true };
 
       // Adicionar dados
-      users.forEach(user => {
+      users.forEach((user) => {
         worksheet.addRow({
           _id: user._id,
           name: user.name,
@@ -104,14 +120,14 @@ export class ExportService {
           skills: user.skills?.join(', ') || '',
           availability: user.availability || '',
           createdAt: user.createdAt.toISOString().split('T')[0],
-          isActive: user.isActive ? 'Sim' : 'Não'
+          isActive: user.isActive ? 'Sim' : 'Não',
         });
       });
 
       // Adicionar filtros
       worksheet.autoFilter = {
         from: 'A1',
-        to: `L${users.length + 1}`
+        to: `L${users.length + 1}`,
       };
 
       // Adicionar estatísticas no final
@@ -119,20 +135,25 @@ export class ExportService {
       worksheet.addRow([]);
       worksheet.addRow(['ESTATÍSTICAS']);
       worksheet.getRow(lastRow + 1).font = { bold: true };
-      
+
       const roleStats = this.calculateRoleStats(users);
-      roleStats.forEach(stat => {
+      roleStats.forEach((stat) => {
         worksheet.addRow([stat.role, stat.count]);
       });
 
       // Configurar headers de resposta
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${filename}.xlsx"`,
+      );
 
       // Escrever para response
       await workbook.xlsx.write(res);
       res.end();
-      
     } catch (error) {
       console.error('❌ Erro ao exportar Excel:', error.message);
       throw new Error('Erro ao gerar exportação Excel');
@@ -143,14 +164,14 @@ export class ExportService {
   async exportDashboardToExcel(
     dashboardData: any,
     filename: string,
-    res: Response
+    res: Response,
   ): Promise<void> {
     try {
       const workbook = new ExcelJS.Workbook();
-      
+
       // Worksheet 1: Estatísticas Gerais
       const statsSheet = workbook.addWorksheet('Estatísticas');
-      
+
       // Título
       statsSheet.mergeCells('A1:D1');
       statsSheet.getCell('A1').value = 'Dashboard de Usuários';
@@ -161,10 +182,10 @@ export class ExportService {
       statsSheet.addRow([]);
       statsSheet.addRow(['Estatísticas por Função']);
       statsSheet.getRow(3).font = { bold: true };
-      
+
       statsSheet.addRow(['Função', 'Quantidade']);
       statsSheet.getRow(4).font = { bold: true };
-      
+
       dashboardData.stats.byRole.forEach((stat: any) => {
         statsSheet.addRow([this.translateRole(stat._id), stat.count]);
       });
@@ -174,31 +195,31 @@ export class ExportService {
         statsSheet.addRow([]);
         statsSheet.addRow(['Estatísticas por Filial']);
         statsSheet.getRow(statsSheet.rowCount).font = { bold: true };
-        
+
         statsSheet.addRow(['Filial', 'Total de Usuários', 'Funções']);
         statsSheet.getRow(statsSheet.rowCount).font = { bold: true };
-        
+
         dashboardData.stats.byBranch.forEach((stat: any) => {
           statsSheet.addRow([
             stat._id,
             stat.totalUsers,
-            stat.roles.map((r: string) => this.translateRole(r)).join(', ')
+            stat.roles.map((r: string) => this.translateRole(r)).join(', '),
           ]);
         });
       }
 
       // Worksheet 2: Usuários Recentes
       const recentSheet = workbook.addWorksheet('Usuários Recentes');
-      
+
       recentSheet.addRow(['Nome', 'Email', 'Função', 'Data de Criação']);
       recentSheet.getRow(1).font = { bold: true };
-      
+
       dashboardData.recentUsers.forEach((user: any) => {
         recentSheet.addRow([
           user.name,
           user.email,
           this.translateRole(user.role),
-          new Date(user.createdAt).toLocaleDateString('pt-BR')
+          new Date(user.createdAt).toLocaleDateString('pt-BR'),
         ]);
       });
 
@@ -207,24 +228,29 @@ export class ExportService {
         { width: 20 },
         { width: 15 },
         { width: 30 },
-        { width: 15 }
+        { width: 15 },
       ];
 
       recentSheet.columns = [
         { width: 25 },
         { width: 30 },
         { width: 15 },
-        { width: 15 }
+        { width: 15 },
       ];
 
       // Configurar headers de resposta
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${filename}.xlsx"`,
+      );
 
       // Escrever para response
       await workbook.xlsx.write(res);
       res.end();
-      
     } catch (error) {
       console.error('❌ Erro ao exportar dashboard Excel:', error.message);
       throw new Error('Erro ao gerar exportação do dashboard');
@@ -234,11 +260,11 @@ export class ExportService {
   // 🔄 Traduzir roles para português
   private translateRole(role: string): string {
     const translations: { [key: string]: string } = {
-      'servus_admin': 'Administrador do Sistema',
-      'tenant_admin': 'Administrador da Igreja',
-      'branch_admin': 'Administrador da Filial',
-      'leader': 'Líder',
-      'volunteer': 'Voluntário'
+      servus_admin: 'Administrador do Sistema',
+      tenant_admin: 'Administrador da Igreja',
+      branch_admin: 'Administrador da Filial',
+      leader: 'Líder',
+      volunteer: 'Voluntário',
     };
     return translations[role] || role;
   }
@@ -246,22 +272,26 @@ export class ExportService {
   // 📊 Calcular estatísticas por role
   private calculateRoleStats(users: ExportUserData[]) {
     const roleCount: { [key: string]: number } = {};
-    
-    users.forEach(user => {
+
+    users.forEach((user) => {
       const translatedRole = this.translateRole(user.role);
       roleCount[translatedRole] = (roleCount[translatedRole] || 0) + 1;
     });
 
     return Object.entries(roleCount).map(([role, count]) => ({
       role,
-      count
+      count,
     }));
   }
 
   // 📅 Gerar nome de arquivo com timestamp
-  generateFilename(prefix: string, tenantId?: string, format: 'csv' | 'xlsx' = 'xlsx'): string {
+  generateFilename(
+    prefix: string,
+    tenantId?: string,
+    format: 'csv' | 'xlsx' = 'xlsx',
+  ): string {
     const timestamp = new Date().toISOString().split('T')[0];
     const tenantSuffix = tenantId ? `_${tenantId}` : '';
     return `${prefix}${tenantSuffix}_${timestamp}.${format}`;
   }
-} 
+}
