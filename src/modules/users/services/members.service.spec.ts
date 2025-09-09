@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { MembersService } from './members.service';
-import { CreateMemberDto, MembershipAssignmentDto } from '../DTO/create-member.dto';
+import { CreateMemberDto, MembershipAssignmentDto } from '../dto/create-member.dto';
 import { MembershipRole } from 'src/common/enums/role.enum';
 
 describe('MembersService', () => {

@@ -14,10 +14,10 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { MembersService } from '../services/members.service';
-import { CreateMemberDto } from '../DTO/create-member.dto';
-import { UpdateMemberDto } from '../DTO/update-member.dto';
-import { MemberFilterDto } from '../DTO/member-filter.dto';
-import { MemberResponseDto } from '../DTO/member-response.dto';
+import { CreateMemberDto } from '../dto/create-member.dto';
+import { UpdateMemberDto } from '../dto/update-member.dto';
+import { MemberFilterDto } from '../dto/member-filter.dto';
+import { MemberResponseDto } from '../dto/member-response.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RequiresPerm } from 'src/common/decorators/requires-perm.decorator';
 import { PERMS } from 'src/common/enums/role.enum';

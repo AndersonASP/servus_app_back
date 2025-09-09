@@ -55,10 +55,16 @@ export const environmentConfig = registerAs('environment', (): EnvironmentConfig
     nodeEnv,
     port: parseInt(process.env.PORT || '3000', 10),
     apiPrefix: process.env.API_PREFIX || 'api',
-    mongoUri: process.env.MONGO_URI || 'mongodb+srv://andersonalvestech:fxk8w5ySDM0h4CJR@servuscluster0.oevppgo.mongodb.net/?retryWrites=true&w=majority&appName=ServusCluster0',
+    mongoUri: process.env.MONGO_URI || (() => {
+      throw new Error('MONGO_URI é obrigatória. Configure a variável de ambiente.');
+    })(),
     jwt: {
-      accessSecret: process.env.JWT_SECRET || 'aServus1108',
-      refreshSecret: process.env.JWT_REFRESH_SECRET || 'aServus1108',
+      accessSecret: process.env.JWT_SECRET || (() => {
+        throw new Error('JWT_ACCESS_SECRET é obrigatória. Configure a variável de ambiente.');
+      })(),
+      refreshSecret: process.env.JWT_REFRESH_SECRET || (() => {
+        throw new Error('JWT_REFRESH_SECRET é obrigatória. Configure a variável de ambiente.');
+      })(),
       accessExpiresIn: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || '3600', 10),
       refreshExpiresIn: parseInt(process.env.JWT_REFRESH_EXPIRES_IN || '604800', 10),
     },
@@ -89,8 +95,9 @@ export const environmentConfig = registerAs('environment', (): EnvironmentConfig
 // Validações específicas por ambiente
 export const validateEnvironment = (config: EnvironmentConfig): void => {
   if (config.nodeEnv === 'prod') {
-    if (config.jwt.accessSecret === 'aServus1108' || config.jwt.refreshSecret === 'aServus1108') {
-      throw new Error('Secrets JWT devem ser alterados em produção');
+    // Validação de segurança: secrets JWT devem ser fornecidos via variáveis de ambiente
+    if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
+      throw new Error('Secrets JWT são obrigatórios. Configure JWT_SECRET e JWT_REFRESH_SECRET.');
     }
     
     if (config.mongoUri.includes('localhost')) {

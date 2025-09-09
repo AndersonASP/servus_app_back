@@ -11,12 +11,12 @@ import { Branch } from '../schemas/branch.schema';
 import { Tenant } from 'src/modules/tenants/schemas/tenant.schema';
 import { User } from '../../users/schema/user.schema';
 import { Membership } from '../../membership/schemas/membership.schema';
-import { CreateBranchDto } from '../DTO/create-branches.dto';
-import { CreateBranchWithAdminDto } from '../DTO/create-branch-with-admin.dto';
-import { UpdateBranchDto } from '../DTO/update-branch.dto';
-import { BranchFilterDto } from '../DTO/branch-filter.dto';
-import { BranchResponseDto, BranchListResponseDto } from '../DTO/branch-response.dto';
-import { AssignAdminDto } from '../DTO/assign-admin.dto';
+import { CreateBranchDto } from '../dto/create-branches.dto';
+import { CreateBranchWithAdminDto } from '../dto/create-branch-with-admin.dto';
+import { UpdateBranchDto } from '../dto/update-branch.dto';
+import { BranchFilterDto } from '../dto/branch-filter.dto';
+import { BranchResponseDto, BranchListResponseDto } from '../dto/branch-response.dto';
+import { AssignAdminDto } from '../dto/assign-admin.dto';
 import { Role, MembershipRole } from 'src/common/enums/role.enum';
 import { EmailService } from '../../notifications/services/email.service';
 import * as bcrypt from 'bcrypt';
@@ -517,12 +517,36 @@ export class BranchService {
    * Gera uma senha provisória segura
    */
   private generateProvisionalPassword(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    const crypto = require('crypto');
+    
+    // Caracteres seguros para senha
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+    const allChars = uppercase + lowercase + numbers + symbols;
+    
     let password = '';
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    
+    // Garantir pelo menos um de cada tipo
+    password += uppercase[crypto.randomInt(0, uppercase.length)];
+    password += lowercase[crypto.randomInt(0, lowercase.length)];
+    password += numbers[crypto.randomInt(0, numbers.length)];
+    password += symbols[crypto.randomInt(0, symbols.length)];
+    
+    // Preencher o resto com caracteres aleatórios criptograficamente seguros
+    for (let i = 4; i < 16; i++) { // Senha de 16 caracteres
+      password += allChars[crypto.randomInt(0, allChars.length)];
     }
-    return password;
+    
+    // Embaralhar a senha
+    const passwordArray = password.split('');
+    for (let i = passwordArray.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [passwordArray[i], passwordArray[j]] = [passwordArray[j], passwordArray[i]];
+    }
+    
+    return passwordArray.join('');
   }
 
   /**

@@ -20,6 +20,7 @@ import { UpdateMinistryDto } from '../dto/update-ministry.dto';
 import { RequiresPerm } from 'src/common/decorators/requires-perm.decorator';
 import { PERMS, ROLE_PERMISSIONS } from 'src/common/enums/role.enum';
 import { Public } from 'src/common/decorators/public.decorator';
+import { SkipThrottle } from 'src/common/decorators/skip-throttle.decorator';
 import { Reflector } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -194,6 +195,7 @@ export class MinistriesMatrixController {
   }
 
   @Get()
+  @SkipThrottle()
   @RequiresPerm(
     [
       PERMS.MANAGE_ALL_TENANTS,
@@ -353,6 +355,7 @@ export class MinistriesController {
   }
 
   @Get()
+  @SkipThrottle()
   @RequiresPerm(
     [
       PERMS.MANAGE_ALL_TENANTS,

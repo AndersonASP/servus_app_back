@@ -14,16 +14,16 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { UsersService } from './services/users.service';
-import { CreateUserDto } from './DTO/create-user.dto';
-import { UpdateUserDto } from './DTO/update-user.dto';
-import { CreateUserWithMembershipDto } from './DTO/create-user-with-membership.dto';
-import { SelfRegistrationDto } from './DTO/self-registration.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateUserWithMembershipDto } from './dto/create-user-with-membership.dto';
+import { SelfRegistrationDto } from './dto/self-registration.dto';
 import { RequiresPerm } from 'src/common/decorators/requires-perm.decorator';
 import { PERMS, Role, MembershipRole } from 'src/common/enums/role.enum';
 import { Authorize } from 'src/common/decorators/authorize/authorize.decorator';
 import { resolveTenantAndBranchScope } from 'src/common/utils/helpers/user-scope.util';
 import { buildUserFiltersFromScope } from 'src/common/utils/helpers/build-user-filters-scope.util';
-import { UserFilterDto } from './DTO/user-filter.dto';
+import { UserFilterDto } from './dto/user-filter.dto';
 
 @Controller('users')
 export class UsersController {

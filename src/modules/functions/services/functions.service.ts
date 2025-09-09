@@ -344,4 +344,21 @@ export class FunctionsService {
       updatedAt: (ministryFunction as any)?.updatedAt ?? (func as any).updatedAt
     };
   }
+
+  /**
+   * Remove todas as funções vinculadas a um ministério (cascade delete)
+   */
+  async removeMinistryFunctions(tenantId: string, ministryId: string): Promise<void> {
+    // Remove todas as funções de ministério
+    await this.ministryFunctionModel.deleteMany({
+      tenantId: tenantId,
+      ministryId: new Types.ObjectId(ministryId),
+    });
+
+    // Remove todas as funções de membros vinculadas ao ministério
+    await this.memberFunctionModel.deleteMany({
+      tenantId: tenantId,
+      ministryId: new Types.ObjectId(ministryId),
+    });
+  }
 }

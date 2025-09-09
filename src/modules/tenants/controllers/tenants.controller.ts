@@ -11,8 +11,8 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { TenantService } from '../services/tenants.service';
-import { CreateTenantDto } from '../DTO/create-tenant.dto';
-import { CreateTenantWithAdminDto } from '../DTO/create-tenant-with-admin.dto';
+import { CreateTenantDto } from '../dto/create-tenant.dto';
+import { CreateTenantWithAdminDto } from '../dto/create-tenant-with-admin.dto';
 import { RequiresPerm } from 'src/common/decorators/requires-perm.decorator';
 import { PERMS } from 'src/common/enums/role.enum';
 

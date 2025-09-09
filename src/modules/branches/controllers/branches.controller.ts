@@ -14,11 +14,11 @@ import {
 import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { BranchService } from '../services/branches.service';
-import { CreateBranchDto } from '../DTO/create-branches.dto';
-import { CreateBranchWithAdminDto } from '../DTO/create-branch-with-admin.dto';
-import { UpdateBranchDto } from '../DTO/update-branch.dto';
-import { BranchFilterDto } from '../DTO/branch-filter.dto';
-import { AssignAdminDto } from '../DTO/assign-admin.dto';
+import { CreateBranchDto } from '../dto/create-branches.dto';
+import { CreateBranchWithAdminDto } from '../dto/create-branch-with-admin.dto';
+import { UpdateBranchDto } from '../dto/update-branch.dto';
+import { BranchFilterDto } from '../dto/branch-filter.dto';
+import { AssignAdminDto } from '../dto/assign-admin.dto';
 import { RequiresPerm } from 'src/common/decorators/requires-perm.decorator';
 import { Authorize } from 'src/common/decorators/authorize/authorize.decorator';
 import { PERMS } from 'src/common/enums/role.enum';

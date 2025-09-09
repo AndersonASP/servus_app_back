@@ -6,10 +6,11 @@ import { Membership } from '../../membership/schemas/membership.schema';
 import { Branch } from '../../branches/schemas/branch.schema';
 import { Ministry } from '../../ministries/schemas/ministry.schema';
 import { Tenant } from '../../tenants/schemas/tenant.schema';
-import { CreateMemberDto, MembershipAssignmentDto } from '../DTO/create-member.dto';
-import { UpdateMemberDto } from '../DTO/update-member.dto';
-import { MemberFilterDto } from '../DTO/member-filter.dto';
-import { MemberResponseDto } from '../DTO/member-response.dto';
+import { UserFunction } from '../../functions/schemas/user-function.schema';
+import { CreateMemberDto, MembershipAssignmentDto } from '../dto/create-member.dto';
+import { UpdateMemberDto } from '../dto/update-member.dto';
+import { MemberFilterDto } from '../dto/member-filter.dto';
+import { MemberResponseDto } from '../dto/member-response.dto';
 import { MembershipRole, Role } from '../../../common/enums/role.enum';
 import { EmailService } from '../../notifications/services/email.service';
 import * as bcrypt from 'bcrypt';
@@ -22,6 +23,7 @@ export class MembersService {
     @InjectModel(Branch.name) private branchModel: Model<Branch>,
     @InjectModel(Ministry.name) private ministryModel: Model<Ministry>,
     @InjectModel(Tenant.name) private tenantModel: Model<Tenant>,
+    @InjectModel(UserFunction.name) private userFunctionModel: Model<UserFunction>,
     private emailService: EmailService,
   ) {}
 
@@ -79,6 +81,24 @@ export class MembersService {
       });
 
       await membership.save();
+
+      // Criar vínculos UserFunction se houver funções selecionadas
+      if (membershipData.functionIds && membershipData.functionIds.length > 0 && membershipData.ministryId) {
+        for (const functionId of membershipData.functionIds) {
+          const userFunction = new this.userFunctionModel({
+            userId: savedUser._id,
+            ministryId: membershipData.ministryId,
+            functionId: functionId,
+            status: 'approved', // Aprovado automaticamente quando criado pelo líder
+            tenantId: tenantObjectId,
+            branchId: membershipData.branchId,
+            approvedBy: createdBy,
+            approvedAt: new Date(),
+          });
+
+          await userFunction.save();
+        }
+      }
 
       // Coletar informações do primeiro membership para o email
       if (!branchName && membershipData.branchId) {
@@ -243,22 +263,36 @@ export class MembersService {
    * Gera uma senha provisória segura
    */
   private generateProvisionalPassword(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    const crypto = require('crypto');
+    
+    // Caracteres seguros para senha
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+    const allChars = uppercase + lowercase + numbers + symbols;
+    
     let password = '';
     
-    // Garantir pelo menos um caractere de cada tipo
-    password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]; // Maiúscula
-    password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]; // Minúscula
-    password += '0123456789'[Math.floor(Math.random() * 10)]; // Número
-    password += '!@#$%^&*'[Math.floor(Math.random() * 8)]; // Símbolo
+    // Garantir pelo menos um de cada tipo (mais seguro)
+    password += uppercase[crypto.randomInt(0, uppercase.length)];
+    password += lowercase[crypto.randomInt(0, lowercase.length)];
+    password += numbers[crypto.randomInt(0, numbers.length)];
+    password += symbols[crypto.randomInt(0, symbols.length)];
     
-    // Completar com caracteres aleatórios
-    for (let i = 4; i < 12; i++) {
-      password += chars[Math.floor(Math.random() * chars.length)];
+    // Preencher o resto com caracteres aleatórios criptograficamente seguros
+    for (let i = 4; i < 16; i++) { // Senha de 16 caracteres
+      password += allChars[crypto.randomInt(0, allChars.length)];
     }
     
-    // Embaralhar a senha
-    return password.split('').sort(() => Math.random() - 0.5).join('');
+    // Embaralhar a senha usando crypto.randomBytes para maior segurança
+    const passwordArray = password.split('');
+    for (let i = passwordArray.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [passwordArray[i], passwordArray[j]] = [passwordArray[j], passwordArray[i]];
+    }
+    
+    return passwordArray.join('');
   }
 
   private mapUserToMemberResponse(user: any, memberships: any[]): MemberResponseDto {

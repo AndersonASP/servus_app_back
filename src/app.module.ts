@@ -5,8 +5,10 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { CustomThrottlerGuard } from './common/guards/throttler.guard';
 
 import { DatabaseConfig } from './config/database.config';
 import { environmentConfig, validateEnvironment } from './config/environment.config';
@@ -19,7 +21,7 @@ import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { TenantModule } from './modules/tenants/tenants.module';
-import { BranchModule } from './modules/branches/branches.modules';
+import { BranchModule } from './modules/branches/branches.module';
 import { MinistriesModule } from './modules/ministries/ministries.module';
 import { MembershipsModule } from './modules/membership/memberships.module';
 import { VolunteersModule } from './modules/volunteers/volunteers.module';
@@ -47,6 +49,41 @@ import {
     }),
     ...DatabaseConfig,
 
+    // Rate Limiting para proteção contra ataques
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => {
+        const nodeEnv = configService.get<string>('environment.nodeEnv');
+        
+        // Configurações diferentes por ambiente
+        if (nodeEnv === 'prod') {
+          return [
+            {
+              ttl: 60000, // 1 minuto
+              limit: 100, // 100 requests por minuto por IP (produção)
+            },
+            {
+              ttl: 300000, // 5 minutos
+              limit: 20, // 20 requests por 5 minutos para endpoints de auth
+            },
+          ];
+        } else {
+          // Desenvolvimento - limites mais permissivos
+          return [
+            {
+              ttl: 60000, // 1 minuto
+              limit: 1000, // 1000 requests por minuto por IP
+            },
+            {
+              ttl: 300000, // 5 minutos
+              limit: 200, // 200 requests por 5 minutos para endpoints de auth
+            },
+          ];
+        }
+      },
+      inject: [ConfigService],
+    }),
+
     // ⬇️ Registra os models que o PolicyGuard injeta via @InjectModel
     MongooseModule.forFeature([
       { name: Tenant.name, schema: TenantSchema },
@@ -68,6 +105,7 @@ import {
 
   ],
   providers: [
+    { provide: APP_GUARD, useClass: CustomThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PolicyGuard },
   ],

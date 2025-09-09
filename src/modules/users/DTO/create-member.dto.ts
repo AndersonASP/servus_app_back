@@ -43,6 +43,11 @@ export class MembershipAssignmentDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean = true;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  functionIds?: string[];
 }
 
 export class CreateMemberDto {
@@ -80,6 +85,7 @@ export class CreateMemberDto {
   address?: AddressDto;
 
   @IsArray()
+  @IsNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => MembershipAssignmentDto)
   memberships: MembershipAssignmentDto[];

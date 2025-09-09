@@ -23,6 +23,10 @@ import {
   Ministry,
   MinistrySchema,
 } from 'src/modules/ministries/schemas/ministry.schema';
+import {
+  UserFunction,
+  UserFunctionSchema,
+} from 'src/modules/functions/schemas/user-function.schema';
 import { cacheConfig } from 'src/config/cache.config';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 
@@ -34,6 +38,7 @@ import { NotificationsModule } from 'src/modules/notifications/notifications.mod
       { name: Tenant.name, schema: TenantSchema },
       { name: Branch.name, schema: BranchSchema },
       { name: Ministry.name, schema: MinistrySchema },
+      { name: UserFunction.name, schema: UserFunctionSchema },
     ]),
     CacheModule.register(cacheConfig),
     NotificationsModule,

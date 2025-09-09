@@ -169,7 +169,7 @@ export class MinistriesService {
     return doc;
   }
 
-  // "Delete" suave: desativa
+  // Exclusão física: remove completamente da base de dados
   async remove(
     tenantId: string,
     branchId: string | null,
@@ -183,9 +183,22 @@ export class MinistriesService {
     });
     if (!doc) throw new NotFoundException('Ministério não encontrado.');
 
-    doc.isActive = false;
-    (doc as any).updatedBy = userId;
-    await doc.save();
+    // Desvincula todos os membros do ministério (remove apenas a referência)
+    await this.memModel.updateMany(
+      {
+        ministry: id,
+        tenant: tenantId,
+      },
+      {
+        $unset: { ministry: 1 }
+      }
+    );
+
+    // Remove todas as funções vinculadas ao ministério (cascade delete)
+    await this.functionsService.removeMinistryFunctions(tenantId, id);
+
+    // Remove fisicamente da base de dados
+    await this.ministryModel.findByIdAndDelete(id);
 
     return { success: true };
   }

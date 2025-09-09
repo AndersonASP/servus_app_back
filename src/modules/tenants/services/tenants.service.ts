@@ -7,8 +7,8 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Tenant } from '../schemas/tenant.schema';
-import { CreateTenantDto } from '../DTO/create-tenant.dto';
-import { CreateTenantWithAdminDto } from '../DTO/create-tenant-with-admin.dto';
+import { CreateTenantDto } from '../dto/create-tenant.dto';
+import { CreateTenantWithAdminDto } from '../dto/create-tenant-with-admin.dto';
 import { User } from '../../users/schema/user.schema';
 import { Membership } from '../../membership/schemas/membership.schema';
 import { Role, MembershipRole } from 'src/common/enums/role.enum';
@@ -48,16 +48,36 @@ export class TenantService {
    * Gera uma senha provisória segura
    */
   private generateProvisionalPassword(): string {
-    // Gera uma senha de 8 caracteres com letras e números
-    const chars =
-      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const crypto = require('crypto');
+    
+    // Caracteres seguros para senha
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+    const allChars = uppercase + lowercase + numbers + symbols;
+    
     let password = '';
-
-    for (let i = 0; i < 8; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    
+    // Garantir pelo menos um de cada tipo
+    password += uppercase[crypto.randomInt(0, uppercase.length)];
+    password += lowercase[crypto.randomInt(0, lowercase.length)];
+    password += numbers[crypto.randomInt(0, numbers.length)];
+    password += symbols[crypto.randomInt(0, symbols.length)];
+    
+    // Preencher o resto com caracteres aleatórios criptograficamente seguros
+    for (let i = 4; i < 16; i++) { // Senha de 16 caracteres
+      password += allChars[crypto.randomInt(0, allChars.length)];
     }
-
-    return password;
+    
+    // Embaralhar a senha
+    const passwordArray = password.split('');
+    for (let i = passwordArray.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1);
+      [passwordArray[i], passwordArray[j]] = [passwordArray[j], passwordArray[i]];
+    }
+    
+    return passwordArray.join('');
   }
 
   async create(createTenantDto: CreateTenantDto, createdBy: string) {

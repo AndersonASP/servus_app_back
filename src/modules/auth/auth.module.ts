@@ -8,7 +8,7 @@ import { AuthService } from './services/auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { TenantModule } from '../tenants/tenants.module';
-import { BranchModule } from '../branches/branches.modules';
+import { BranchModule } from '../branches/branches.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import {
   Membership,
@@ -25,8 +25,7 @@ import { Tenant, TenantSchema } from '../tenants/schemas/tenant.schema';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('environment.jwt.accessSecret') ||
-          'default-access-secret-change-in-production',
+        secret: configService.get<string>('environment.jwt.accessSecret'),
         signOptions: { 
           expiresIn: configService.get<number>('environment.jwt.accessExpiresIn') || 3600
         },

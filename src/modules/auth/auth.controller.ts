@@ -8,11 +8,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
-import { LoginUserDto } from './DTO/login-user.dto';
-import { GoogleLoginDto } from './DTO/google-login.dto';
-import { LoginResponseDto, UserContextDto } from './DTO/login-response.dto';
+import { LoginUserDto } from './dto/login-user.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
+import { LoginResponseDto, UserContextDto } from './dto/login-response.dto';
 import { Public } from 'src/common/decorators/public.decorator';
-import { RefreshTokenDto } from './DTO/refresh-token.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { use } from 'passport';
 
 @Controller('auth')
