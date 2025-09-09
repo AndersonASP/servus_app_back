@@ -1338,7 +1338,7 @@ export class UsersService {
   ): Promise<boolean> {
     const query = {
       user: new Types.ObjectId(userId),
-      tenant: new Types.ObjectId(tenantId),
+      tenant: tenantId, // tenantId é UUID, não ObjectId
       role: { $in: roles },
       isActive: true,
     };
@@ -1363,7 +1363,7 @@ export class UsersService {
   ): Promise<boolean> {
     const membership = await this.memModel.findOne({
       user: new Types.ObjectId(userId),
-      tenant: new Types.ObjectId(tenantId),
+      tenant: tenantId, // tenantId é UUID, não ObjectId
       branch: new Types.ObjectId(branchId),
       role: { $in: roles },
       isActive: true,
@@ -1380,7 +1380,7 @@ export class UsersService {
   ): Promise<boolean> {
     const query = {
       user: new Types.ObjectId(userId),
-      tenant: new Types.ObjectId(tenantId),
+      tenant: tenantId, // tenantId é UUID, não ObjectId
       ministry: new Types.ObjectId(ministryId),
       role: { $in: roles },
       isActive: true,

@@ -59,7 +59,7 @@ export class ReportsService {
   }> {
     // Construir query base
     const matchStage: any = {
-      tenant: new Types.ObjectId(filters.tenantId),
+      tenant: filters.tenantId, // tenantId é UUID, não ObjectId
       isActive: filters.userStatus !== 'inactive',
     };
 
@@ -380,7 +380,7 @@ export class ReportsService {
     const pipeline: any[] = [
       {
         $match: {
-          tenant: new Types.ObjectId(filters.tenantId),
+          tenant: filters.tenantId, // tenantId é UUID, não ObjectId
           isActive: true,
         },
       },
@@ -494,7 +494,7 @@ export class ReportsService {
     const pipeline: any[] = [
       {
         $match: {
-          tenant: new Types.ObjectId(filters.tenantId),
+          tenant: filters.tenantId, // tenantId é UUID, não ObjectId
           isActive: true,
           ministry: { $exists: true, $ne: null },
         },

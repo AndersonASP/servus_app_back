@@ -45,7 +45,7 @@ export class MembershipService {
     // Verificar se já existe membership para este usuário neste ministério
     const existingMembership = await this.membershipModel.findOne({
       user: new Types.ObjectId(createMembershipDto.userId),
-      tenant: new Types.ObjectId(tenantId),
+      tenant: tenantId, // tenantId é UUID, não ObjectId
       ministry: new Types.ObjectId(ministryId),
       branch: createMembershipDto.branchId ? new Types.ObjectId(createMembershipDto.branchId) : null,
     });
@@ -57,7 +57,7 @@ export class MembershipService {
     // Criar novo membership
     const membership = new this.membershipModel({
       user: new Types.ObjectId(createMembershipDto.userId),
-      tenant: new Types.ObjectId(tenantId),
+      tenant: tenantId, // tenantId é UUID, não ObjectId
       branch: createMembershipDto.branchId ? new Types.ObjectId(createMembershipDto.branchId) : null,
       ministry: new Types.ObjectId(ministryId),
       role: MembershipRole.Volunteer, // Força role de voluntário
@@ -107,7 +107,7 @@ export class MembershipService {
     // Verificar se já existe membership para este usuário neste ministério
     const existingMembership = await this.membershipModel.findOne({
       user: new Types.ObjectId(createMembershipDto.userId),
-      tenant: new Types.ObjectId(tenantId),
+      tenant: tenantId, // tenantId é UUID, não ObjectId
       ministry: new Types.ObjectId(ministryId),
       branch: createMembershipDto.branchId ? new Types.ObjectId(createMembershipDto.branchId) : null,
     });
@@ -119,7 +119,7 @@ export class MembershipService {
     // Criar novo membership
     const membership = new this.membershipModel({
       user: new Types.ObjectId(createMembershipDto.userId),
-      tenant: new Types.ObjectId(tenantId),
+      tenant: tenantId, // tenantId é UUID, não ObjectId
       branch: createMembershipDto.branchId ? new Types.ObjectId(createMembershipDto.branchId) : null,
       ministry: new Types.ObjectId(ministryId),
       role: MembershipRole.Leader, // Força role de líder
@@ -165,6 +165,18 @@ export class MembershipService {
     console.log('   - Ministry ID:', ministryId);
     console.log('   - Options:', options);
 
+    // Debug: Log dos IDs recebidos
+    console.log('🔍 Debug - IDs recebidos:');
+    console.log('   - ministryId:', ministryId, '(tipo:', typeof ministryId, ', length:', ministryId?.length, ')');
+    console.log('   - tenantId:', tenantId, '(tipo:', typeof tenantId, ', length:', tenantId?.length, ')');
+    console.log('   - branchId:', options.branchId, '(tipo:', typeof options.branchId, ', length:', options.branchId?.length, ')');
+
+    // Validar se ministryId é um ObjectId válido ANTES de qualquer operação
+    if (!Types.ObjectId.isValid(ministryId)) {
+      console.error('❌ ID do ministério inválido:', ministryId);
+      throw new BadRequestException(`ID do ministério inválido: ${ministryId}`);
+    }
+
     // Verificar se o ministério existe e pertence ao tenant
     const ministry = await this.validateMinistry(tenantId, ministryId);
 
@@ -172,15 +184,32 @@ export class MembershipService {
     await this.validateUserPermissions(currentUser.sub, tenantId, ministryId, 'view_members');
 
     // Construir filtros
+    console.log('🔧 Criando filtros...');
+    console.log('   - tenantId é UUID (36 chars), não ObjectId (24 chars)');
+    console.log('   - Criando ObjectId para ministryId:', ministryId);
+    const ministryObjectId = new Types.ObjectId(ministryId);
+    console.log('   - Ministry ObjectId criado:', ministryObjectId);
+    
     const filters: any = {
-      tenant: new Types.ObjectId(tenantId),
-      ministry: new Types.ObjectId(ministryId),
+      tenant: tenantId, // tenantId é UUID, não ObjectId
+      ministry: ministryObjectId,
       isActive: true,
     };
 
     // Filtrar por branch se especificado
     if (options.branchId) {
-      filters.branch = new Types.ObjectId(options.branchId);
+      console.log('   - branchId recebido:', options.branchId, '(length:', options.branchId.length, ')');
+      
+      // Verificar se é ObjectId (24 chars) ou UUID (36 chars)
+      if (Types.ObjectId.isValid(options.branchId)) {
+        console.log('   - branchId é ObjectId válido');
+        filters.branch = new Types.ObjectId(options.branchId);
+      } else if (options.branchId.length === 36) {
+        console.log('   - branchId é UUID, usando como string');
+        filters.branch = options.branchId;
+      } else {
+        throw new BadRequestException('ID da filial inválido: deve ser ObjectId (24 chars) ou UUID (36 chars)');
+      }
     } else {
       filters.branch = null; // Apenas membros da matriz
     }
@@ -251,9 +280,13 @@ export class MembershipService {
 
     // Aplicar paginação
     const skip = (options.page - 1) * options.limit;
-    const members = await query.skip(skip).limit(options.limit);
+    const members = await query.skip(skip).limit(options.limit).exec();
 
     console.log('✅ Membros listados com sucesso');
+    console.log('   - Members count:', members.length);
+    console.log('   - Members type:', typeof members);
+    console.log('   - Is array:', Array.isArray(members));
+    
     return {
       members,
       pagination: {
