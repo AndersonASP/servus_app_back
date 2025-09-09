@@ -105,6 +105,10 @@ export class PolicyGuard implements CanActivate {
     );
     if (!policy) return true;
 
+    // Cache do tenant para evitar múltiplas queries
+    let tenant: any = null;
+    let tenantSlug: string | null = null;
+
     for (const rule of policy.anyOf) {
       // 1) regra global
       if ((rule as GlobalRule).global) {
@@ -121,20 +125,23 @@ export class PolicyGuard implements CanActivate {
       const tenantParam = m.tenantParam ?? 'tenantId';
       const tenantHeader = m.tenantHeader ?? 'x-tenant-id';
 
-      const tenantSlug = getTenantSlug(
-        req,
-        tenantFrom,
-        tenantParam,
-        tenantHeader,
-      );
-      if (!tenantSlug) throw new NotFoundException('tenantId é obrigatório.');
+      // Usa o tenantSlug já processado pelo TenantMiddleware
+      if (!tenantSlug) {
+        tenantSlug = req.tenantSlug || getTenantSlug(
+          req,
+          tenantFrom,
+          tenantParam,
+          tenantHeader,
+        );
+        if (!tenantSlug) throw new NotFoundException('tenantId é obrigatório.');
 
-      // resolve tenant uma vez
-      const tenant = await this.tenantModel
-        .findOne({ tenantId: tenantSlug })
-        .select('_id')
-        .lean();
-      if (!tenant) throw new NotFoundException('Tenant não encontrado.');
+        // resolve tenant uma vez
+        tenant = await this.tenantModel
+          .findOne({ tenantId: tenantSlug })
+          .select('_id')
+          .lean();
+        if (!tenant) throw new NotFoundException('Tenant não encontrado.');
+      }
 
       // parâmetros opcionais de escopo
       const branchIdStr = getParam(req, m.branchParam);
@@ -153,10 +160,18 @@ export class PolicyGuard implements CanActivate {
 
       // monta $or de memberships aceitos
       const or: any[] = [];
+      const userId = user._id || user.sub;
+      
+      console.log('🔍 PolicyGuard - userId:', userId);
+      console.log('🔍 PolicyGuard - user._id:', user._id);
+      console.log('🔍 PolicyGuard - user.sub:', user.sub);
+      console.log('🔍 PolicyGuard - tenant._id:', tenant._id);
+      console.log('🔍 PolicyGuard - m.roles:', m.roles);
+      
       for (const role of m.roles) {
         const cond: any = {
-          user: user._id as Types.ObjectId,
-          tenant: tenant._id as Types.ObjectId,
+          user: new Types.ObjectId(userId),
+          tenant: tenant._id,
           role,
           isActive: true,
         };
@@ -172,10 +187,16 @@ export class PolicyGuard implements CanActivate {
 
       if (!or.length) continue;
 
+      console.log('🔍 PolicyGuard - Query final:', JSON.stringify({ $or: or }, null, 2));
       const has = await this.memModel.exists({ $or: or });
-      if (has) return true;
+      console.log('🔍 PolicyGuard - Resultado da query:', has);
+      if (has) {
+        console.log('✅ PolicyGuard - Autorização concedida!');
+        return true;
+      }
     }
 
+    // console.log('❌ PolicyGuard - Todas as regras falharam. Negando acesso.');
     throw new ForbiddenException(
       'Você não tem permissão para acessar este recurso.',
     );

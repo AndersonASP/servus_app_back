@@ -35,16 +35,30 @@ export interface EnvironmentConfig {
 }
 
 export const environmentConfig = registerAs('environment', (): EnvironmentConfig => {
-  const nodeEnv = process.env.NODE_ENV || 'development';
+  const nodeEnv = process.env.NODE_ENV || 'dev';
+  
+  // Validação básica de variáveis obrigatórias
+  const requiredVars = {
+    dev: ['MONGO_URI'],
+    hml: ['MONGO_URI', 'JWT_SECRET', 'JWT_REFRESH_SECRET'],
+    prod: ['MONGO_URI', 'JWT_SECRET', 'JWT_REFRESH_SECRET', 'REDIS_HOST'],
+  };
+  
+  const missingVars = requiredVars[nodeEnv as keyof typeof requiredVars] || [];
+  for (const varName of missingVars) {
+    if (!process.env[varName]) {
+      throw new Error(`Variável de ambiente obrigatória não encontrada: ${varName}`);
+    }
+  }
   
   return {
     nodeEnv,
     port: parseInt(process.env.PORT || '3000', 10),
     apiPrefix: process.env.API_PREFIX || 'api',
-    mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/servus_dev',
+    mongoUri: process.env.MONGO_URI || 'mongodb+srv://andersonalvestech:fxk8w5ySDM0h4CJR@servuscluster0.oevppgo.mongodb.net/?retryWrites=true&w=majority&appName=ServusCluster0',
     jwt: {
-      accessSecret: process.env.JWT_ACCESS_SECRET || 'default-access-secret',
-      refreshSecret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret',
+      accessSecret: process.env.JWT_SECRET || 'aServus1108',
+      refreshSecret: process.env.JWT_REFRESH_SECRET || 'aServus1108',
       accessExpiresIn: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || '3600', 10),
       refreshExpiresIn: parseInt(process.env.JWT_REFRESH_EXPIRES_IN || '604800', 10),
     },
@@ -72,25 +86,10 @@ export const environmentConfig = registerAs('environment', (): EnvironmentConfig
   };
 });
 
-// Validação de variáveis obrigatórias por ambiente
+// Validações específicas por ambiente
 export const validateEnvironment = (config: EnvironmentConfig): void => {
-  const requiredVars = {
-    development: ['MONGO_URI'],
-    staging: ['MONGO_URI', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'REDIS_HOST'],
-    production: ['MONGO_URI', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'REDIS_HOST', 'REDIS_PASSWORD', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'MAIL_USER', 'MAIL_PASS'],
-  };
-
-  const missingVars = requiredVars[config.nodeEnv as keyof typeof requiredVars] || [];
-  
-  for (const varName of missingVars) {
-    if (!process.env[varName]) {
-      throw new Error(`Variável de ambiente obrigatória não encontrada: ${varName}`);
-    }
-  }
-
-  // Validações específicas por ambiente
-  if (config.nodeEnv === 'production') {
-    if (config.jwt.accessSecret === 'default-access-secret' || config.jwt.refreshSecret === 'default-refresh-secret') {
+  if (config.nodeEnv === 'prod') {
+    if (config.jwt.accessSecret === 'aServus1108' || config.jwt.refreshSecret === 'aServus1108') {
       throw new Error('Secrets JWT devem ser alterados em produção');
     }
     

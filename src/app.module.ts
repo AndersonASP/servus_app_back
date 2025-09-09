@@ -41,8 +41,7 @@ import {
       isGlobal: true,
       load: [environmentConfig],
       validate: (config) => {
-        const envConfig = environmentConfig();
-        validateEnvironment(envConfig);
+        // Validação adicional se necessário
         return config;
       }
     }),

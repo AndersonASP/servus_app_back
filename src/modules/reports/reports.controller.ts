@@ -15,13 +15,13 @@ export class ReportsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -47,13 +47,13 @@ export class ReportsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -79,7 +79,7 @@ export class ReportsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -105,13 +105,13 @@ export class ReportsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -138,13 +138,13 @@ export class ReportsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -188,16 +188,16 @@ export class ReportsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
     ],
   })
   async getSavedReports(
@@ -246,13 +246,13 @@ export class ReportsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -332,13 +332,13 @@ export class ReportsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],

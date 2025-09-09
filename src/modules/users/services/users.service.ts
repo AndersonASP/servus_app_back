@@ -773,19 +773,46 @@ export class UsersService {
     }
 
     // Verificar se usuário tem permissão para ver este ministry
-    const canViewMinistry =
-      currentUser.role === Role.ServusAdmin ||
-      (await this.hasMembershipInMinistry(
+    console.log('🔍 listVolunteersByMinistry - currentUser:', JSON.stringify(currentUser, null, 2));
+    console.log('🔍 listVolunteersByMinistry - currentUser._id:', currentUser._id);
+    console.log('🔍 listVolunteersByMinistry - currentUser.role:', currentUser.role);
+    console.log('🔍 listVolunteersByMinistry - tenant._id:', tenant._id);
+    console.log('🔍 listVolunteersByMinistry - ministryId:', ministryId);
+    
+    // Verificar se é ServusAdmin (acesso global)
+    if (currentUser.role === Role.ServusAdmin) {
+      console.log('🔍 ServusAdmin - acesso concedido');
+      var canViewMinistry = true;
+    } else {
+      // Verificar se é TenantAdmin (acesso a todos os ministries do tenant)
+      console.log('🔍 Verificando se é TenantAdmin...');
+      const isTenantAdmin = await this.hasMembershipInTenant(
         currentUser._id,
         tenant._id.toString(),
-        ministryId,
-        [
-          MembershipRole.TenantAdmin,
-          MembershipRole.BranchAdmin,
-          MembershipRole.Leader,
-        ],
-      ));
+        [MembershipRole.TenantAdmin]
+      );
+      
+      console.log('🔍 isTenantAdmin:', isTenantAdmin);
+      
+      if (isTenantAdmin) {
+        console.log('🔍 TenantAdmin - acesso concedido para todos os ministries do tenant');
+        var canViewMinistry = true;
+      } else {
+        // Verificar se é BranchAdmin ou Leader com acesso específico ao ministry
+        console.log('🔍 Verificando acesso específico ao ministry...');
+        const hasSpecificAccess = await this.hasMembershipInMinistry(
+          currentUser._id,
+          tenant._id.toString(),
+          ministryId,
+          [MembershipRole.BranchAdmin, MembershipRole.Leader]
+        );
+        
+        console.log('🔍 hasSpecificAccess:', hasSpecificAccess);
+        var canViewMinistry = hasSpecificAccess;
+      }
+    }
 
+    console.log('🔍 canViewMinistry final:', canViewMinistry);
     if (!canViewMinistry) {
       throw new ForbiddenException(
         'Sem permissão para visualizar voluntários deste ministry',
@@ -1309,12 +1336,21 @@ export class UsersService {
     tenantId: string,
     roles: MembershipRole[],
   ): Promise<boolean> {
-    const membership = await this.memModel.findOne({
-      user: userId,
-      tenant: tenantId,
+    const query = {
+      user: new Types.ObjectId(userId),
+      tenant: new Types.ObjectId(tenantId),
       role: { $in: roles },
       isActive: true,
-    });
+    };
+    
+    console.log('🔍 hasMembershipInTenant - query:', JSON.stringify(query, null, 2));
+    
+    const membership = await this.memModel.findOne(query);
+    console.log('🔍 hasMembershipInTenant - membership encontrado:', !!membership);
+    if (membership) {
+      console.log('🔍 hasMembershipInTenant - membership details:', JSON.stringify(membership, null, 2));
+    }
+    
     return !!membership;
   }
 
@@ -1326,9 +1362,9 @@ export class UsersService {
     roles: MembershipRole[],
   ): Promise<boolean> {
     const membership = await this.memModel.findOne({
-      user: userId,
-      tenant: tenantId,
-      branch: branchId,
+      user: new Types.ObjectId(userId),
+      tenant: new Types.ObjectId(tenantId),
+      branch: new Types.ObjectId(branchId),
       role: { $in: roles },
       isActive: true,
     });
@@ -1342,13 +1378,22 @@ export class UsersService {
     ministryId: string,
     roles: MembershipRole[],
   ): Promise<boolean> {
-    const membership = await this.memModel.findOne({
-      user: userId,
-      tenant: tenantId,
-      ministry: ministryId,
+    const query = {
+      user: new Types.ObjectId(userId),
+      tenant: new Types.ObjectId(tenantId),
+      ministry: new Types.ObjectId(ministryId),
       role: { $in: roles },
       isActive: true,
-    });
+    };
+    
+    console.log('🔍 hasMembershipInMinistry - query:', JSON.stringify(query, null, 2));
+    
+    const membership = await this.memModel.findOne(query);
+    console.log('🔍 hasMembershipInMinistry - membership encontrado:', !!membership);
+    if (membership) {
+      console.log('🔍 hasMembershipInMinistry - membership details:', JSON.stringify(membership, null, 2));
+    }
+    
     return !!membership;
   }
 

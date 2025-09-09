@@ -23,6 +23,9 @@ export class TenantMiddleware implements NestMiddleware {
       return next();
     }
 
+    // console.log('🔍 TenantMiddleware - Headers recebidos:', req.headers);
+    // console.log('🔍 TenantMiddleware - x-tenant-id:', req.headers['x-tenant-id']);
+
     // 1) Tenta ler do header padrão (prioridade mais alta)
     let tenantSlug =
       (req.headers['x-tenant-id'] as string | undefined)?.trim() || undefined;
@@ -75,6 +78,11 @@ export class TenantMiddleware implements NestMiddleware {
     req.tenantSlug = tenantSlug;
     req.branchId = branchId;
     req.ministryId = ministryId;
+
+    // console.log('🔍 TenantMiddleware - Resultado final:');
+    // console.log('   - tenantSlug:', tenantSlug);
+    // console.log('   - branchId:', branchId);
+    // console.log('   - ministryId:', ministryId);
 
     return next();
   }

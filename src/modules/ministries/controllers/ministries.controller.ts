@@ -18,12 +18,26 @@ import { CreateMinistryDto } from '../dto/create-ministry.dto';
 import { ListMinistryDto } from '../dto/list-ministry.dto';
 import { UpdateMinistryDto } from '../dto/update-ministry.dto';
 import { RequiresPerm } from 'src/common/decorators/requires-perm.decorator';
-import { PERMS } from 'src/common/enums/role.enum';
+import { PERMS, ROLE_PERMISSIONS } from 'src/common/enums/role.enum';
+import { Public } from 'src/common/decorators/public.decorator';
+import { Reflector } from '@nestjs/core';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Membership } from 'src/modules/membership/schemas/membership.schema';
+import { Tenant } from 'src/modules/tenants/schemas/tenant.schema';
+import { Branch } from 'src/modules/branches/schemas/branch.schema';
+import { PolicyGuard } from 'src/common/guards/policy.guard';
 
 // 🆕 ROTAS PARA MINISTÉRIOS DA MATRIZ (sem branch)
 @Controller('tenants/:tenantId/ministries')
 export class MinistriesMatrixController {
-  constructor(private readonly ministriesService: MinistriesService) {}
+  constructor(
+    private readonly ministriesService: MinistriesService,
+    private readonly reflector: Reflector,
+    @InjectModel(Membership.name) private readonly memModel: Model<Membership>,
+    @InjectModel(Tenant.name) private readonly tenantModel: Model<Tenant>,
+    @InjectModel(Branch.name) private readonly branchModel: Model<Branch>,
+  ) {}
 
   @Get('debug-auth')
   async debugAuth(@Req() req: any) {
@@ -34,6 +48,86 @@ export class MinistriesMatrixController {
       message: 'Debug auth endpoint (matrix)',
       type: 'matrix',
     };
+  }
+
+  @Get('debug-env')
+  @Public()
+  async debugEnv() {
+    return {
+      NODE_ENV: process.env.NODE_ENV,
+      JWT_SECRET: process.env.JWT_SECRET ? 'SET' : 'NOT_SET',
+      JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ? 'SET' : 'NOT_SET',
+      MONGO_URI: process.env.MONGO_URI ? 'SET' : 'NOT_SET',
+      message: 'Debug environment variables',
+    };
+  }
+
+  @Get('debug-public')
+  @Public()
+  async debugPublic() {
+    return {
+      message: 'Endpoint público funcionando',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get('debug-permissions')
+  async debugPermissions(@Req() req: any) {
+    const user = req.user;
+    if (!user) {
+      return { error: 'Usuário não autenticado' };
+    }
+
+    try {
+      // Buscar permissões do usuário diretamente
+      const userId = user.sub || user._id;
+      const permissions: string[] = [];
+
+      // Busca memberships ativos do usuário
+      const memberships = await this.memModel
+        .find({
+          user: userId,
+          isActive: true,
+        })
+        .populate('tenant branch ministry')
+        .lean();
+
+      // Calcula permissões baseadas nos roles dos memberships
+      
+      for (const membership of memberships) {
+        const rolePermissions = ROLE_PERMISSIONS[membership.role] || [];
+        permissions.push(...rolePermissions);
+      }
+
+      // Remove duplicatas
+      const uniquePermissions = [...new Set(permissions)];
+      
+      return {
+        user: {
+          id: userId,
+          role: user.role,
+          tenantId: user.tenantId,
+          branchId: user.branchId,
+          membershipRole: user.membershipRole,
+        },
+        memberships: memberships.map(m => ({
+          id: m._id,
+          role: m.role,
+          tenant: m.tenant,
+          branch: m.branch,
+          ministry: m.ministry,
+          isActive: m.isActive,
+        })),
+        permissions: uniquePermissions,
+        message: 'Debug permissions endpoint (matrix)',
+      };
+    } catch (error) {
+      return {
+        error: error.message,
+        user: user,
+        message: 'Erro ao buscar permissões',
+      };
+    }
   }
 
   @Post('debug-create')

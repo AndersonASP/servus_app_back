@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from '../schema/user.schema';
@@ -33,11 +33,11 @@ export class MembersService {
   ): Promise<MemberResponseDto> {
     // Validações básicas
     if (!createMemberDto.email && !createMemberDto.phone) {
-      throw new Error('Email ou telefone é obrigatório');
+      throw new BadRequestException('Email ou telefone é obrigatório');
     }
 
     if (createMemberDto.memberships.length === 0) {
-      throw new Error('Pelo menos um vínculo organizacional é obrigatório');
+      throw new BadRequestException('Pelo menos um vínculo organizacional é obrigatório');
     }
 
     // Gerar senha temporária se não fornecida
@@ -59,7 +59,7 @@ export class MembersService {
     const tenantObjectId = tenant?._id;
 
     if (!tenantObjectId) {
-      throw new Error('Tenant não encontrado');
+      throw new BadRequestException('Tenant não encontrado');
     }
 
     // Criar memberships e coletar informações para o email
@@ -126,7 +126,7 @@ export class MembersService {
     // Buscar o ObjectId do tenant
     const tenant = await this.tenantModel.findOne({ tenantId }).select('_id');
     if (!tenant) {
-      throw new Error('Tenant não encontrado');
+      throw new BadRequestException('Tenant não encontrado');
     }
 
     // Buscar usuários que têm memberships neste tenant
@@ -191,7 +191,7 @@ export class MembersService {
     // Buscar o ObjectId do tenant
     const tenant = await this.tenantModel.findOne({ tenantId }).select('_id');
     if (!tenant) {
-      throw new Error('Tenant não encontrado');
+      throw new BadRequestException('Tenant não encontrado');
     }
 
     const memberships = await this.membershipModel
@@ -229,7 +229,7 @@ export class MembersService {
     // Buscar o ObjectId do tenant
     const tenant = await this.tenantModel.findOne({ tenantId }).select('_id');
     if (!tenant) {
-      throw new Error('Tenant não encontrado');
+      throw new BadRequestException('Tenant não encontrado');
     }
 
     // Deletar memberships
@@ -292,6 +292,74 @@ export class MembersService {
       })),
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+    };
+  }
+
+  async toggleMemberStatus(
+    memberId: string,
+    tenantId: string,
+    userRole: string,
+  ): Promise<MemberResponseDto> {
+    // Buscar o usuário
+    const user = await this.userModel.findById(memberId);
+    if (!user) {
+      throw new Error('Membro não encontrado');
+    }
+
+    // Verificar se o usuário pertence ao tenant
+    if (user.tenantId !== tenantId) {
+      throw new Error('Membro não pertence a este tenant');
+    }
+
+    // Toggle do status
+    user.isActive = !user.isActive;
+    await user.save();
+
+    // Buscar memberships ativos do usuário
+    const memberships = await this.membershipModel
+      .find({ user: memberId, isActive: true })
+      .populate('tenant branch ministry')
+      .lean();
+
+    return {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      birthDate: user.birthDate,
+      bio: user.bio,
+      skills: user.skills,
+      availability: user.availability,
+      address: user.address,
+      picture: user.picture,
+      isActive: user.isActive,
+      profileCompleted: user.profileCompleted,
+      role: user.role,
+      tenantId: user.tenantId,
+      branchId: user.branchId,
+      memberships: memberships.map((membership) => ({
+        id: membership._id.toString(),
+        role: membership.role,
+        tenant: membership.tenant ? {
+          id: (membership.tenant as any)._id.toString(),
+          tenantId: (membership.tenant as any).tenantId,
+          name: (membership.tenant as any).name,
+        } : undefined,
+        branch: membership.branch ? {
+          id: (membership.branch as any)._id.toString(),
+          branchId: (membership.branch as any).branchId,
+          name: (membership.branch as any).name,
+        } : undefined,
+        ministry: membership.ministry ? {
+          id: (membership.ministry as any)._id.toString(),
+          name: (membership.ministry as any).name,
+        } : undefined,
+        isActive: membership.isActive,
+        createdAt: (membership as any).createdAt || new Date(),
+        updatedAt: (membership as any).updatedAt || new Date(),
+      })),
+      createdAt: (user as any).createdAt || new Date(),
+      updatedAt: (user as any).updatedAt || new Date(),
     };
   }
 }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { AuthService } from './services/auth.service';
@@ -21,11 +22,16 @@ import { Tenant, TenantSchema } from '../tenants/schemas/tenant.schema';
     PassportModule,
     TenantModule,
     BranchModule,
-    JwtModule.register({
-      secret:
-        process.env.JWT_ACCESS_SECRET ||
-        'default-access-secret-change-in-production',
-      signOptions: { expiresIn: '1h' }, // Aumentado para 1 hora para facilitar testes
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('environment.jwt.accessSecret') ||
+          'default-access-secret-change-in-production',
+        signOptions: { 
+          expiresIn: configService.get<number>('environment.jwt.accessExpiresIn') || 3600
+        },
+      }),
+      inject: [ConfigService],
     }),
     MongooseModule.forFeature([
       { name: Membership.name, schema: MembershipSchema },

@@ -144,7 +144,7 @@ export class MetricsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -166,13 +166,13 @@ export class MetricsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
           branchParam: 'branchId',
         },
       },
@@ -196,16 +196,16 @@ export class MetricsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
     ],
   })
   async getUserEngagementByAdmin(
@@ -230,7 +230,7 @@ export class MetricsController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],

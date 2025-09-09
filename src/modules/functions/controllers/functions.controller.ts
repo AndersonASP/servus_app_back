@@ -7,8 +7,11 @@ import {
   Body, 
   Query,
   UseGuards,
-  Request
+  Request,
+  BadRequestException
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { FunctionsService } from '../services/functions.service';
 import { BulkUpsertFunctionsDto } from '../dto/bulk-upsert-functions.dto';
 import { UpdateMinistryFunctionDto } from '../dto/update-ministry-function.dto';
@@ -17,11 +20,15 @@ import { Authorize } from 'src/common/decorators/authorize/authorize.decorator';
 import { PolicyGuard } from 'src/common/guards/policy.guard';
 import { Role, MembershipRole } from 'src/common/enums/role.enum';
 import type { TenantRequest } from 'src/common/middlewares/tenant.middleware';
+import { Membership } from '../../membership/schemas/membership.schema';
 
 @Controller()
 @UseGuards(PolicyGuard)
 export class FunctionsController {
-  constructor(private readonly functionsService: FunctionsService) {}
+  constructor(
+    private readonly functionsService: FunctionsService,
+    @InjectModel(Membership.name) private membershipModel: Model<Membership>
+  ) {}
 
   /**
    * GET /functions?scope=tenant&ministryId=...&search=...
@@ -31,9 +38,9 @@ export class FunctionsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin] } },
-      { membership: { roles: [MembershipRole.BranchAdmin] } },
-      { membership: { roles: [MembershipRole.Leader] } }
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
     ]
   })
   async getTenantFunctions(
@@ -43,14 +50,44 @@ export class FunctionsController {
     @Query('search') search?: string
   ): Promise<MinistryFunctionResponseDto[]> {
     // Usar tenantSlug do middleware em vez de req.user.tenantId
-    const tenantId = req.tenantSlug;
-    
-    if (!tenantId) {
-      throw new Error('Tenant ID é obrigatório');
-    }
+    let tenantId = req.tenantSlug;
+    const user = (req as any).user;
+    const isServusAdmin = user?.role === 'servus_admin';
     
     if (scope !== 'tenant') {
-      throw new Error('Scope deve ser "tenant"');
+      throw new BadRequestException('Scope deve ser "tenant"');
+    }
+    
+    // Se não há tenantId, tentar buscar do usuário
+    if (!tenantId) {
+      if (isServusAdmin) {
+        // Para ServusAdmin, buscar o primeiro tenant ativo
+        const membership = await this.membershipModel
+          .findOne({ isActive: true })
+          .populate('tenant', 'tenantId')
+          .lean();
+        
+        if (membership?.tenant) {
+          tenantId = (membership.tenant as any).tenantId;
+        }
+      } else {
+        // Para outros usuários, buscar tenant do primeiro membership ativo
+        const membership = await this.membershipModel
+          .findOne({ 
+            user: user?.sub || user?._id,
+            isActive: true 
+          })
+          .populate('tenant', 'tenantId')
+          .lean();
+        
+        if (membership?.tenant) {
+          tenantId = (membership.tenant as any).tenantId;
+        }
+      }
+    }
+    
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID é obrigatório');
     }
     
     return await this.functionsService.getTenantFunctions(
@@ -64,7 +101,48 @@ export class FunctionsController {
 @Controller('ministries')
 @UseGuards(PolicyGuard)
 export class MinistryFunctionsController {
-  constructor(private readonly functionsService: FunctionsService) {}
+  constructor(
+    private readonly functionsService: FunctionsService,
+    @InjectModel(Membership.name) private membershipModel: Model<Membership>
+  ) {}
+
+  /**
+   * Busca tenantId do usuário quando não fornecido
+   */
+  private async findUserTenantId(req: TenantRequest): Promise<string | null> {
+    const tenantId = req.tenantSlug;
+    if (tenantId) return tenantId;
+
+    const user = (req as any).user;
+    const isServusAdmin = user?.role === 'servus_admin';
+
+    if (isServusAdmin) {
+      // Para ServusAdmin, buscar o primeiro tenant ativo
+      const membership = await this.membershipModel
+        .findOne({ isActive: true })
+        .populate('tenant', 'tenantId')
+        .lean();
+      
+      if (membership?.tenant) {
+        return (membership.tenant as any).tenantId;
+      }
+    } else {
+      // Para outros usuários, buscar tenant do primeiro membership ativo
+      const membership = await this.membershipModel
+        .findOne({ 
+          user: user?.sub || user?._id,
+          isActive: true 
+        })
+        .populate('tenant', 'tenantId')
+        .lean();
+      
+      if (membership?.tenant) {
+        return (membership.tenant as any).tenantId;
+      }
+    }
+
+    return null;
+  }
 
   /**
    * POST /ministries/{ministryId}/functions/bulk-upsert
@@ -74,9 +152,9 @@ export class MinistryFunctionsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin] } },
-      { membership: { roles: [MembershipRole.BranchAdmin] } },
-      { membership: { roles: [MembershipRole.Leader] } }
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
     ]
   })
   async bulkUpsertFunctions(
@@ -84,12 +162,12 @@ export class MinistryFunctionsController {
     @Body() dto: BulkUpsertFunctionsDto,
     @Request() req: TenantRequest
   ): Promise<BulkUpsertResponseDto> {
-    // Usar tenantSlug do middleware em vez de req.user.tenantId
-    const tenantId = req.tenantSlug;
+    // Buscar tenantId do usuário
+    const tenantId = await this.findUserTenantId(req);
     const userId = (req as any).user?.sub || (req as any).user?._id;
     
     if (!tenantId) {
-      throw new Error('Tenant ID é obrigatório');
+      throw new BadRequestException('Tenant ID é obrigatório');
     }
     
     console.log(`🔄 Bulk upsert de funções para ministério ${ministryId}:`, dto.names);
@@ -110,9 +188,9 @@ export class MinistryFunctionsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin] } },
-      { membership: { roles: [MembershipRole.BranchAdmin] } },
-      { membership: { roles: [MembershipRole.Leader] } }
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
     ]
   })
   async getMinistryFunctions(
@@ -120,11 +198,11 @@ export class MinistryFunctionsController {
     @Request() req: TenantRequest,
     @Query('active') active?: string
   ): Promise<MinistryFunctionResponseDto[]> {
-    // Usar tenantSlug do middleware em vez de req.user.tenantId
-    const tenantId = req.tenantSlug;
+    // Buscar tenantId do usuário
+    const tenantId = await this.findUserTenantId(req);
     
     if (!tenantId) {
-      throw new Error('Tenant ID é obrigatório');
+      throw new BadRequestException('Tenant ID é obrigatório');
     }
     
     const activeFilter = active === undefined ? undefined : active === 'true';
@@ -144,9 +222,9 @@ export class MinistryFunctionsController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin] } },
-      { membership: { roles: [MembershipRole.BranchAdmin] } },
-      { membership: { roles: [MembershipRole.Leader] } }
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
     ]
   })
   async updateMinistryFunction(
@@ -155,11 +233,11 @@ export class MinistryFunctionsController {
     @Body() dto: UpdateMinistryFunctionDto,
     @Request() req: TenantRequest
   ): Promise<MinistryFunctionResponseDto> {
-    // Usar tenantSlug do middleware em vez de req.user.tenantId
-    const tenantId = req.tenantSlug;
+    // Buscar tenantId do usuário
+    const tenantId = await this.findUserTenantId(req);
     
     if (!tenantId) {
-      throw new Error('Tenant ID é obrigatório');
+      throw new BadRequestException('Tenant ID é obrigatório');
     }
     
     return await this.functionsService.updateMinistryFunction(

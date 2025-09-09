@@ -7,6 +7,7 @@ import { MinistriesController } from './controllers/ministries.controller';
 import { MinistriesMatrixController } from './controllers/ministries.controller';
 import { MembershipSchema } from '../membership/schemas/membership.schema';
 import { Tenant, TenantSchema } from '../tenants/schemas/tenant.schema';
+import { Branch, BranchSchema } from '../branches/schemas/branch.schema';
 import { FunctionsModule } from '../functions/functions.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { FunctionsModule } from '../functions/functions.module';
       { name: 'Ministry', schema: MinistrySchema },
       { name: 'Membership', schema: MembershipSchema },
       { name: Tenant.name, schema: TenantSchema },
+      { name: Branch.name, schema: BranchSchema },
     ]),
     FunctionsModule, // Importar o módulo de funções
   ],

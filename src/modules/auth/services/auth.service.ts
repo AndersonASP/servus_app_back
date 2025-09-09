@@ -13,7 +13,6 @@ import { getCombinedPermissions } from 'src/common/utils/permissions.util';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { ConfigService } from '@nestjs/config';
-import { JwtConfig } from '../../../config/jwt.config';
 
 @Injectable()
 export class AuthService {
@@ -103,13 +102,13 @@ export class AuthService {
     const now = new Date();
     const sessionExpiry = new Date(
       now.getTime() +
-        (this.configService.get('JWT_REFRESH_EXPIRES_IN') || 604800) * 1000,
+        (this.configService.get<number>('environment.jwt.refreshExpiresIn') || 604800) * 1000,
     );
     const absoluteExpiry =
       opts?.absoluteExpiry ||
       new Date(
         now.getTime() +
-          (this.configService.get('JWT_ABSOLUTE_EXPIRES_IN') || 2592000) * 1000,
+          (this.configService.get<number>('JWT_ABSOLUTE_EXPIRES_IN') || 2592000) * 1000,
       );
 
     // Gerar refresh token
@@ -120,8 +119,8 @@ export class AuthService {
         type: 'refresh',
       },
       {
-        secret: JwtConfig.refresh.secret,
-        expiresIn: JwtConfig.refresh.expiresIn,
+        secret: this.configService.get<string>('environment.jwt.refreshSecret'),
+        expiresIn: this.configService.get<number>('environment.jwt.refreshExpiresIn'),
       },
     );
 
@@ -153,7 +152,7 @@ export class AuthService {
       access_token: '', // Será preenchido abaixo
       refresh_token: refreshToken,
       token_type: 'Bearer',
-      expires_in: JwtConfig.access.expiresIn, // Usa configuração centralizada
+      expires_in: this.configService.get<number>('environment.jwt.accessExpiresIn') || 3600, // Usa configuração do ConfigService
       user: {
         id: user._id.toString(),
         email: user.email,
@@ -407,8 +406,8 @@ export class AuthService {
 
     // 🆕 Gerar access token com claims de segurança
     const accessToken = this.jwtService.sign(securityClaims, {
-      secret: JwtConfig.access.secret,
-      expiresIn: JwtConfig.access.expiresIn,
+      secret: this.configService.get<string>('environment.jwt.accessSecret'),
+      expiresIn: this.configService.get<number>('environment.jwt.accessExpiresIn'),
     });
 
     // 🆕 Atualizar resposta com o token gerado

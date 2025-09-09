@@ -5,10 +5,12 @@ import {
   Body,
   Param,
   Put,
+  Patch,
   Delete,
   Query,
   Req,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { MembersService } from '../services/members.service';
@@ -61,7 +63,7 @@ export class MembersController {
     const { tenantId } = resolveTenantAndBranchScope(req.user, {
       dtoBranchId: createMemberDto.memberships?.[0]?.branchId,
     });
-    if (!tenantId) throw new Error('Tenant ID não encontrado');
+    if (!tenantId) throw new BadRequestException('Tenant ID não encontrado');
     const userRole = req.user.memberships?.find(m => m.tenant === tenantId)?.role || 'volunteer';
     const createdBy = req.user.sub;
     
@@ -78,7 +80,7 @@ export class MembersController {
     const { tenantId } = resolveTenantAndBranchScope(req.user, {
       dtoBranchId: filters.branchId,
     });
-    if (!tenantId) throw new Error('Tenant ID não encontrado');
+    if (!tenantId) throw new BadRequestException('Tenant ID não encontrado');
     const userRole = req.user.memberships?.find(m => m.tenant === tenantId)?.role || 'volunteer';
     
     return this.membersService.getMembers(filters, tenantId, userRole);
@@ -92,7 +94,7 @@ export class MembersController {
     @Req() req: any,
   ): Promise<MemberResponseDto> {
     const { tenantId } = resolveTenantAndBranchScope(req.user);
-    if (!tenantId) throw new Error('Tenant ID não encontrado');
+    if (!tenantId) throw new BadRequestException('Tenant ID não encontrado');
     
     return this.membersService.getMemberById(id, tenantId);
   }
@@ -108,7 +110,7 @@ export class MembersController {
     const { tenantId } = resolveTenantAndBranchScope(req.user, {
       dtoBranchId: updateMemberDto.branchId,
     });
-    if (!tenantId) throw new Error('Tenant ID não encontrado');
+    if (!tenantId) throw new BadRequestException('Tenant ID não encontrado');
     const userRole = req.user.memberships?.find(m => m.tenant === tenantId)?.role || 'volunteer';
     
     return this.membersService.updateMember(id, updateMemberDto, tenantId, userRole);
@@ -122,9 +124,23 @@ export class MembersController {
     @Req() req: any,
   ): Promise<void> {
     const { tenantId } = resolveTenantAndBranchScope(req.user);
-    if (!tenantId) throw new Error('Tenant ID não encontrado');
+    if (!tenantId) throw new BadRequestException('Tenant ID não encontrado');
     const userRole = req.user.memberships?.find(m => m.tenant === tenantId)?.role || 'volunteer';
     
     return this.membersService.deleteMember(id, tenantId, userRole);
+  }
+
+  @Patch(':id/toggle-status')
+  @RequiresPerm(PERMS.MANAGE_USERS)
+  @Authorize({ anyOf: [] })
+  async toggleMemberStatus(
+    @Param('id') id: string,
+    @Req() req: any,
+  ): Promise<MemberResponseDto> {
+    const { tenantId } = resolveTenantAndBranchScope(req.user);
+    if (!tenantId) throw new BadRequestException('Tenant ID não encontrado');
+    const userRole = req.user.memberships?.find(m => m.tenant === tenantId)?.role || 'volunteer';
+    
+    return this.membersService.toggleMemberStatus(id, tenantId, userRole);
   }
 }

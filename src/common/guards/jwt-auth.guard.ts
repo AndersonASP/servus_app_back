@@ -28,7 +28,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
     if (err || !user) {
-      console.warn('Erro no JWT:', err || info);
+      console.error('Erro no JWT:', err || info);
 
       // 🔒 Trate erro de token expirado
       if (info?.name === 'TokenExpiredError') {

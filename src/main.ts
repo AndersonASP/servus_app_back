@@ -3,10 +3,17 @@ import { AppModule } from './app.module';
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
+// ⬇️ Carrega as variáveis de ambiente antes de tudo
+import { loadEnvironmentFile, validateRequiredEnvVars } from './config/dotenv.config';
+
 // ⬇️ importe o pipe customizado
 import { ValidateDtoPipe } from './common/pipes/validate-dto.pipe';
 
 async function bootstrap() {
+  // ⬇️ Carrega as variáveis de ambiente primeiro
+  loadEnvironmentFile();
+  validateRequiredEnvVars();
+  
   const app = await NestFactory.create(AppModule);
 
   // Segurança

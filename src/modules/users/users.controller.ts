@@ -346,7 +346,7 @@ export class UsersController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -382,13 +382,13 @@ export class UsersController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
           branchParam: 'branchId',
         },
       },
@@ -427,16 +427,16 @@ export class UsersController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
     ],
   })
   async listVolunteersByMinistry(
@@ -470,7 +470,7 @@ export class UsersController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -490,13 +490,13 @@ export class UsersController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
           branchParam: 'branchId',
         },
       },
@@ -550,7 +550,7 @@ export class UsersController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -618,13 +618,13 @@ export class UsersController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
           branchParam: 'branchId',
         },
       },
@@ -700,16 +700,16 @@ export class UsersController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
     ],
   })
   async exportVolunteersByMinistry(
@@ -775,7 +775,7 @@ export class UsersController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
     ],
@@ -812,13 +812,13 @@ export class UsersController {
       {
         membership: {
           roles: [MembershipRole.TenantAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
         },
       },
       {
         membership: {
           roles: [MembershipRole.BranchAdmin],
-          tenantFrom: 'param',
+          tenantFrom: 'header',
           branchParam: 'branchId',
         },
       },
