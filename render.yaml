@@ -5,7 +5,7 @@ services:
     env: node
     plan: starter
     buildCommand: npm ci && npm run build:prod
-    startCommand: npm run start:prod:render
+    startCommand: NODE_ENV=prod npm run start:prod:render
     envVars:
       - key: NODE_ENV
         value: production
