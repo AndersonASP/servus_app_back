@@ -35,17 +35,17 @@ export interface EnvironmentConfig {
 }
 
 export const environmentConfig = registerAs('environment', (): EnvironmentConfig => {
-  const nodeEnv = process.env.NODE_ENV || 'dev';
+  const nodeEnv = process.env.NODE_ENV || 'development';
   
   // Validação básica de variáveis obrigatórias
-  const requiredVars = {
-    dev: ['MONGO_URI'],
-    hml: ['MONGO_URI', 'JWT_SECRET', 'JWT_REFRESH_SECRET'],
-    prod: ['MONGO_URI', 'JWT_SECRET', 'JWT_REFRESH_SECRET', 'REDIS_HOST'],
-  };
+  const requiredVars = ['MONGO_URI'];
   
-  const missingVars = requiredVars[nodeEnv as keyof typeof requiredVars] || [];
-  for (const varName of missingVars) {
+  // Variáveis adicionais para produção
+  if (nodeEnv === 'production') {
+    requiredVars.push('JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET');
+  }
+  
+  for (const varName of requiredVars) {
     if (!process.env[varName]) {
       throw new Error(`Variável de ambiente obrigatória não encontrada: ${varName}`);
     }
@@ -59,7 +59,7 @@ export const environmentConfig = registerAs('environment', (): EnvironmentConfig
       throw new Error('MONGO_URI é obrigatória. Configure a variável de ambiente.');
     })(),
     jwt: {
-      accessSecret: process.env.JWT_SECRET || (() => {
+      accessSecret: process.env.JWT_ACCESS_SECRET || (() => {
         throw new Error('JWT_ACCESS_SECRET é obrigatória. Configure a variável de ambiente.');
       })(),
       refreshSecret: process.env.JWT_REFRESH_SECRET || (() => {
@@ -94,10 +94,10 @@ export const environmentConfig = registerAs('environment', (): EnvironmentConfig
 
 // Validações específicas por ambiente
 export const validateEnvironment = (config: EnvironmentConfig): void => {
-  if (config.nodeEnv === 'prod') {
+  if (config.nodeEnv === 'production') {
     // Validação de segurança: secrets JWT devem ser fornecidos via variáveis de ambiente
-    if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
-      throw new Error('Secrets JWT são obrigatórios. Configure JWT_SECRET e JWT_REFRESH_SECRET.');
+    if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+      throw new Error('Secrets JWT são obrigatórios. Configure JWT_ACCESS_SECRET e JWT_REFRESH_SECRET.');
     }
     
     if (config.mongoUri.includes('localhost')) {

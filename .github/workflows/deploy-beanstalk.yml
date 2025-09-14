@@ -1,87 +1,38 @@
-name: Deploy to AWS Elastic Beanstalk
+name: Deploy to Elastic Beanstalk
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - main  # ou master, conforme sua branch principal
 
 jobs:
-  test:
+  deploy:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: '22.11.0'
-          cache: 'npm'
+          node-version: 22
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm run test
+      - name: Build project
+        run: npm run build # se tiver build (React, Next, etc.)
 
-      - name: Run linting
-        run: npm run lint
-
-      - name: Build application
-        run: npm run build:prod
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup AWS CLI
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Install EB CLI
-        run: |
-          pip install awsebcli --upgrade --user
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Zip application
+        run: zip -r app.zip . -x "*.git*" # exclui pasta .git
 
       - name: Deploy to Elastic Beanstalk
-        run: |
-          # Configurar EB CLI
-          eb init servus-backend --region us-east-1 --platform "Node.js 18"
-          
-          # Fazer deploy
-          eb deploy servus-backend-prod --verbose
-
-      - name: Get application URL
-        id: get-url
-        run: |
-          URL=$(eb status servus-backend-prod --verbose | grep "CNAME" | awk '{print $2}')
-          echo "url=$URL" >> $GITHUB_OUTPUT
-
-      - name: Verify deployment
-        run: |
-          # Aguardar aplicação iniciar
-          sleep 60
-          
-          # Testar health check
-          curl -f http://${{ steps.get-url.outputs.url }}/health || exit 1
-          
-          echo "✅ Deploy verificado com sucesso!"
-
-      - name: Notify deployment status
-        if: always()
-        run: |
-          if [ ${{ job.status }} == 'success' ]; then
-            echo "✅ Deploy realizado com sucesso no Elastic Beanstalk!"
-            echo "🌐 URL: http://${{ steps.get-url.outputs.url }}"
-          else
-            echo "❌ Deploy falhou!"
-          fi
+        uses: einaregilsson/beanstalk-deploy@v21
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          region: ${{ secrets.AWS_REGION }}
+          application_name: ${{ secrets.EB_APP }}
+          environment_name: ${{ secrets.EB_ENV }}
+          version_label: ${{ github.sha }}
+          zip_file: app.zip

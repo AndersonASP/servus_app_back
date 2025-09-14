@@ -11,7 +11,7 @@
     "build:hml": "NODE_ENV=hml nest build",
     "build:prod": "NODE_ENV=prod nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
+    "start": "node dist/main.js",
     "start:dev": "NODE_ENV=dev nest start --watch",
     "start:hml": "NODE_ENV=hml node dist/main",
     "start:prod": "NODE_ENV=prod node dist/main",
