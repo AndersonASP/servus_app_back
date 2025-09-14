@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, IsEnum, IsDateString, IsArray, ValidateNested, IsBoolean, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsOptional, IsString, IsEnum, IsDateString, IsArray, ValidateNested, IsBoolean, IsNotEmpty, IsMongoId } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MembershipRole } from '../../../common/enums/role.enum';
 
@@ -33,11 +33,11 @@ export class MembershipAssignmentDto {
   role: MembershipRole;
 
   @IsOptional()
-  @IsString()
+  @IsMongoId()
   branchId?: string;
 
   @IsOptional()
-  @IsString()
+  @IsMongoId()
   ministryId?: string;
 
   @IsOptional()
@@ -46,7 +46,7 @@ export class MembershipAssignmentDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsMongoId({ each: true })
   functionIds?: string[];
 }
 

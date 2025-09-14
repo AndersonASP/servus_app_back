@@ -62,8 +62,17 @@ export class TenantMiddleware implements NestMiddleware {
     // 5) Validação opcional do tenant (apenas se foi fornecido)
     //    Não levantamos erro se não veio tenant — as Policies das rotas que exigem vão cobrar.
     if (tenantSlug) {
+      // Verifica se é um ObjectId válido antes de fazer a query
+      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(tenantSlug);
+      
+      if (!isValidObjectId) {
+        return res
+          .status(404)
+          .json({ message: 'Tenant não encontrado ou inativo.' });
+      }
+
       const exists = await this.tenantModel
-        .findOne({ tenantId: tenantSlug, isActive: true })
+        .findById(tenantSlug)
         .lean();
 
       // Se veio um slug inválido, já informa 404 cedo

@@ -60,14 +60,41 @@ export class MembersController {
     @Body() createMemberDto: CreateMemberDto,
     @Req() req: any,
   ): Promise<MemberResponseDto> {
-    const { tenantId } = resolveTenantAndBranchScope(req.user, {
-      dtoBranchId: createMemberDto.memberships?.[0]?.branchId,
+    console.log('🎬 [MembersController] Recebida requisição de criação de membro');
+    console.log('📋 [MembersController] Dados recebidos:', {
+      name: createMemberDto.name,
+      email: createMemberDto.email,
+      phone: createMemberDto.phone,
+      memberships: createMemberDto.memberships,
+      user: req.user?.sub
     });
-    if (!tenantId) throw new BadRequestException('Tenant ID não encontrado');
-    const userRole = req.user.memberships?.find(m => m.tenant === tenantId)?.role || 'volunteer';
-    const createdBy = req.user.sub;
-    
-    return this.membersService.createMember(createMemberDto, tenantId, userRole, createdBy);
+
+    try {
+      const { tenantId } = resolveTenantAndBranchScope(req.user, {
+        dtoBranchId: createMemberDto.memberships?.[0]?.branchId,
+      });
+      
+      console.log('🏢 [MembersController] Tenant ID resolvido:', tenantId);
+      
+      if (!tenantId) {
+        console.log('❌ [MembersController] Erro: Tenant ID não encontrado');
+        throw new BadRequestException('Tenant ID não encontrado');
+      }
+      
+      const userRole = req.user.memberships?.find(m => m.tenant === tenantId)?.role || 'volunteer';
+      const createdBy = req.user.sub;
+      
+      console.log('👤 [MembersController] Contexto do usuário:', {
+        userRole,
+        createdBy,
+        tenantId
+      });
+      
+      return this.membersService.createMember(createMemberDto, tenantId, userRole, createdBy);
+    } catch (error) {
+      console.error('💥 [MembersController] Erro na criação de membro:', error);
+      throw error;
+    }
   }
 
   @Get()

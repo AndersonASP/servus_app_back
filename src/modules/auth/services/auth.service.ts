@@ -3,7 +3,7 @@ import { Model, Types } from 'mongoose';
 import { Membership } from 'src/modules/membership/schemas/membership.schema';
 import { Tenant } from 'src/modules/tenants/schemas/tenant.schema';
 import { MembershipRole, Role } from 'src/common/enums/role.enum';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { UsersService } from 'src/modules/users/services/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { OAuth2Client } from 'google-auth-library';
@@ -31,18 +31,54 @@ export class AuthService {
 
   // 🔐 Login por e-mail/senha (tenantSlug opcional para montar contexto)
   async login(loginDto: LoginUserDto, deviceId: string, tenantSlug?: string) {
-    const user = await this.usersService.findByEmail(loginDto.email);
+    console.log('🔐 [AUTH] Iniciando processo de login...');
+    console.log('📧 [AUTH] Email recebido:', loginDto.email);
+    console.log('🔑 [AUTH] Senha recebida:', loginDto.password ? '***' : 'VAZIA');
+    console.log('🏢 [AUTH] TenantSlug:', tenantSlug || 'NENHUM');
+    console.log('📱 [AUTH] DeviceId:', deviceId);
+
+    // Normalizar email para busca
+    const normalizedEmail = loginDto.email.toLowerCase().trim();
+    console.log('📧 [AUTH] Email normalizado:', normalizedEmail);
+
+    const user = await this.usersService.findByEmail(normalizedEmail);
+    console.log('👤 [AUTH] Usuário encontrado:', !!user);
+    
+    if (user) {
+      console.log('👤 [AUTH] Dados do usuário:');
+      console.log('   - ID:', user._id);
+      console.log('   - Nome:', user.name);
+      console.log('   - Email:', user.email);
+      console.log('   - Role:', user.role);
+      console.log('   - Tem senha:', !!user.password);
+      console.log('   - TenantId:', user.tenantId);
+      console.log('   - Ativo:', user.isActive);
+    }
+
     const invalid = new UnauthorizedException('Usuário ou senha inválidos');
 
-    if (!user) throw invalid;
+    if (!user) {
+      console.log('❌ [AUTH] Usuário não encontrado - lançando erro');
+      throw invalid;
+    }
+    
     if (!user.password) {
+      console.log('❌ [AUTH] Usuário sem senha - conta Google');
       throw new UnauthorizedException(
         'Esta conta não possui senha. Entre com Google ou defina uma senha.',
       );
     }
 
+    console.log('🔐 [AUTH] Comparando senhas...');
     const ok = await bcrypt.compare(loginDto.password ?? '', user.password);
-    if (!ok) throw invalid;
+    console.log('🔐 [AUTH] Senha válida:', ok);
+    
+    if (!ok) {
+      console.log('❌ [AUTH] Senha incorreta - lançando erro');
+      throw invalid;
+    }
+
+    console.log('✅ [AUTH] Credenciais válidas - gerando tokens...');
 
     return this.generateTokensAndResponse(user, deviceId, {
       isNewSession: true,
@@ -132,7 +168,7 @@ export class AuthService {
       deviceId,
       type: 'access',
       // Contexto de segurança (será preenchido abaixo)
-      tenantId: null as string | null,
+      tenantId: null as string | null, // ObjectId como string
       branchId: null as string | null,
       membershipRole: null as string | null,
       permissions: [] as string[],
@@ -166,9 +202,16 @@ export class AuthService {
 
     // 🎯 Contexto específico (apenas se tenantSlug foi fornecido)
     if (opts?.tenantSlug) {
+      // Verifica se é um ObjectId válido antes de fazer a query
+      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(opts.tenantSlug);
+      if (!isValidObjectId) {
+        throw new NotFoundException('Tenant não encontrado.');
+      }
+
+      // tenantSlug agora é o ObjectId do tenant
       const tenant = await this.tenantModel
-        .findOne({ tenantId: opts.tenantSlug, isActive: true })
-        .select('_id tenantId name logoUrl')
+        .findById(opts.tenantSlug)
+        .select('_id name logoUrl')
         .lean();
 
       if (tenant) {
@@ -176,7 +219,7 @@ export class AuthService {
         const memberships = await this.memModel
           .find({
             user: user._id,
-            tenant: tenant._id,
+            tenant: new Types.ObjectId(opts.tenantSlug), // ObjectId do tenant
             isActive: true,
           })
           .populate({
@@ -195,7 +238,7 @@ export class AuthService {
         if (memberships.length > 0) {
           // 🆕 Atualizar claims de segurança com dados do tenant específico
           const mainMembership = memberships[0];
-          securityClaims.tenantId = tenant.tenantId;
+          securityClaims.tenantId = tenant._id.toString(); // ObjectId como string
           securityClaims.branchId =
             (mainMembership.branch as any)?.branchId || null;
           securityClaims.membershipRole = mainMembership.role;
@@ -207,7 +250,7 @@ export class AuthService {
           // 🆕 Adicionar dados não sensíveis na resposta (apenas para UI)
           response.tenant = {
             id: tenant._id.toString(),
-            tenantId: tenant.tenantId,
+            tenantId: tenant._id.toString(), // ObjectId como string
             name: tenant.name,
             // Só inclui logoUrl se existir
             ...(tenant.logoUrl && { logoUrl: tenant.logoUrl }),
@@ -265,11 +308,6 @@ export class AuthService {
           isActive: true,
         })
         .populate({
-          path: 'tenant',
-          select: '_id tenantId name logoUrl',
-          match: { isActive: true },
-        })
-        .populate({
           path: 'branch',
           select: '_id branchId name',
           match: { isActive: true },
@@ -306,7 +344,10 @@ export class AuthService {
           // 🆕 Atualizar claims de segurança com dados do primeiro membership
           const firstMembership = allMemberships[0];
           if (firstMembership.tenant) {
-            securityClaims.tenantId = (firstMembership.tenant as any).tenantId;
+            // firstMembership.tenant é um ObjectId
+            const tenantId = firstMembership.tenant.toString();
+            
+            securityClaims.tenantId = tenantId;
             securityClaims.branchId =
               (firstMembership.branch as any)?.branchId || null;
             securityClaims.membershipRole = firstMembership.role;
@@ -314,6 +355,11 @@ export class AuthService {
               user.role,
               firstMembership.role,
             );
+
+            // 🆕 Atualizar o tenantId do usuário se estiver null
+            if (!user.tenantId && tenantId) {
+              await this.usersService.update(user._id.toString(), { tenantId: tenantId }, tenantId);
+            }
           }
         }
 
@@ -322,15 +368,12 @@ export class AuthService {
           id: m._id.toString(),
           role: m.role,
           permissions: getCombinedPermissions(user.role, m.role), // ✅ Adicionado de volta
-          // Inclui tenant se existir
+          // Inclui tenant se existir (m.tenant é ObjectId)
           ...(m.tenant && {
             tenant: {
-              id: m.tenant._id.toString(),
-              tenantId: (m.tenant as any).tenantId,
-              name: (m.tenant as any).name,
-              ...((m.tenant as any).logoUrl && {
-                logoUrl: (m.tenant as any).logoUrl,
-              }),
+              id: m.tenant.toString(),
+              tenantId: m.tenant.toString(),
+              name: 'Tenant', // Nome será preenchido pelo frontend se necessário
             },
           }),
           // Só inclui branch se existir e estiver ativa
@@ -354,15 +397,13 @@ export class AuthService {
         const uniqueTenants = new Map();
         allMemberships.forEach((m) => {
           if (m.tenant) {
-            const tenantId = m.tenant._id.toString();
-            if (!uniqueTenants.has(tenantId)) {
+            // m.tenant é uma string UUID
+            const tenantId = m.tenant;
+            if (tenantId && !uniqueTenants.has(tenantId)) {
               uniqueTenants.set(tenantId, {
                 id: tenantId,
-                tenantId: (m.tenant as any).tenantId,
-                name: (m.tenant as any).name,
-                ...((m.tenant as any).logoUrl && {
-                  logoUrl: (m.tenant as any).logoUrl,
-                }),
+                tenantId: tenantId,
+                name: 'Tenant', // Nome será preenchido pelo frontend se necessário
               });
             }
           }
@@ -476,7 +517,7 @@ export class AuthService {
       })
       .populate({
         path: 'tenant',
-        select: '_id tenantId name logoUrl',
+        select: '_id name logoUrl',
         match: { isActive: true },
       })
       .populate({
@@ -540,7 +581,7 @@ export class AuthService {
 
       const tenants = allTenants.map((tenant) => ({
         id: tenant._id.toString(),
-        tenantId: tenant.tenantId,
+        tenantId: tenant._id.toString(), // ObjectId como string
         name: tenant.name,
         ...(tenant.logoUrl && { logoUrl: tenant.logoUrl }),
         memberships: [
@@ -575,17 +616,15 @@ export class AuthService {
         return; // Skip se tenant foi removido/inativo
       }
 
-      const tenantData = membership.tenant as any;
-      const tenantId = tenantData.tenantId;
+      // membership.tenant é uma string UUID
+      const tenantId = membership.tenant;
       console.log('🔍 Tenant ID:', tenantId);
 
       if (!tenantsMap.has(tenantId)) {
         tenantsMap.set(tenantId, {
-          id: tenantData._id.toString(),
-          tenantId: tenantData.tenantId,
-          name: tenantData.name,
-          // Só inclui logoUrl se existir
-          ...(tenantData.logoUrl && { logoUrl: tenantData.logoUrl }),
+          id: tenantId,
+          tenantId: tenantId,
+          name: 'Tenant', // Nome será preenchido pelo frontend se necessário
           memberships: [],
           branchesMap: new Map(),
         });

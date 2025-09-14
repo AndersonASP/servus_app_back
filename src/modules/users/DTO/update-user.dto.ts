@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsOptional, IsString, IsMongoId } from 'class-validator';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -19,8 +19,8 @@ export class UpdateUserDto {
 
   // 🔹 Só será usado pelo SuperAdmin no controller (e validado lá)
   @IsOptional()
-  @IsString()
-  tenantId?: string;
+  @IsMongoId()
+  tenantId?: string; // ObjectId como string
 
   // 🔹 Só será usado se for admin da matriz ou superadmin
   @IsOptional()

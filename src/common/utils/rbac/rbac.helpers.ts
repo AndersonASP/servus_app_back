@@ -13,7 +13,7 @@ export async function resolveTenantObjectId(
   tenantModel: Model<Tenant>,
   tenantId: string,
 ): Promise<Types.ObjectId> {
-  const t = await tenantModel.findOne({ tenantId }).select('_id').lean();
+  const t = await tenantModel.findById(tenantId).select('_id').lean();
   if (!t) throw new NotFoundException('Tenant not found');
   return t._id as Types.ObjectId;
 }

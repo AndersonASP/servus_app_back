@@ -38,7 +38,7 @@ export class BranchService {
     tenantId: string,
   ): Promise<BranchResponseDto> {
     // Buscar tenant pelo tenantId (UUID string)
-    const tenant = await this.tenantModel.findOne({ tenantId });
+    const tenant = await this.tenantModel.findById(tenantId);
     if (!tenant) {
       throw new NotFoundException('Tenant (igreja matriz) não encontrado.');
     }
@@ -82,7 +82,7 @@ export class BranchService {
     tenantId: string,
   ) {
     // Buscar tenant primeiro para obter o ObjectId
-    const tenant = await this.tenantModel.findOne({ tenantId });
+    const tenant = await this.tenantModel.findById(tenantId);
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
     }
@@ -165,7 +165,7 @@ export class BranchService {
         const admin = new this.userModel({
           ...data.adminData,
           password: hashedPassword,
-          role: Role.Volunteer, // Role global sempre volunteer
+          role: Role.BranchAdmin, // Role global deve ser BranchAdmin para admin da branch
           tenantId: null,
           isActive: true,
         });
@@ -232,7 +232,7 @@ export class BranchService {
 
 
   async findAll(tenantId: string, filters?: BranchFilterDto): Promise<BranchListResponseDto> {
-    const tenant = await this.tenantModel.findOne({ tenantId });
+    const tenant = await this.tenantModel.findById(tenantId);
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
     }
@@ -293,7 +293,7 @@ export class BranchService {
     const query: any = { branchId };
     
     if (tenantId) {
-      const tenant = await this.tenantModel.findOne({ tenantId });
+      const tenant = await this.tenantModel.findById(tenantId);
       if (!tenant) {
         throw new NotFoundException('Tenant não encontrado');
       }
@@ -382,7 +382,7 @@ export class BranchService {
           name: assignAdminDto.name,
           email: assignAdminDto.email.toLowerCase().trim(),
           password: hashedPassword,
-          role: Role.Volunteer,
+          role: Role.BranchAdmin, // Admin da branch deve ter role BranchAdmin
           tenantId: null,
           isActive: true,
         });

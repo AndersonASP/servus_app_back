@@ -261,7 +261,7 @@ export class MinistriesService {
   ) {
     const updateData: Partial<Ministry> = {
       ...dto,
-      updatedBy: new Types.ObjectId(userId),
+      updatedBy: userId,
     };
 
     if (dto.name) {
@@ -340,7 +340,7 @@ export class MinistriesService {
     const doc = await this.ministryModel.findOne({
       _id: id,
       tenantId: new Types.ObjectId(tenantId),
-      branchId: branchId ? new Types.ObjectId(branchId) : null,
+      branchId,
     });
     if (!doc) throw new NotFoundException('Ministério não encontrado.');
 

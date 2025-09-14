@@ -9,7 +9,7 @@ export class Membership extends Document {
   user: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
-  tenant: Types.ObjectId; // matriz
+  tenant: Types.ObjectId; // ObjectId do tenant
 
   @Prop({ type: Types.ObjectId, ref: 'Branch', required: false })
   branch?: Types.ObjectId; // null = vínculo na matriz
@@ -24,6 +24,7 @@ export class Membership extends Document {
   isActive: boolean;
 }
 export const MembershipSchema = SchemaFactory.createForClass(Membership);
+export type MembershipDocument = Membership & Document;
 
 // Único por combinação (user+tenant+branch+ministry)
 MembershipSchema.index(

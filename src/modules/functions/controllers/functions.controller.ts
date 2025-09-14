@@ -16,11 +16,13 @@ import { FunctionsService } from '../services/functions.service';
 import { BulkUpsertFunctionsDto } from '../dto/bulk-upsert-functions.dto';
 import { UpdateMinistryFunctionDto } from '../dto/update-ministry-function.dto';
 import { BulkUpsertResponseDto, MinistryFunctionResponseDto } from '../dto/ministry-function-response.dto';
+import { LinkMemberToFunctionsDto } from '../dto/link-member-to-functions.dto';
 import { Authorize } from 'src/common/decorators/authorize/authorize.decorator';
 import { PolicyGuard } from 'src/common/guards/policy.guard';
 import { Role, MembershipRole } from 'src/common/enums/role.enum';
 import type { TenantRequest } from 'src/common/middlewares/tenant.middleware';
 import { Membership } from '../../membership/schemas/membership.schema';
+import { MemberFunctionStatus } from '../schemas/member-function.schema';
 
 @Controller()
 @UseGuards(PolicyGuard)
@@ -246,5 +248,71 @@ export class MinistryFunctionsController {
       functionId,
       dto
     );
+  }
+
+  /**
+   * POST /ministries/{ministryId}/members/{memberId}/functions
+   * Vincula membro a funções específicas do ministério
+   */
+  @Post(':ministryId/members/:memberId/functions')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
+    ]
+  })
+  async linkMemberToFunctions(
+    @Param('ministryId') ministryId: string,
+    @Param('memberId') memberId: string,
+    @Body() dto: LinkMemberToFunctionsDto,
+    @Request() req: TenantRequest
+  ): Promise<{ success: boolean; linkedFunctions: any[]; message: string }> {
+    // Buscar tenantId do usuário
+    const tenantId = await this.findUserTenantId(req);
+    const userId = (req as any).user?.sub || (req as any).user?._id;
+    
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID é obrigatório');
+    }
+    
+    console.log(`🔗 Vinculando membro ${memberId} às funções do ministério ${ministryId}:`, dto.functionIds);
+    
+    const linkedFunctions: Array<{
+      functionId: string;
+      memberFunctionId: any;
+      status: MemberFunctionStatus;
+    }> = [];
+    
+    for (const functionId of dto.functionIds) {
+      try {
+        const memberFunction = await this.functionsService.createMemberFunction(
+          tenantId,
+          memberId,
+          ministryId,
+          functionId,
+          dto.status || MemberFunctionStatus.EM_TREINO,
+          userId
+        );
+        
+        linkedFunctions.push({
+          functionId,
+          memberFunctionId: memberFunction._id,
+          status: memberFunction.status
+        });
+        
+        console.log(`✅ Função ${functionId} vinculada com sucesso`);
+      } catch (error) {
+        console.log(`❌ Erro ao vincular função ${functionId}:`, error.message);
+        // Continue com as outras funções mesmo se uma falhar
+      }
+    }
+    
+    return {
+      success: linkedFunctions.length > 0,
+      linkedFunctions,
+      message: `${linkedFunctions.length} função(ões) vinculada(s) com sucesso`
+    };
   }
 }

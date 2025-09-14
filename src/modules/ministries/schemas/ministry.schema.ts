@@ -3,11 +3,11 @@ import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Ministry extends Document {
-  @Prop({ required: true, index: true })
-  tenantId: string;
+  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
+  tenantId: Types.ObjectId;
 
-  @Prop({ required: false, index: true }) // Pode ser null para ministérios da matriz
-  branchId?: string;
+  @Prop({ type: Types.ObjectId, ref: 'Branch', required: false, index: true }) // Pode ser null para ministérios da matriz
+  branchId?: Types.ObjectId;
 
   @Prop({ required: true })
   name: string;
@@ -24,11 +24,11 @@ export class Ministry extends Document {
   @Prop({ default: true })
   isActive: boolean;
 
-  @Prop({ required: true })
-  createdBy: string;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  createdBy: Types.ObjectId;
 
-  @Prop()
-  updatedBy?: string;
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  updatedBy?: Types.ObjectId;
 
   @Prop()
   createdAt: Date;

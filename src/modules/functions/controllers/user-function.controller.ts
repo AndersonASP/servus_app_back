@@ -29,6 +29,8 @@ export class UserFunctionController {
   constructor(private readonly userFunctionService: UserFunctionService) {}
 
   private async findUserTenantId(req: TenantRequest): Promise<string | null> {
+    console.log('🔍 findUserTenantId - req.user:', JSON.stringify(req.user, null, 2));
+    console.log('🔍 findUserTenantId - req.user.tenantId:', req.user?.tenantId);
     return req.user?.tenantId || null;
   }
 
@@ -53,8 +55,15 @@ export class UserFunctionController {
     @Body() dto: CreateUserFunctionDto,
     @Request() req: TenantRequest
   ): Promise<UserFunctionResponseDto> {
+    console.log('🔍 Controller - createUserFunction chamado');
+    console.log('   - dto:', JSON.stringify(dto, null, 2));
+    console.log('   - req.user.id:', req.user.id);
+    
     const tenantId = await this.findUserTenantId(req);
     const branchId = await this.findUserBranchId(req);
+    
+    console.log('   - tenantId:', tenantId);
+    console.log('   - branchId:', branchId);
     
     if (!tenantId) {
       throw new BadRequestException('Tenant ID é obrigatório');
@@ -131,6 +140,39 @@ export class UserFunctionController {
     @Query('status') status?: UserFunctionStatus
   ): Promise<UserFunctionResponseDto[]> {
     return await this.userFunctionService.getUserFunctionsByMinistry(ministryId, status);
+  }
+
+  /**
+   * GET /user-functions/user/:userId/ministry/:ministryId
+   * Listar funções de um usuário em um ministério específico
+   */
+  @Get('user/:userId/ministry/:ministryId')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
+    ]
+  })
+  async getUserFunctionsByUserAndMinistry(
+    @Param('userId') userId: string,
+    @Param('ministryId') ministryId: string,
+    @Query('status') status?: UserFunctionStatus
+  ): Promise<UserFunctionResponseDto[]> {
+    console.log('🎯 [UserFunctionController] getUserFunctionsByUserAndMinistry chamado');
+    console.log('   - userId:', userId);
+    console.log('   - ministryId:', ministryId);
+    console.log('   - status:', status);
+    
+    try {
+      const result = await this.userFunctionService.getUserFunctionsByUserAndMinistry(userId, ministryId, status);
+      console.log('✅ [UserFunctionController] Resultado retornado:', JSON.stringify(result, null, 2));
+      return result;
+    } catch (error) {
+      console.error('❌ [UserFunctionController] Erro no controller:', error);
+      throw error;
+    }
   }
 
   /**

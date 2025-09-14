@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User } from '../schema/user.schema';
 import { Membership } from '../../membership/schemas/membership.schema';
 import { Branch } from '../../branches/schemas/branch.schema';
@@ -29,16 +29,29 @@ export class MembersService {
 
   async createMember(
     createMemberDto: CreateMemberDto,
-    tenantId: string,
+    tenantId: string, // ObjectId como string
     userRole: string,
     createdBy: string,
   ): Promise<MemberResponseDto> {
+    console.log('🚀 [MembersService] Iniciando criação de membro...');
+    console.log('📋 [MembersService] Dados recebidos:', {
+      name: createMemberDto.name,
+      email: createMemberDto.email,
+      phone: createMemberDto.phone,
+      memberships: createMemberDto.memberships,
+      tenantId,
+      userRole,
+      createdBy
+    });
+
     // Validações básicas
     if (!createMemberDto.email && !createMemberDto.phone) {
+      console.log('❌ [MembersService] Erro: Email ou telefone é obrigatório');
       throw new BadRequestException('Email ou telefone é obrigatório');
     }
 
     if (createMemberDto.memberships.length === 0) {
+      console.log('❌ [MembersService] Erro: Pelo menos um vínculo organizacional é obrigatório');
       throw new BadRequestException('Pelo menos um vínculo organizacional é obrigatório');
     }
 
@@ -46,57 +59,80 @@ export class MembersService {
     const provisionalPassword = createMemberDto.password || this.generateProvisionalPassword();
     const hashedPassword = await bcrypt.hash(provisionalPassword, 10);
 
+    console.log('👤 [MembersService] Criando usuário...');
     const user = new this.userModel({
       ...createMemberDto,
       password: hashedPassword,
-      tenantId,
+      tenantId: new Types.ObjectId(tenantId), // Converter string para ObjectId
       isActive: true,
     });
 
+    console.log('💾 [MembersService] Salvando usuário no banco...');
     const savedUser = await user.save();
+    console.log('✅ [MembersService] Usuário criado com sucesso:', savedUser._id);
 
-    // Buscar informações do tenant pelo tenantId (UUID string)
-    const tenant = await this.tenantModel.findOne({ tenantId }).select('name _id');
+    // Buscar informações do tenant pelo ObjectId
+    const tenant = await this.tenantModel.findById(tenantId).select('name _id');
     const tenantName = tenant?.name || 'Igreja';
-    const tenantObjectId = tenant?._id;
 
-    if (!tenantObjectId) {
+    if (!tenant) {
       throw new BadRequestException('Tenant não encontrado');
     }
 
     // Criar memberships e coletar informações para o email
     let branchName: string | undefined;
     let ministryName: string | undefined;
-    let primaryRole: string = 'volunteer';
+    let primaryRole: string = 'volunteer'; // Será atualizado com a role do primeiro membership
 
+    console.log('🔗 [MembersService] Criando memberships...');
     for (const membershipData of createMemberDto.memberships) {
+      console.log('📝 [MembersService] Criando membership:', {
+        role: membershipData.role,
+        branchId: membershipData.branchId,
+        ministryId: membershipData.ministryId,
+        functionIds: membershipData.functionIds
+      });
+
       const membership = new this.membershipModel({
         user: savedUser._id,
-        tenant: tenantObjectId, // Usar ObjectId do tenant
+        tenant: new Types.ObjectId(tenantId), // ObjectId do tenant
         role: membershipData.role,
-        branch: membershipData.branchId,
-        ministry: membershipData.ministryId,
+        branch: membershipData.branchId ? new Types.ObjectId(membershipData.branchId) : null,
+        ministry: membershipData.ministryId ? new Types.ObjectId(membershipData.ministryId) : null,
         isActive: membershipData.isActive ?? true,
         createdBy,
       });
 
+      console.log('💾 [MembersService] Salvando membership no banco...');
       await membership.save();
+      console.log('✅ [MembersService] Membership criado com sucesso:', membership._id);
 
       // Criar vínculos UserFunction se houver funções selecionadas
       if (membershipData.functionIds && membershipData.functionIds.length > 0 && membershipData.ministryId) {
+        console.log('⚙️ [MembersService] Criando UserFunctions:', membershipData.functionIds);
         for (const functionId of membershipData.functionIds) {
+          console.log('🔧 [MembersService] Criando UserFunction:', {
+            userId: savedUser._id,
+            ministryId: membershipData.ministryId,
+            functionId: functionId,
+            tenantId: tenantId,
+            branchId: membershipData.branchId
+          });
+
           const userFunction = new this.userFunctionModel({
             userId: savedUser._id,
             ministryId: membershipData.ministryId,
             functionId: functionId,
             status: 'approved', // Aprovado automaticamente quando criado pelo líder
-            tenantId: tenantObjectId,
+            tenantId: new Types.ObjectId(tenantId), // ObjectId do tenant
             branchId: membershipData.branchId,
             approvedBy: createdBy,
             approvedAt: new Date(),
           });
 
+          console.log('💾 [MembersService] Salvando UserFunction no banco...');
           await userFunction.save();
+          console.log('✅ [MembersService] UserFunction criada com sucesso:', userFunction._id);
         }
       }
 
@@ -111,10 +147,16 @@ export class MembersService {
         ministryName = ministry?.name;
       }
 
+      // Definir primaryRole com a role do primeiro membership
       if (primaryRole === 'volunteer') {
         primaryRole = membershipData.role;
       }
     }
+
+    // Atualizar a role do usuário com a primaryRole
+    console.log('🔄 [MembersService] Atualizando role do usuário para:', primaryRole);
+    await this.userModel.findByIdAndUpdate(savedUser._id, { role: primaryRole });
+    console.log('✅ [MembersService] Role do usuário atualizada com sucesso');
 
     // Enviar email com credenciais se o usuário tem email
     if (createMemberDto.email) {
@@ -135,22 +177,38 @@ export class MembersService {
       }
     }
 
-    return this.getMemberById(savedUser._id.toString(), tenantId);
+    console.log('🎯 [MembersService] Buscando dados do membro criado...');
+    const result = await this.getMemberById(savedUser._id.toString(), tenantId);
+    console.log('🎉 [MembersService] Membro criado com sucesso!');
+    console.log('📊 [MembersService] Resultado final:', {
+      id: result.id,
+      name: result.name,
+      email: result.email,
+      role: result.role,
+      memberships: result.memberships?.length || 0
+    });
+    return result;
   }
 
   async getMembers(
     filters: MemberFilterDto,
-    tenantId: string,
+    tenantId: string, // ObjectId como string
     userRole: string,
   ): Promise<{ members: MemberResponseDto[], total: number }> {
-    // Buscar o ObjectId do tenant
-    const tenant = await this.tenantModel.findOne({ tenantId }).select('_id');
+    console.log('🔍 [MembersService] getMembers iniciado');
+    console.log('📋 [MembersService] Filtros recebidos:', filters);
+    console.log('🏢 [MembersService] TenantId:', tenantId);
+    console.log('👤 [MembersService] UserRole:', userRole);
+
+    // Verificar se o tenant existe
+    const tenant = await this.tenantModel.findById(tenantId).select('_id');
     if (!tenant) {
+      console.log('❌ [MembersService] Tenant não encontrado:', tenantId);
       throw new BadRequestException('Tenant não encontrado');
     }
 
     // Buscar usuários que têm memberships neste tenant
-    const membershipsQuery: any = { tenant: tenant._id };
+    const membershipsQuery: any = { tenant: new Types.ObjectId(tenantId) }; // ObjectId do tenant
     
     if (filters.branchId) {
       membershipsQuery.branch = filters.branchId;
@@ -168,12 +226,21 @@ export class MembersService {
       membershipsQuery.isActive = filters.isActive;
     }
 
+    console.log('🔍 [MembersService] Query de memberships:', membershipsQuery);
+
     // Buscar memberships com filtros
     const memberships = await this.membershipModel
       .find(membershipsQuery)
       .populate('user')
       .populate('branch', 'name address')
       .populate('ministry', 'name description');
+
+    console.log('📊 [MembersService] Memberships encontrados:', memberships.length);
+    console.log('📋 [MembersService] Primeiro membership:', memberships[0] ? {
+      id: memberships[0]._id,
+      user: memberships[0].user ? 'populated' : 'not populated',
+      role: memberships[0].role
+    } : 'nenhum');
 
     // Aplicar filtro de busca nos usuários
     let filteredMemberships = memberships;
@@ -193,10 +260,28 @@ export class MembersService {
     const total = filteredMemberships.length;
     const paginatedMemberships = filteredMemberships.slice(skip, skip + limit);
 
+    console.log('📄 [MembersService] Paginação:', { page, limit, skip, total, paginatedCount: paginatedMemberships.length });
+
     // Mapear para resposta
     const members = paginatedMemberships.map(membership => {
       const user = membership.user as any;
+      console.log('👤 [MembersService] Mapeando user:', {
+        id: user?._id,
+        name: user?.name,
+        email: user?.email,
+        role: user?.role
+      });
       return this.mapUserToMemberResponse(user, [membership]);
+    });
+
+    console.log('✅ [MembersService] Resposta final:', {
+      membersCount: members.length,
+      total,
+      firstMember: members[0] ? {
+        id: members[0].id,
+        name: members[0].name,
+        email: members[0].email
+      } : 'nenhum'
     });
 
     return { members, total };
@@ -208,14 +293,14 @@ export class MembersService {
       throw new Error('Usuário não encontrado');
     }
 
-    // Buscar o ObjectId do tenant
-    const tenant = await this.tenantModel.findOne({ tenantId }).select('_id');
+    // Verificar se o tenant existe
+    const tenant = await this.tenantModel.findById(tenantId).select('_id');
     if (!tenant) {
       throw new BadRequestException('Tenant não encontrado');
     }
 
     const memberships = await this.membershipModel
-      .find({ user: user._id, tenant: tenant._id })
+      .find({ user: user._id, tenant: new Types.ObjectId(tenantId) }) // ObjectId do tenant
       .populate('branch', 'name address')
       .populate('ministry', 'name description');
 
@@ -246,14 +331,14 @@ export class MembersService {
       throw new Error('Usuário não encontrado');
     }
 
-    // Buscar o ObjectId do tenant
-    const tenant = await this.tenantModel.findOne({ tenantId }).select('_id');
+    // Verificar se o tenant existe
+    const tenant = await this.tenantModel.findById(tenantId).select('_id');
     if (!tenant) {
       throw new BadRequestException('Tenant não encontrado');
     }
 
     // Deletar memberships
-    await this.membershipModel.deleteMany({ user: user._id, tenant: tenant._id });
+    await this.membershipModel.deleteMany({ user: user._id, tenant: new Types.ObjectId(tenantId) }); // ObjectId do tenant
 
     // Deletar usuário
     await this.userModel.findByIdAndDelete(id);
@@ -341,7 +426,7 @@ export class MembersService {
     }
 
     // Verificar se o usuário pertence ao tenant
-    if (user.tenantId !== tenantId) {
+    if (user.tenantId?.toString() !== tenantId) {
       throw new Error('Membro não pertence a este tenant');
     }
 
@@ -369,8 +454,8 @@ export class MembersService {
       isActive: user.isActive,
       profileCompleted: user.profileCompleted,
       role: user.role,
-      tenantId: user.tenantId,
-      branchId: user.branchId,
+      tenantId: user.tenantId?.toString(),
+      branchId: user.branchId?.toString(),
       memberships: memberships.map((membership) => ({
         id: membership._id.toString(),
         role: membership.role,

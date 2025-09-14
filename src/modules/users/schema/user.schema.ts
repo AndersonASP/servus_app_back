@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { Role } from '../../../common/enums/role.enum';
 
 export type UserDocument = User & Document;
@@ -22,11 +22,11 @@ export class User {
   })
   role: string;
 
-  @Prop({ required: false })
-  tenantId?: string; // pode ser null para superadmin// Igreja Matriz
+  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: false })
+  tenantId?: Types.ObjectId; // ObjectId do tenant, pode ser null para superadmin
 
-  @Prop({ type: String, required: false })
-  branchId?: string; // Filial específica, se houver
+  @Prop({ type: Types.ObjectId, ref: 'Branch', required: false })
+  branchId?: Types.ObjectId; // Filial específica, se houver
 
   @Prop({ required: false })
   googleId?: string; // ID único do Google

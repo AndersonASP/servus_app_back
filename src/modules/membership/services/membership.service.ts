@@ -5,12 +5,16 @@ import { Membership } from '../schemas/membership.schema';
 import { CreateMembershipDto } from '../dto/create-membership.dto';
 import { UpdateMembershipDto } from '../dto/update-membership.dto';
 import { MembershipRole, Role } from 'src/common/enums/role.enum';
+import { Ministry } from '../../ministries/schemas/ministry.schema';
+import { UserFunctionService } from '../../functions/services/user-function.service';
 
 
 @Injectable()
 export class MembershipService {
   constructor(
     @InjectModel(Membership.name) private membershipModel: Model<Membership>,
+    @InjectModel(Ministry.name) private ministryModel: Model<Ministry>,
+    private userFunctionService: UserFunctionService,
   ) {}
 
   // ========================================
@@ -22,7 +26,7 @@ export class MembershipService {
    * Permissões: Leader, BranchAdmin, TenantAdmin, ServusAdmin
    */
   async addVolunteerToMinistry(
-    tenantId: string,
+    tenantId: string, // ObjectId como string // ObjectId como string
     ministryId: string,
     createMembershipDto: CreateMembershipDto,
     currentUserId: string,
@@ -42,12 +46,13 @@ export class MembershipService {
     // Verificar permissões do usuário atual
     await this.validateUserPermissions(currentUserId, tenantId, ministryId, 'add_volunteer');
 
-    // Verificar se já existe membership para este usuário neste ministério
+    // Verificar se já existe membership ATIVO para este usuário neste ministério
     const existingMembership = await this.membershipModel.findOne({
       user: new Types.ObjectId(createMembershipDto.userId),
-      tenant: tenantId, // tenantId é UUID, não ObjectId
+      tenant: new Types.ObjectId(tenantId), // ObjectId do tenant
       ministry: new Types.ObjectId(ministryId),
       branch: createMembershipDto.branchId ? new Types.ObjectId(createMembershipDto.branchId) : null,
+      isActive: true, // ← Só considera memberships ativos
     });
 
     if (existingMembership) {
@@ -57,7 +62,7 @@ export class MembershipService {
     // Criar novo membership
     const membership = new this.membershipModel({
       user: new Types.ObjectId(createMembershipDto.userId),
-      tenant: tenantId, // tenantId é UUID, não ObjectId
+      tenant: new Types.ObjectId(tenantId), // ObjectId do tenant
       branch: createMembershipDto.branchId ? new Types.ObjectId(createMembershipDto.branchId) : null,
       ministry: new Types.ObjectId(ministryId),
       role: MembershipRole.Volunteer, // Força role de voluntário
@@ -84,7 +89,7 @@ export class MembershipService {
    * Permissões: BranchAdmin, TenantAdmin, ServusAdmin
    */
   async addLeaderToMinistry(
-    tenantId: string,
+    tenantId: string, // ObjectId como string
     ministryId: string,
     createMembershipDto: CreateMembershipDto,
     currentUserId: string,
@@ -104,12 +109,13 @@ export class MembershipService {
     // Verificar permissões do usuário atual (apenas Admin podem adicionar líderes)
     await this.validateUserPermissions(currentUserId, tenantId, ministryId, 'add_leader');
 
-    // Verificar se já existe membership para este usuário neste ministério
+    // Verificar se já existe membership ATIVO para este usuário neste ministério
     const existingMembership = await this.membershipModel.findOne({
       user: new Types.ObjectId(createMembershipDto.userId),
-      tenant: tenantId, // tenantId é UUID, não ObjectId
+      tenant: new Types.ObjectId(tenantId), // ObjectId do tenant
       ministry: new Types.ObjectId(ministryId),
       branch: createMembershipDto.branchId ? new Types.ObjectId(createMembershipDto.branchId) : null,
+      isActive: true, // ← Só considera memberships ativos
     });
 
     if (existingMembership) {
@@ -119,7 +125,7 @@ export class MembershipService {
     // Criar novo membership
     const membership = new this.membershipModel({
       user: new Types.ObjectId(createMembershipDto.userId),
-      tenant: tenantId, // tenantId é UUID, não ObjectId
+      tenant: new Types.ObjectId(tenantId), // ObjectId do tenant
       branch: createMembershipDto.branchId ? new Types.ObjectId(createMembershipDto.branchId) : null,
       ministry: new Types.ObjectId(ministryId),
       role: MembershipRole.Leader, // Força role de líder
@@ -149,7 +155,7 @@ export class MembershipService {
    * Lista todos os membros de um ministério
    */
   async getMinistryMembers(
-    tenantId: string,
+    tenantId: string, // ObjectId como string
     ministryId: string,
     options: {
       page: number;
@@ -172,7 +178,8 @@ export class MembershipService {
     console.log('   - branchId:', options.branchId, '(tipo:', typeof options.branchId, ', length:', options.branchId?.length, ')');
 
     // Validar se ministryId é um ObjectId válido ANTES de qualquer operação
-    if (!Types.ObjectId.isValid(ministryId)) {
+    // Aceita tanto ObjectId (24 chars) quanto UUID (36 chars)
+    if (!Types.ObjectId.isValid(ministryId) && ministryId.length !== 36) {
       console.error('❌ ID do ministério inválido:', ministryId);
       throw new BadRequestException(`ID do ministério inválido: ${ministryId}`);
     }
@@ -185,16 +192,16 @@ export class MembershipService {
 
     // Construir filtros
     console.log('🔧 Criando filtros...');
-    console.log('   - tenantId é UUID (36 chars), não ObjectId (24 chars)');
-    console.log('   - Criando ObjectId para ministryId:', ministryId);
-    const ministryObjectId = new Types.ObjectId(ministryId);
-    console.log('   - Ministry ObjectId criado:', ministryObjectId);
+    console.log('   - tenantId é UUID string');
+    console.log('   - ministryId:', ministryId, '(length:', ministryId.length, ')');
     
     const filters: any = {
-      tenant: tenantId, // tenantId é UUID, não ObjectId
-      ministry: ministryObjectId,
+      tenant: new Types.ObjectId(tenantId), // ObjectId do tenant
+      ministry: Types.ObjectId.isValid(ministryId) ? new Types.ObjectId(ministryId) : ministryId,
       isActive: true,
     };
+    
+    console.log('   - Filtros criados:', JSON.stringify(filters, null, 2));
 
     // Filtrar por branch se especificado
     if (options.branchId) {
@@ -210,9 +217,8 @@ export class MembershipService {
       } else {
         throw new BadRequestException('ID da filial inválido: deve ser ObjectId (24 chars) ou UUID (36 chars)');
       }
-    } else {
-      filters.branch = null; // Apenas membros da matriz
     }
+    // Se não há branchId, não adiciona filtro de branch - permite tanto matriz quanto filiais
 
     // Filtrar por role se especificado
     if (options.role) {
@@ -220,6 +226,27 @@ export class MembershipService {
     }
 
     // Buscar membros via membership
+    console.log('🔍 Executando query de agregação...');
+    console.log('   - Filtros:', JSON.stringify(filters, null, 2));
+    
+    // Teste: verificar se há membros no banco
+    const totalMemberships = await this.membershipModel.countDocuments();
+    console.log('   - Total de memberships no banco:', totalMemberships);
+    
+    const membershipsWithMinistry = await this.membershipModel.countDocuments({
+      ministry: Types.ObjectId.isValid(ministryId) ? new Types.ObjectId(ministryId) : ministryId
+    });
+    console.log('   - Memberships com este ministério:', membershipsWithMinistry);
+    
+    // Primeiro, vamos testar uma query simples
+    console.log('🔍 Testando query simples...');
+    const simpleQuery = await this.membershipModel.find(filters).limit(5).exec();
+    console.log('   - Query simples retornou:', simpleQuery.length, 'documentos');
+    
+    if (simpleQuery.length > 0) {
+      console.log('   - Primeiro documento:', JSON.stringify(simpleQuery[0], null, 2));
+    }
+    
     const query = this.membershipModel.aggregate([
       { $match: filters },
       {
@@ -270,6 +297,7 @@ export class MembershipService {
     }
 
     // Contar total para paginação
+    console.log('🔍 Executando query de contagem...');
     const totalQuery = this.membershipModel.aggregate([
       { $match: filters },
       { $count: 'total' },
@@ -277,15 +305,24 @@ export class MembershipService {
 
     const [totalResult] = await totalQuery;
     const total = totalResult?.total || 0;
+    console.log('   - Total encontrado:', total);
 
     // Aplicar paginação
     const skip = (options.page - 1) * options.limit;
+    console.log('🔍 Aplicando paginação...');
+    console.log('   - Skip:', skip);
+    console.log('   - Limit:', options.limit);
+    
     const members = await query.skip(skip).limit(options.limit).exec();
 
     console.log('✅ Membros listados com sucesso');
     console.log('   - Members count:', members.length);
     console.log('   - Members type:', typeof members);
     console.log('   - Is array:', Array.isArray(members));
+    
+    if (members.length > 0) {
+      console.log('   - Primeiro membro:', JSON.stringify(members[0], null, 2));
+    }
     
     return {
       members,
@@ -307,7 +344,7 @@ export class MembershipService {
    * Permissões: Leader pode remover voluntários, Admin pode remover todos
    */
   async removeMinistryMember(
-    tenantId: string,
+    tenantId: string, // ObjectId como string
     ministryId: string,
     membershipId: string,
     currentUserId: string,
@@ -342,12 +379,24 @@ export class MembershipService {
     // Verificar permissões do usuário atual
     await this.validateUserPermissions(currentUserId, tenantId, ministryId, 'remove_member', membership);
 
-    // Remover o membership
-    await this.membershipModel.findByIdAndDelete(membershipId);
+    // 🗑️ REMOÇÃO EM CASCATA: Remover todas as funções do usuário neste ministério
+    console.log('🗑️ Removendo funções do usuário no ministério...');
+    const userId = membership.user.toString();
+    const deletedFunctionsCount = await this.userFunctionService.deleteUserFunctionsByUserAndMinistry(
+      userId,
+      ministryId,
+      tenantId,
+      branchId
+    );
+    console.log(`✅ ${deletedFunctionsCount} funções removidas do usuário no ministério`);
 
-    console.log('✅ Membro removido com sucesso');
+      // 🗑️ EXCLUIR definitivamente o membership
+      await this.membershipModel.findByIdAndDelete(membershipId);
+
+      console.log('✅ Membro desvinculado com sucesso (membership excluído)');
     return {
-      message: 'Membro removido do ministério com sucesso',
+      message: 'Membro desvinculado do ministério com sucesso',
+      deletedFunctionsCount,
     };
   }
 
@@ -360,7 +409,7 @@ export class MembershipService {
    * Permissões: Apenas Admin
    */
   async updateMemberRole(
-    tenantId: string,
+    tenantId: string, // ObjectId como string
     ministryId: string,
     membershipId: string,
     updateMembershipDto: UpdateMembershipDto,
@@ -429,10 +478,28 @@ export class MembershipService {
   /**
    * Valida se o ministério existe e pertence ao tenant
    */
-  private async validateMinistry(tenantId: string, ministryId: string) {
-    // TODO: Implementar validação do ministério
-    // Por enquanto, retorna true
-    return true;
+  private async validateMinistry(tenantId: string, ministryId: string) { // tenantId é ObjectId como string
+    console.log('🔍 Validando ministério...');
+    console.log('   - tenantId:', tenantId);
+    console.log('   - ministryId:', ministryId);
+    
+    try {
+      const ministry = await this.ministryModel.findOne({
+        _id: Types.ObjectId.isValid(ministryId) ? new Types.ObjectId(ministryId) : ministryId,
+        tenantId: new Types.ObjectId(tenantId), // ObjectId do tenant
+      });
+      
+      if (!ministry) {
+        console.log('❌ Ministério não encontrado');
+        throw new BadRequestException('Ministério não encontrado ou não pertence ao tenant');
+      }
+      
+      console.log('✅ Ministério validado:', ministry.name);
+      return ministry;
+    } catch (error) {
+      console.log('❌ Erro ao validar ministério:', error);
+      throw error;
+    }
   }
 
   /**
@@ -449,7 +516,7 @@ export class MembershipService {
    */
   private async validateUserPermissions(
     currentUserId: string,
-    tenantId: string,
+    tenantId: string, // ObjectId como string
     ministryId: string,
     action: 'add_volunteer' | 'add_leader' | 'view_members' | 'remove_member' | 'update_role',
     targetMembership?: any,

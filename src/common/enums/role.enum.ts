@@ -1,6 +1,8 @@
 // Papel global do usuário (fora do escopo de tenants/branches)
 export enum Role {
   ServusAdmin = 'servus_admin',
+  TenantAdmin = 'tenant_admin',
+  BranchAdmin = 'branch_admin',
   Volunteer = 'volunteer', // default
 }
 
@@ -71,7 +73,7 @@ export const ROLE_PERMISSIONS = {
     PERMS.VIEW_MINISTRY_REPORTS,
   ],
 
-  [MembershipRole.TenantAdmin]: [
+  [Role.TenantAdmin]: [
     PERMS.MANAGE_TENANT,
     PERMS.MANAGE_TENANT_MINISTRIES,
     PERMS.MANAGE_BRANCHES,
@@ -91,7 +93,7 @@ export const ROLE_PERMISSIONS = {
     PERMS.VIEW_MINISTRY_REPORTS,
   ],
 
-  [MembershipRole.BranchAdmin]: [
+  [Role.BranchAdmin]: [
     PERMS.MANAGE_BRANCH,
     PERMS.MANAGE_BRANCH_MINISTRIES,
     PERMS.MANAGE_BRANCH_EVENTS,
@@ -106,6 +108,12 @@ export const ROLE_PERMISSIONS = {
     PERMS.VIEW_MINISTRY_REPORTS,
   ],
 
+  [Role.Volunteer]: [
+    PERMS.VIEW_OWN_SCHEDULE,
+    PERMS.CONFIRM_OWN_ATTENDANCE,
+    PERMS.VIEW_EVENTS,
+  ],
+
   [MembershipRole.Leader]: [
     PERMS.MANAGE_MINISTRY,
     PERMS.MANAGE_MINISTRY_VOLUNTEERS,
@@ -113,11 +121,5 @@ export const ROLE_PERMISSIONS = {
     PERMS.MANAGE_MINISTRY_SCHEDULES,
     PERMS.MANAGE_MINISTRY_TEMPLATES,
     PERMS.VIEW_MINISTRY_REPORTS,
-  ],
-
-  [MembershipRole.Volunteer]: [
-    PERMS.VIEW_OWN_SCHEDULE,
-    PERMS.CONFIRM_OWN_ATTENDANCE,
-    PERMS.VIEW_EVENTS,
   ],
 } as const;

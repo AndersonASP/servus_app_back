@@ -3,9 +3,7 @@ import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Tenant extends Document {
-  // 🔹 Identificação básica
-  @Prop({ required: true, unique: true })
-  tenantId: string; // ex: igreja001
+  // 🔹 Identificação básica - REMOVIDO tenantId, usando apenas _id (ObjectId)
 
   @Prop({ required: true })
   name: string; // Nome da igreja matriz
@@ -152,8 +150,8 @@ export class Tenant extends Document {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   responsavel?: Types.ObjectId; // admin principal do tenant
 
-  @Prop()
-  createdBy?: string; // superadmin que criou o tenant
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  createdBy?: Types.ObjectId;
 
   // 🔹 Feature Flags
   @Prop({

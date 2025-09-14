@@ -25,24 +25,7 @@ export class TenantService {
     private emailService: EmailService,
   ) {}
 
-  /**
-   * Gera um UUIDv7 único para o tenant
-   */
-  private async generateUuidTenantId(): Promise<string> {
-    let tenantId: string = '';
-    let exists = true;
-
-    while (exists) {
-      // Gera um UUIDv7 (timestamp-based, ordenável)
-      tenantId = uuidv7();
-
-      // Verifica se já existe (extremamente improvável com UUIDv7)
-      const existingTenant = await this.tenantModel.findOne({ tenantId });
-      exists = !!existingTenant;
-    }
-
-    return tenantId;
-  }
+  // REMOVIDO: generateUuidTenantId - não precisamos mais de UUID, usamos ObjectId
 
   /**
    * Gera uma senha provisória segura
@@ -82,28 +65,16 @@ export class TenantService {
 
   async create(createTenantDto: CreateTenantDto, createdBy: string) {
     const exists = await this.tenantModel.findOne({
-      $or: [
-        { name: createTenantDto.name },
-        { tenantId: createTenantDto.tenantId },
-      ],
+      name: createTenantDto.name,
     });
 
     if (exists)
       throw new ConflictException(
-        'Já existe um tenant com esse nome ou tenantId.',
+        'Já existe um tenant com esse nome.',
       );
-
-    const baseId = (createTenantDto.tenantId || createTenantDto.name)
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '')
-      .substring(0, 20);
-
-    const tenantId = createTenantDto.tenantId || `${baseId}-${Date.now()}`;
 
     const tenant = new this.tenantModel({
       ...createTenantDto,
-      tenantId,
       createdBy,
       isActive: true,
     });
@@ -124,14 +95,11 @@ export class TenantService {
 
     // Verificar se tenant já existe
     const existingTenant = await this.tenantModel.findOne({
-      $or: [
-        { name: data.tenantData.name },
-        { tenantId: data.tenantData.tenantId },
-      ],
+      name: data.tenantData.name,
     });
 
     if (existingTenant) {
-      throw new ConflictException('Já existe um tenant com esse nome ou ID');
+      throw new ConflictException('Já existe um tenant com esse nome');
     }
 
     // Verificar se admin já existe (se fornecido)
@@ -149,12 +117,8 @@ export class TenantService {
     session.startTransaction();
 
     try {
-      // Gerar UUIDv7 único para o tenant
-      const tenantId = await this.generateUuidTenantId();
-
       const tenant = new this.tenantModel({
         ...data.tenantData,
-        tenantId,
         createdBy,
         isActive: true,
       });
@@ -175,8 +139,8 @@ export class TenantService {
         const admin = new this.userModel({
           ...data.adminData,
           password: hashedPassword,
-          role: Role.Volunteer, // Role global sempre volunteer
-          tenantId: null, // Usuários não têm tenantId fixo
+          role: Role.TenantAdmin, // Role global deve ser TenantAdmin para admin do tenant
+          tenantId: savedTenant._id, // ObjectId do tenant
           isActive: true,
         });
 
@@ -185,7 +149,7 @@ export class TenantService {
         // Criar membership como TenantAdmin
         const membership = new this.membershipModel({
           user: savedAdmin._id,
-          tenant: savedTenant._id,
+          tenant: savedTenant._id, // ObjectId do tenant
           role: MembershipRole.TenantAdmin,
           isActive: true,
         });
@@ -206,7 +170,7 @@ export class TenantService {
             adminResult.email,
             adminResult.name,
             savedTenant.name,
-            savedTenant.tenantId,
+            (savedTenant._id as any).toString(), // ObjectId como string
             provisionalPassword,
           );
         } catch (emailError) {
@@ -233,14 +197,14 @@ export class TenantService {
   }
 
   async findById(tenantId: string) {
-    const tenant = await this.tenantModel.findOne({ tenantId });
+    const tenant = await this.tenantModel.findById(tenantId);
     if (!tenant) throw new NotFoundException('Tenant não encontrado.');
     return tenant;
   }
 
   async deactivate(tenantId: string) {
-    const updated = await this.tenantModel.findOneAndUpdate(
-      { tenantId },
+    const updated = await this.tenantModel.findByIdAndUpdate(
+      tenantId,
       { isActive: false },
       { new: true },
     );

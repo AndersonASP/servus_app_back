@@ -125,6 +125,10 @@ export class AppModule implements NestModule {
         // 🔓 Swagger (com e sem globalPrefix)
         { path: 'api/docs', method: RequestMethod.ALL },
         { path: 'api/docs/*path', method: RequestMethod.ALL },
+
+        // 🔓 Criação de tenants (não precisam de tenant válido)
+        { path: 'tenants', method: RequestMethod.POST },
+        { path: 'tenants/with-admin', method: RequestMethod.POST },
       )
       .forRoutes({ path: '*', method: RequestMethod.ALL });
   }

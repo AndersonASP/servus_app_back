@@ -103,8 +103,8 @@ export class Branch extends Document {
   timezone?: string;
 
   // 🔹 Controle
-  @Prop()
-  createdBy?: string;
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  createdBy?: Types.ObjectId;
 
   @Prop({ default: true })
   isActive: boolean;

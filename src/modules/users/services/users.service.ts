@@ -136,7 +136,7 @@ export class UsersService {
           // Para usuários normais, criar membership no tenant especificado
           const membership = new this.memModel({
             user: savedUser._id,
-            tenant: tenantId,
+            tenant: tenantId, // tenantId é UUID string
             branch: branchId || null,
             ministry: null,
             role: MembershipRole.Volunteer, // Role padrão
@@ -233,9 +233,9 @@ export class UsersService {
       membershipData.userId = savedUser._id.toString();
       const membership = new this.memModel({
         user: savedUser._id,
-        tenant: membershipData.tenantId,
-        branch: membershipData.branchId || null,
-        ministry: membershipData.ministryId || null,
+        tenant: membershipData.tenantId, // tenantId é UUID string
+        branch: membershipData.branchId ? new Types.ObjectId(membershipData.branchId) : null,
+        ministry: membershipData.ministryId ? new Types.ObjectId(membershipData.ministryId) : null,
         role: membershipData.role,
         isActive: true,
       });
@@ -407,7 +407,7 @@ export class UsersService {
   ): Promise<{ valid: boolean; reason?: string }> {
     // Verificar se tenant existe
     const tenant = (await this.tenantModel
-      .findOne({ tenantId: membershipData.tenantId })
+      .findById(membershipData.tenantId)
       .lean()) as unknown as LeanTenant;
     if (!tenant) {
       return { valid: false, reason: 'Tenant não encontrado' };
@@ -479,7 +479,7 @@ export class UsersService {
   ) {
     // Verificar se tenant existe
     const tenant = (await this.tenantModel
-      .findOne({ tenantId })
+      .findById(tenantId)
       .lean()) as unknown as LeanTenant;
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
@@ -502,7 +502,7 @@ export class UsersService {
 
     // Construir filtros baseados na role e opções
     const filters: any = {
-      'memberships.tenant': tenant._id, // Usar o _id do tenant encontrado
+      'memberships.tenant': tenantId, // tenantId é UUID string
       'memberships.role': role,
       'memberships.isActive': true,
     };
@@ -618,7 +618,7 @@ export class UsersService {
   ) {
     // Verificar se tenant e branch existem
     const tenant = (await this.tenantModel
-      .findOne({ tenantId })
+      .findById(tenantId)
       .lean()) as unknown as LeanTenant;
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
@@ -656,7 +656,7 @@ export class UsersService {
 
     // Construir filtros
     const filters: any = {
-      'memberships.tenant': tenant._id, // Usar o _id do tenant encontrado
+      'memberships.tenant': tenantId, // tenantId é UUID string
       'memberships.branch': branch._id, // Usar o _id da branch encontrada
       'memberships.role': role,
       'memberships.isActive': true,
@@ -754,7 +754,7 @@ export class UsersService {
   ) {
     // Verificar se tenant e ministry existem
     const tenant = (await this.tenantModel
-      .findOne({ tenantId })
+      .findById(tenantId)
       .lean()) as unknown as LeanTenant;
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
@@ -766,7 +766,7 @@ export class UsersService {
     }
 
     // Verificar se ministry pertence ao tenant
-    if (ministry.tenantId !== tenant.tenantId) {
+    if (ministry.tenantId.toString() !== tenant.tenantId.toString()) {
       throw new BadRequestException(
         'Ministry não pertence ao tenant especificado',
       );
@@ -821,7 +821,7 @@ export class UsersService {
 
     // Construir filtros
     const filters: any = {
-      'memberships.tenant': tenant._id, // Usar o _id do tenant encontrado
+      'memberships.tenant': tenantId, // tenantId é UUID string
       'memberships.ministry': new Types.ObjectId(ministryId),
       'memberships.role': MembershipRole.Volunteer,
       'memberships.isActive': true,
@@ -918,7 +918,7 @@ export class UsersService {
   async getUsersDashboard(tenantId: string, currentUser: any) {
     // Verificar se tenant existe
     const tenant = (await this.tenantModel
-      .findOne({ tenantId })
+      .findById(tenantId)
       .lean()) as unknown as LeanTenant;
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
@@ -957,7 +957,7 @@ export class UsersService {
     const statsByRole = await this.memModel.aggregate([
       {
         $match: {
-          tenant: tenant._id, // Usar o _id do tenant encontrado
+          tenant: tenantId, // tenantId é UUID string
           isActive: true,
         },
       },
@@ -973,7 +973,7 @@ export class UsersService {
     const statsByBranch = await this.memModel.aggregate([
       {
         $match: {
-          tenant: tenant._id, // Usar o _id do tenant encontrado
+          tenant: tenantId, // tenantId é UUID string
           isActive: true,
           branch: { $exists: true, $ne: null },
         },
@@ -1001,7 +1001,7 @@ export class UsersService {
     const recentUsers = await this.memModel.aggregate([
       {
         $match: {
-          tenant: tenant._id, // Usar o _id do tenant encontrado
+          tenant: tenantId, // tenantId é UUID string
           isActive: true,
           createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
         },
@@ -1054,7 +1054,7 @@ export class UsersService {
   ) {
     // Verificar se tenant e branch existem
     const tenant = (await this.tenantModel
-      .findOne({ tenantId })
+      .findById(tenantId)
       .lean()) as unknown as LeanTenant;
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
@@ -1110,7 +1110,7 @@ export class UsersService {
     const statsByRole = await this.memModel.aggregate([
       {
         $match: {
-          tenant: tenant._id, // Usar o _id do tenant encontrado
+          tenant: tenantId, // tenantId é UUID string
           branch: branch._id, // Usar o _id da branch encontrada
           isActive: true,
         },
@@ -1127,7 +1127,7 @@ export class UsersService {
     const statsByMinistry = await this.memModel.aggregate([
       {
         $match: {
-          tenant: tenant._id, // Usar o _id do tenant encontrado
+          tenant: tenantId, // tenantId é UUID string
           branch: branch._id, // Usar o _id da branch encontrada
           isActive: true,
           ministry: { $exists: true, $ne: null },
@@ -1156,7 +1156,7 @@ export class UsersService {
     const recentUsers = await this.memModel.aggregate([
       {
         $match: {
-          tenant: tenant._id, // Usar o _id do tenant encontrado
+          tenant: tenantId, // tenantId é UUID string
           branch: branch._id, // Usar o _id da branch encontrada
           isActive: true,
           createdAt: { $gte: new Date(Date.now() - 7 * 60 * 60 * 1000) },
@@ -1338,7 +1338,7 @@ export class UsersService {
   ): Promise<boolean> {
     const query = {
       user: new Types.ObjectId(userId),
-      tenant: tenantId, // tenantId é UUID, não ObjectId
+      tenant: tenantId, // tenantId é UUID string
       role: { $in: roles },
       isActive: true,
     };
@@ -1363,7 +1363,7 @@ export class UsersService {
   ): Promise<boolean> {
     const membership = await this.memModel.findOne({
       user: new Types.ObjectId(userId),
-      tenant: tenantId, // tenantId é UUID, não ObjectId
+      tenant: tenantId, // tenantId é UUID string
       branch: new Types.ObjectId(branchId),
       role: { $in: roles },
       isActive: true,
@@ -1380,7 +1380,7 @@ export class UsersService {
   ): Promise<boolean> {
     const query = {
       user: new Types.ObjectId(userId),
-      tenant: tenantId, // tenantId é UUID, não ObjectId
+      tenant: tenantId, // tenantId é UUID string
       ministry: new Types.ObjectId(ministryId),
       role: { $in: roles },
       isActive: true,
@@ -1511,7 +1511,7 @@ export class UsersService {
   }
 
   async findOne(id: string, tenantId: string) {
-    const user = await this.userModel.findOne({ _id: id, tenantId }).exec();
+    const user = await this.userModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) }).exec();
     if (!user) throw new NotFoundException('Usuário não encontrado');
     return user;
   }
@@ -1522,7 +1522,7 @@ export class UsersService {
     }
 
     const updatedUser = await this.userModel
-      .findOneAndUpdate({ _id: id, tenantId }, updateUserDto, { new: true })
+      .findOneAndUpdate({ _id: id, tenantId: new Types.ObjectId(tenantId) }, updateUserDto, { new: true })
       .exec();
 
     if (!updatedUser) throw new NotFoundException('Usuário não encontrado');
@@ -1531,14 +1531,36 @@ export class UsersService {
 
   async remove(id: string, tenantId: string) {
     const deletedUser = await this.userModel
-      .findOneAndDelete({ _id: id, tenantId })
+      .findOneAndDelete({ _id: id, tenantId: new Types.ObjectId(tenantId) })
       .exec();
     if (!deletedUser) throw new NotFoundException('Usuário não encontrado');
     return deletedUser;
   }
 
   async findByEmail(email: string) {
-    return this.userModel.findOne({ email }).exec();
+    console.log('🔍 [USERS] Buscando usuário por email...');
+    console.log('📧 [USERS] Email de busca:', email);
+    
+    const user = await this.userModel.findOne({ email }).exec();
+    
+    console.log('👤 [USERS] Resultado da busca:');
+    console.log('   - Usuário encontrado:', !!user);
+    
+    if (user) {
+      console.log('👤 [USERS] Dados do usuário encontrado:');
+      console.log('   - ID:', user._id);
+      console.log('   - Nome:', user.name);
+      console.log('   - Email:', user.email);
+      console.log('   - Role:', user.role);
+      console.log('   - Tem senha:', !!user.password);
+      console.log('   - TenantId:', user.tenantId);
+      console.log('   - Ativo:', user.isActive);
+      console.log('   - GoogleId:', user.googleId || 'NENHUM');
+    } else {
+      console.log('❌ [USERS] Nenhum usuário encontrado com este email');
+    }
+    
+    return user;
   }
 
   async findById(id: string) {
@@ -1634,14 +1656,14 @@ export class UsersService {
    */
   async isLeaderOnly(userId: string, tenantSlug: string, branchId?: string) {
     const tenant = (await this.tenantModel
-      .findOne({ tenantId: tenantSlug })
+      .findById(tenantSlug)
       .select('_id')
       .lean()) as unknown as { _id: Types.ObjectId };
     if (!tenant) return false;
 
     const base = {
       user: new Types.ObjectId(userId),
-      tenant: tenant._id,
+      tenant: tenantSlug, // tenantSlug é o tenantId (UUID string)
       isActive: true,
     };
 

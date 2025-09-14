@@ -135,9 +135,15 @@ export class PolicyGuard implements CanActivate {
         );
         if (!tenantSlug) throw new NotFoundException('tenantId é obrigatório.');
 
+        // Verifica se é um ObjectId válido antes de fazer a query
+        const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(tenantSlug);
+        if (!isValidObjectId) {
+          throw new NotFoundException('Tenant não encontrado.');
+        }
+
         // resolve tenant uma vez
         tenant = await this.tenantModel
-          .findOne({ tenantId: tenantSlug })
+          .findById(tenantSlug)
           .select('_id')
           .lean();
         if (!tenant) throw new NotFoundException('Tenant não encontrado.');

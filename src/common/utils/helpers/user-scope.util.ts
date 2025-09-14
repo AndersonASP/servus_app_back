@@ -2,7 +2,7 @@ import { Role } from '../../enums/role.enum';
 
 interface UserToken {
   role: Role; // global: 'servus_admin' | 'volunteer'
-  tenantId?: string; // obrigatório para não-superadmin
+  tenantId?: string; // ObjectId como string, obrigatório para não-superadmin
   branchId?: string; // presente para escopo de filial (branch admin / líder)
 }
 

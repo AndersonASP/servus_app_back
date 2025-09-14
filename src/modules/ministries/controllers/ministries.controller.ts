@@ -224,7 +224,18 @@ export class MinistriesMatrixController {
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
   ) {
-    return this.ministriesService.findOne(tenantId.trim(), '', id);
+    console.log('🔍 Controller - findOneMatrix chamado');
+    console.log('   - tenantId:', tenantId);
+    console.log('   - id:', id);
+    
+    const result = await this.ministriesService.findOne(tenantId.trim(), '', id);
+    
+    console.log('✅ Controller - Resultado retornado:');
+    console.log('   - result:', JSON.stringify(result, null, 2));
+    console.log('   - result._id:', result._id);
+    console.log('   - result._id type:', typeof result._id);
+    
+    return result;
   }
 
   @Patch(':id')

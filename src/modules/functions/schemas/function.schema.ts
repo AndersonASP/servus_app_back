@@ -21,8 +21,8 @@ export class Function extends Document {
   @Prop({ required: true, type: Types.ObjectId, ref: 'Tenant' })
   tenantId: Types.ObjectId;
 
-  @Prop()
-  createdBy?: string; // ID do usuário que criou
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  createdBy?: Types.ObjectId;
 
   @Prop()
   aliases?: string[]; // Sinônimos/variações do nome

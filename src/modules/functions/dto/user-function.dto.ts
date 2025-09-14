@@ -12,6 +12,10 @@ export class CreateUserFunctionDto {
   functionId: string;
 
   @IsOptional()
+  @IsEnum(UserFunctionStatus)
+  status?: UserFunctionStatus;
+
+  @IsOptional()
   @IsString()
   notes?: string;
 }

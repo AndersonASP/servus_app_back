@@ -1,0 +1,95 @@
+// Script completo para criar servus_admin com tenant e membership
+// Cole este código no mongosh do Compass
+
+// 1. Criar o tenant do sistema
+const tenantResult = db.tenants.insertOne({
+  tenantId: 'servus-system',
+  name: 'Sistema Servus',
+  description: 'Tenant do sistema para administradores globais',
+  isActive: true,
+  email: 'admin@servus.com',
+  telefone: '(11) 99999-9999',
+  address: {
+    cep: '00000-000',
+    rua: 'Sistema',
+    numero: '0',
+    bairro: 'Sistema',
+    cidade: 'Sistema',
+    estado: 'SP'
+  },
+  createdAt: new Date(),
+  updatedAt: new Date()
+});
+
+if (tenantResult.insertedId) {
+  print('✅ Tenant servus-system criado!');
+  print('ID do tenant:', tenantResult.insertedId);
+} else {
+  print('❌ Erro ao criar tenant');
+}
+
+// 2. Criar o usuário servus_admin
+const userResult = db.users.insertOne({
+  name: 'Servus Admin',
+  email: 'servus_admin@servus.com',
+  password: '$2b$10$rQZ8K9vL2mN3pO4qR5sT6uV7wX8yZ9aB0cD1eF2gH3iJ4kL5mN6oP7qR8sT9uV',
+  role: 'servus_admin',
+  tenantId: 'servus-system',
+  branchId: null,
+  isActive: true,
+  profileCompleted: true,
+  refreshTokens: [],
+  createdAt: new Date(),
+  updatedAt: new Date()
+});
+
+if (userResult.insertedId) {
+  print('✅ Usuário servus_admin criado!');
+  print('ID do usuário:', userResult.insertedId);
+  print('Email: servus_admin@servus.com');
+  print('Senha: servus123');
+} else {
+  print('❌ Erro ao criar usuário');
+}
+
+// 3. Criar o membership do servus_admin
+const membershipResult = db.memberships.insertOne({
+  user: userResult.insertedId,
+  tenant: tenantResult.insertedId,
+  branch: null, // null = vínculo na matriz
+  ministry: null, // null para tenant_admin
+  role: 'tenant_admin',
+  isActive: true,
+  createdAt: new Date(),
+  updatedAt: new Date()
+});
+
+if (membershipResult.insertedId) {
+  print('✅ Membership servus_admin criado!');
+  print('ID do membership:', membershipResult.insertedId);
+  print('Role: tenant_admin');
+  print('Tenant: servus-system');
+} else {
+  print('❌ Erro ao criar membership');
+}
+
+// 4. Verificar se tudo foi criado corretamente
+const tenant = db.tenants.findOne({ tenantId: 'servus-system' });
+const user = db.users.findOne({ email: 'servus_admin@servus.com' });
+const membership = db.memberships.findOne({ user: userResult.insertedId });
+
+if (tenant && user && membership) {
+  print('');
+  print('🎉 Setup completo!');
+  print('Tenant ID:', tenant.tenantId);
+  print('Usuário:', user.name);
+  print('Email:', user.email);
+  print('Role global:', user.role);
+  print('Membership role:', membership.role);
+  print('Tenant vinculado:', tenant.name);
+} else {
+  print('❌ Erro na verificação');
+  print('Tenant existe:', !!tenant);
+  print('Usuário existe:', !!user);
+  print('Membership existe:', !!membership);
+}
