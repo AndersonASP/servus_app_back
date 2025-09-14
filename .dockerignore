@@ -1,0 +1,84 @@
+# Dependências
+node_modules
+npm-debug.log*
+
+# Build
+dist
+build
+
+# Testes
+coverage
+.nyc_output
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# CI/CD
+.github
+
+# Scripts de desenvolvimento
+*.js
+!dist/**/*.js
+
+# Arquivos de teste
+test
+*.spec.ts
+*.test.ts
+
+# Documentação
+README.md
+CHANGELOG.md
