@@ -7,34 +7,39 @@ import {
   Body,
   Param,
   Query,
-  Request,
+  Req,
   BadRequestException
 } from '@nestjs/common';
 import { UserFunctionService } from '../services/user-function.service';
+import { MemberFunctionService } from '../services/member-function.service';
 import { CreateUserFunctionDto, UpdateUserFunctionStatusDto, UserFunctionResponseDto } from '../dto/user-function.dto';
 import { UserFunctionStatus } from '../schemas/user-function.schema';
+import { resolveTenantAndBranchScope } from '../../../common/utils/helpers/user-scope.util';
 import { Authorize } from 'src/common/decorators/authorize/authorize.decorator';
 import { Role, MembershipRole } from 'src/common/enums/role.enum';
 
-interface TenantRequest extends Request {
-  user: {
-    id: string;
-    tenantId?: string;
-    branchId?: string;
-  };
-}
 
 @Controller('user-functions')
 export class UserFunctionController {
-  constructor(private readonly userFunctionService: UserFunctionService) {}
+  constructor(
+    private readonly userFunctionService: UserFunctionService,
+    private readonly memberFunctionService: MemberFunctionService
+  ) {}
 
-  private async findUserTenantId(req: TenantRequest): Promise<string | null> {
+  private async findUserTenantId(req: any): Promise<string | undefined> {
     console.log('🔍 findUserTenantId - req.user:', JSON.stringify(req.user, null, 2));
-    console.log('🔍 findUserTenantId - req.user.tenantId:', req.user?.tenantId);
-    return req.user?.tenantId || null;
+    
+    try {
+      const { tenantId } = resolveTenantAndBranchScope(req.user);
+      console.log('🔍 findUserTenantId - tenantId resolvido:', tenantId);
+      return tenantId;
+    } catch (error) {
+      console.error('❌ findUserTenantId - Erro ao resolver tenantId:', error);
+      return undefined;
+    }
   }
 
-  private async findUserBranchId(req: TenantRequest): Promise<string | null> {
+  private async findUserBranchId(req: any): Promise<string | null> {
     return req.user?.branchId || null;
   }
 
@@ -53,7 +58,7 @@ export class UserFunctionController {
   })
   async createUserFunction(
     @Body() dto: CreateUserFunctionDto,
-    @Request() req: TenantRequest
+    @Req() req: any
   ): Promise<UserFunctionResponseDto> {
     console.log('🔍 Controller - createUserFunction chamado');
     console.log('   - dto:', JSON.stringify(dto, null, 2));
@@ -93,7 +98,7 @@ export class UserFunctionController {
   async updateUserFunctionStatus(
     @Param('id') userFunctionId: string,
     @Body() dto: UpdateUserFunctionStatusDto,
-    @Request() req: TenantRequest
+    @Req() req: any
   ): Promise<UserFunctionResponseDto> {
     return await this.userFunctionService.updateUserFunctionStatus(
       userFunctionId,
@@ -158,20 +163,101 @@ export class UserFunctionController {
   async getUserFunctionsByUserAndMinistry(
     @Param('userId') userId: string,
     @Param('ministryId') ministryId: string,
+    @Req() req: any,
     @Query('status') status?: UserFunctionStatus
   ): Promise<UserFunctionResponseDto[]> {
-    console.log('🎯 [UserFunctionController] getUserFunctionsByUserAndMinistry chamado');
+    console.log('🎯 [UserFunctionController] getUserFunctionsByUserAndMinistry chamado - REDIRECIONANDO PARA MemberFunction');
     console.log('   - userId:', userId);
     console.log('   - ministryId:', ministryId);
     console.log('   - status:', status);
+    console.log('   - req.user:', req.user);
+    
+    const tenantId = await this.findUserTenantId(req);
+    console.log('   - tenantId extraído:', tenantId);
+    console.log('   - tipo do tenantId:', typeof tenantId);
+    console.log('   - tenantId é undefined?', tenantId === undefined);
+    console.log('   - tenantId é null?', tenantId === null);
     
     try {
-      const result = await this.userFunctionService.getUserFunctionsByUserAndMinistry(userId, ministryId, status);
-      console.log('✅ [UserFunctionController] Resultado retornado:', JSON.stringify(result, null, 2));
-      return result;
+      // Converter status do UserFunction para MemberFunction
+      let memberFunctionStatus;
+      if (status) {
+        switch (status) {
+          case UserFunctionStatus.PENDING:
+            memberFunctionStatus = 'pending';
+            break;
+          case UserFunctionStatus.APPROVED:
+            memberFunctionStatus = 'aprovado';
+            break;
+          case UserFunctionStatus.REJECTED:
+            memberFunctionStatus = 'rejeitado';
+            break;
+        }
+      }
+      
+      const result = await this.memberFunctionService.getUserFunctionsByUserAndMinistry(
+        userId, 
+        ministryId, 
+        memberFunctionStatus, 
+        tenantId
+      );
+      
+      console.log('✅ [UserFunctionController] Resultado do MemberFunction retornado:', JSON.stringify(result, null, 2));
+      
+      // Converter MemberFunctionResponseDto para UserFunctionResponseDto
+      const convertedResult = result.map(mf => ({
+        id: mf.id,
+        userId: mf.userId,
+        ministryId: mf.ministryId,
+        functionId: mf.functionId,
+        status: this.convertMemberFunctionStatusToUserFunctionStatus(mf.status),
+        approvedBy: mf.approvedBy,
+        approvedAt: mf.approvedAt,
+        notes: mf.notes,
+        tenantId: mf.tenantId,
+        branchId: mf.branchId,
+        createdAt: mf.createdAt,
+        updatedAt: mf.updatedAt,
+        // Dados populados da função
+        function: mf.function ? {
+          id: mf.function.id,
+          name: mf.function.name,
+          description: mf.function.description,
+        } : undefined,
+        ministry: mf.ministry ? {
+          id: mf.ministry.id,
+          name: mf.ministry.name,
+        } : undefined,
+        user: mf.user ? {
+          id: mf.user.id,
+          name: mf.user.name,
+          email: mf.user.email,
+        } : undefined,
+        // Campos adicionais do MemberFunction que não existem no UserFunction
+        level: mf.level,
+        priority: mf.priority,
+        isActive: mf.isActive,
+        createdBy: mf.createdBy
+      }));
+      
+      console.log('✅ [UserFunctionController] Resultado convertido:', JSON.stringify(convertedResult, null, 2));
+      return convertedResult;
     } catch (error) {
       console.error('❌ [UserFunctionController] Erro no controller:', error);
       throw error;
+    }
+  }
+
+  private convertMemberFunctionStatusToUserFunctionStatus(memberStatus: string): UserFunctionStatus {
+    switch (memberStatus) {
+      case 'pending':
+        return UserFunctionStatus.PENDING;
+      case 'aprovado':
+        return UserFunctionStatus.APPROVED;
+      case 'rejeitado':
+        return UserFunctionStatus.REJECTED;
+      default:
+        return UserFunctionStatus.PENDING;
     }
   }
 
@@ -189,9 +275,17 @@ export class UserFunctionController {
     ]
   })
   async getApprovedFunctionsForUser(
-    @Param('userId') userId: string
+    @Param('userId') userId: string,
+    @Req() req: any
   ): Promise<UserFunctionResponseDto[]> {
-    return await this.userFunctionService.getApprovedFunctionsForUser(userId);
+    console.log('🎯 [UserFunctionController] getApprovedFunctionsForUser chamado');
+    console.log('   - userId:', userId);
+    console.log('   - req.user:', req.user);
+    
+    const tenantId = await this.findUserTenantId(req);
+    console.log('   - tenantId extraído:', tenantId);
+    
+    return await this.userFunctionService.getApprovedFunctionsForUser(userId, tenantId);
   }
 
   /**

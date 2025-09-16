@@ -2,9 +2,9 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
 export enum MemberFunctionStatus {
-  EM_TREINO = 'em_treino',
+  PENDING = 'pending',
   APROVADO = 'aprovado',
-  BLOQUEADO = 'bloqueado',
+  REJEITADO = 'rejeitado',
 }
 
 export enum MemberFunctionLevel {
@@ -31,7 +31,7 @@ export class MemberFunction extends Document {
   @Prop({ 
     required: true, 
     enum: Object.values(MemberFunctionStatus),
-    default: MemberFunctionStatus.EM_TREINO 
+    default: MemberFunctionStatus.PENDING 
   })
   status: MemberFunctionStatus;
 

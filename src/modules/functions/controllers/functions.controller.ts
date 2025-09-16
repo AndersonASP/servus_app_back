@@ -13,6 +13,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { FunctionsService } from '../services/functions.service';
+import { MemberFunctionService } from '../services/member-function.service';
 import { BulkUpsertFunctionsDto } from '../dto/bulk-upsert-functions.dto';
 import { UpdateMinistryFunctionDto } from '../dto/update-ministry-function.dto';
 import { BulkUpsertResponseDto, MinistryFunctionResponseDto } from '../dto/ministry-function-response.dto';
@@ -22,13 +23,14 @@ import { PolicyGuard } from 'src/common/guards/policy.guard';
 import { Role, MembershipRole } from 'src/common/enums/role.enum';
 import type { TenantRequest } from 'src/common/middlewares/tenant.middleware';
 import { Membership } from '../../membership/schemas/membership.schema';
-import { MemberFunctionStatus } from '../schemas/member-function.schema';
+import { MemberFunctionStatus, MemberFunctionLevel } from '../schemas/member-function.schema';
 
 @Controller()
 @UseGuards(PolicyGuard)
 export class FunctionsController {
   constructor(
     private readonly functionsService: FunctionsService,
+    private readonly memberFunctionService: MemberFunctionService,
     @InjectModel(Membership.name) private membershipModel: Model<Membership>
   ) {}
 
@@ -105,6 +107,7 @@ export class FunctionsController {
 export class MinistryFunctionsController {
   constructor(
     private readonly functionsService: FunctionsService,
+    private readonly memberFunctionService: MemberFunctionService,
     @InjectModel(Membership.name) private membershipModel: Model<Membership>
   ) {}
 
@@ -287,18 +290,26 @@ export class MinistryFunctionsController {
     
     for (const functionId of dto.functionIds) {
       try {
-        const memberFunction = await this.functionsService.createMemberFunction(
+        const memberFunction = await this.memberFunctionService.createMemberFunction(
           tenantId,
-          memberId,
-          ministryId,
-          functionId,
-          dto.status || MemberFunctionStatus.EM_TREINO,
+          null, // branchId
+          {
+            userId: memberId,
+            ministryId: ministryId,
+            functionId: functionId,
+            status: dto.status || MemberFunctionStatus.PENDING,
+            level: MemberFunctionLevel.INICIANTE,
+            priority: 1,
+            notes: dto.notes,
+            isActive: true,
+            createdByRole: (req as any).user?.role // Passar o role do usuário que está criando
+          },
           userId
         );
         
         linkedFunctions.push({
           functionId,
-          memberFunctionId: memberFunction._id,
+          memberFunctionId: memberFunction.id,
           status: memberFunction.status
         });
         

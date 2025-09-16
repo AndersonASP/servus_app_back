@@ -24,7 +24,7 @@ export class TenantController {
   @Post()
   @RequiresPerm(PERMS.MANAGE_ALL_TENANTS)
   async create(@Body() dto: CreateTenantDto, @Req() req: any) {
-    return this.tenantService.create(dto, req.user.email);
+    return this.tenantService.create(dto, req.user.sub);
   }
 
   // 🏢 ServusAdmin: Criar Tenant + TenantAdmin (opcional)
@@ -35,7 +35,7 @@ export class TenantController {
     @Req() req: any,
     @Res() res: Response,
   ) {
-    const createdBy = req.user.email;
+    const createdBy = req.user.sub;
     const creatorRole = req.user.role;
 
     const result = await this.tenantService.createWithAdmin(

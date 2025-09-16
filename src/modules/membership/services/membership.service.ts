@@ -6,7 +6,10 @@ import { CreateMembershipDto } from '../dto/create-membership.dto';
 import { UpdateMembershipDto } from '../dto/update-membership.dto';
 import { MembershipRole, Role } from 'src/common/enums/role.enum';
 import { Ministry } from '../../ministries/schemas/ministry.schema';
-import { UserFunctionService } from '../../functions/services/user-function.service';
+import { MemberFunctionService } from '../../functions/services/member-function.service';
+import { FunctionsService } from '../../functions/services/functions.service';
+import { MemberFunctionStatus, MemberFunctionLevel } from '../../functions/schemas/member-function.schema';
+import { MembershipIntegrityService } from './membership-integrity.service';
 
 
 @Injectable()
@@ -14,7 +17,9 @@ export class MembershipService {
   constructor(
     @InjectModel(Membership.name) private membershipModel: Model<Membership>,
     @InjectModel(Ministry.name) private ministryModel: Model<Ministry>,
-    private userFunctionService: UserFunctionService,
+    private memberFunctionService: MemberFunctionService,
+    private functionsService: FunctionsService,
+    private integrityService: MembershipIntegrityService,
   ) {}
 
   // ========================================
@@ -340,7 +345,7 @@ export class MembershipService {
   // ========================================
 
   /**
-   * Remove um membro do ministério
+   * Remove um membro do ministério com validações de integridade
    * Permissões: Leader pode remover voluntários, Admin pode remover todos
    */
   async removeMinistryMember(
@@ -350,7 +355,7 @@ export class MembershipService {
     currentUserId: string,
     branchId?: string,
   ) {
-    console.log('🗑️ Removendo membro do ministério...');
+    console.log('🗑️ [MembershipService] Removendo membro do ministério com validações de integridade...');
     console.log('   - Tenant ID:', tenantId);
     console.log('   - Ministry ID:', ministryId);
     console.log('   - Membership ID:', membershipId);
@@ -379,24 +384,119 @@ export class MembershipService {
     // Verificar permissões do usuário atual
     await this.validateUserPermissions(currentUserId, tenantId, ministryId, 'remove_member', membership);
 
-    // 🗑️ REMOÇÃO EM CASCATA: Remover todas as funções do usuário neste ministério
-    console.log('🗑️ Removendo funções do usuário no ministério...');
     const userId = membership.user.toString();
-    const deletedFunctionsCount = await this.userFunctionService.deleteUserFunctionsByUserAndMinistry(
+
+    // 🔍 VALIDAÇÃO DE INTEGRIDADE: Verificar se remoção não deixará usuário órfão
+    const integrityCheck = await this.integrityService.validateMembershipRemoval(
+      userId, 
+      membershipId, 
+      tenantId
+    );
+
+    if (!integrityCheck.valid) {
+      throw new BadRequestException(integrityCheck.reason);
+    }
+
+    console.log('✅ [MembershipService] Validação de integridade aprovada');
+    console.log(`📊 [MembershipService] Memberships restantes: ${integrityCheck.remainingMemberships}`);
+
+    // 🗑️ REMOÇÃO EM CASCATA: Remover todas as funções do usuário neste ministério
+    console.log('🗑️ [MembershipService] Removendo funções do usuário no ministério...');
+    const deletedFunctionsCount = await this.integrityService.removeMemberFunctionsFromMinistry(
       userId,
       ministryId,
       tenantId,
       branchId
     );
-    console.log(`✅ ${deletedFunctionsCount} funções removidas do usuário no ministério`);
+    console.log(`✅ [MembershipService] ${deletedFunctionsCount} funções removidas do usuário no ministério`);
 
-      // 🗑️ EXCLUIR definitivamente o membership
-      await this.membershipModel.findByIdAndDelete(membershipId);
+    // 🗑️ EXCLUIR definitivamente o membership
+    await this.membershipModel.findByIdAndDelete(membershipId);
+    console.log('✅ [MembershipService] Membro desvinculado com sucesso (membership excluído)');
 
-      console.log('✅ Membro desvinculado com sucesso (membership excluído)');
+    // 🔧 GARANTIR MEMBERSHIP PADRÃO: Se necessário, criar membership padrão
+    await this.integrityService.ensureDefaultMembership(userId, tenantId, currentUserId);
+
     return {
       message: 'Membro desvinculado do ministério com sucesso',
       deletedFunctionsCount,
+      remainingMemberships: integrityCheck.remainingMemberships,
+    };
+  }
+
+  /**
+   * Desvincula um membro de um ministério (exclui membership permanentemente)
+   * Remove TUDO relacionado ao vínculo: MemberFunctions + Memberships
+   */
+  async unlinkMemberFromMinistry(
+    tenantId: string,
+    ministryId: string,
+    userId: string,
+    currentUserId: string,
+    branchId?: string,
+  ) {
+    console.log('🔗 [MembershipService] Desvinculando membro do ministério...');
+    console.log('   - Tenant ID:', tenantId);
+    console.log('   - Ministry ID:', ministryId);
+    console.log('   - User ID:', userId);
+    console.log('   - Current User ID:', currentUserId);
+    console.log('   - Branch ID:', branchId);
+
+    // Verificar se o ministério existe e pertence ao tenant
+    const ministry = await this.validateMinistry(tenantId, ministryId);
+
+    // Verificar permissões do usuário atual
+    await this.validateUserPermissions(currentUserId, tenantId, ministryId, 'remove_member');
+
+    // 🔍 VALIDAÇÃO DE INTEGRIDADE: Verificar se desvinculação não deixará usuário órfão
+    const integrityCheck = await this.integrityService.validateMinistryRemoval(
+      userId,
+      ministryId,
+      tenantId
+    );
+
+    if (!integrityCheck.valid) {
+      throw new BadRequestException(integrityCheck.reason);
+    }
+
+    console.log('✅ [MembershipService] Validação de integridade aprovada');
+    console.log(`📊 [MembershipService] Memberships afetados: ${integrityCheck.affectedMemberships}`);
+
+    // 🗑️ REMOÇÃO EM CASCATA: Remover todas as funções do usuário neste ministério
+    console.log('🗑️ [MembershipService] Removendo funções do usuário no ministério...');
+    const deletedFunctionsCount = await this.integrityService.removeMemberFunctionsFromMinistry(
+      userId,
+      ministryId,
+      tenantId,
+      branchId
+    );
+    console.log(`✅ [MembershipService] ${deletedFunctionsCount} funções removidas do usuário no ministério`);
+
+    // 🗑️ EXCLUIR memberships do usuário neste ministério (exclusão completa)
+    const query: any = {
+      user: new Types.ObjectId(userId),
+      tenant: new Types.ObjectId(tenantId),
+      ministry: new Types.ObjectId(ministryId)
+    };
+
+    if (branchId) {
+      query.branch = new Types.ObjectId(branchId);
+    } else {
+      query.branch = null; // Matriz
+    }
+
+    const result = await this.membershipModel.deleteMany(query);
+
+    console.log(`✅ [MembershipService] ${result.deletedCount} memberships excluídos permanentemente`);
+
+    // 🔧 GARANTIR MEMBERSHIP PADRÃO: Se necessário, criar membership padrão
+    await this.integrityService.ensureDefaultMembership(userId, tenantId, currentUserId);
+
+    return {
+      message: 'Membro desvinculado do ministério com sucesso - todos os dados relacionados foram excluídos',
+      deletedFunctionsCount,
+      deletedMemberships: result.deletedCount,
+      affectedMemberships: integrityCheck.affectedMemberships,
     };
   }
 
@@ -529,5 +629,400 @@ export class MembershipService {
     console.log('   - Target Membership:', targetMembership);
     
     return true;
+  }
+
+  // ========================================
+  // 🔗 MÉTODOS DE MINISTRY-MEMBERSHIP (MIGRADOS)
+  // ========================================
+
+  /**
+   * Vincular usuário a um ministério (método unificado)
+   */
+  async addUserToMinistry(
+    userId: string,
+    ministryId: string,
+    role: MembershipRole,
+    createdBy?: string,
+    createdByRole?: string
+  ) {
+    console.log('🔗 [MembershipService] addUserToMinistry iniciado');
+    console.log('📋 [MembershipService] Parâmetros recebidos:', {
+      userId,
+      ministryId,
+      role,
+      createdBy,
+      createdByRole,
+      userIdType: typeof userId,
+      ministryIdType: typeof ministryId,
+      roleType: typeof role
+    });
+
+    try {
+      // Buscar tenant do ministério
+      console.log('🔍 [MembershipService] Buscando ministério...');
+      const ministry = await this.ministryModel.findById(ministryId).select('tenantId');
+      
+      console.log('📊 [MembershipService] Ministério encontrado:', {
+        ministryExists: !!ministry,
+        ministryId: ministry?._id,
+        tenantId: ministry?.tenantId,
+        tenantIdType: typeof ministry?.tenantId
+      });
+      
+      if (!ministry || !ministry.tenantId) {
+        console.log('❌ [MembershipService] Ministério não encontrado ou sem tenant');
+        throw new BadRequestException('Ministério não encontrado ou sem tenant');
+      }
+
+      const tenantId = ministry.tenantId;
+      console.log('✅ [MembershipService] TenantId obtido:', {
+        tenantId,
+        tenantIdType: typeof tenantId,
+        tenantIdString: tenantId.toString()
+      });
+
+      // Verificar se já existe vínculo ativo
+      console.log('🔍 [MembershipService] Verificando vínculos existentes...');
+      const existingMembership = await this.membershipModel.findOne({
+        user: new Types.ObjectId(userId),
+        ministry: new Types.ObjectId(ministryId),
+        isActive: true,
+      });
+
+      console.log('📊 [MembershipService] Vínculo ativo encontrado:', {
+        exists: !!existingMembership,
+        membershipId: existingMembership?._id
+      });
+
+      if (existingMembership) {
+        console.log('❌ [MembershipService] Usuário já está vinculado a este ministério');
+        throw new BadRequestException('Usuário já está vinculado a este ministério');
+      }
+
+      // Verificar se existe vínculo inativo para reativar
+      console.log('🔍 [MembershipService] Verificando vínculos inativos...');
+      const inactiveMembership = await this.membershipModel.findOne({
+        user: new Types.ObjectId(userId),
+        ministry: new Types.ObjectId(ministryId),
+        isActive: false,
+      });
+
+      console.log('📊 [MembershipService] Vínculo inativo encontrado:', {
+        exists: !!inactiveMembership,
+        membershipId: inactiveMembership?._id
+      });
+
+      if (inactiveMembership) {
+        // Reativar vínculo existente
+        console.log('🔄 [MembershipService] Reativando vínculo existente...');
+        inactiveMembership.isActive = true;
+        inactiveMembership.role = role === 'leader' ? MembershipRole.Leader : MembershipRole.Volunteer;
+        
+        const updatedMembership = await inactiveMembership.save();
+        console.log('✅ [MembershipService] Vínculo reativado:', updatedMembership._id);
+
+        // Criar UserFunctions para o usuário no ministério
+        console.log('🔧 [MembershipService] Criando MemberFunctions para vínculo reativado...');
+        await this._createMemberFunctionsForMinistry(userId, ministryId, role, tenantId, createdBy, createdByRole);
+
+        console.log('✅ [MembershipService] addUserToMinistry concluído (reativação)');
+        return updatedMembership;
+      }
+
+      // Criar novo vínculo
+      console.log('🆕 [MembershipService] Criando novo vínculo...');
+      const membership = new this.membershipModel({
+        user: new Types.ObjectId(userId),
+        tenant: ministry.tenantId,
+        ministry: new Types.ObjectId(ministryId),
+        role: role === 'leader' ? MembershipRole.Leader : MembershipRole.Volunteer,
+        isActive: true,
+      });
+
+      console.log('💾 [MembershipService] Salvando novo membership...');
+      const savedMembership = await membership.save();
+      console.log('✅ [MembershipService] Vínculo criado:', savedMembership._id);
+
+      // Criar UserFunctions para o usuário no ministério
+      console.log('🔧 [MembershipService] Criando MemberFunctions para novo vínculo...');
+      await this._createMemberFunctionsForMinistry(userId, ministryId, role, tenantId, createdBy, createdByRole);
+
+      console.log('✅ [MembershipService] addUserToMinistry concluído (novo vínculo)');
+      return savedMembership;
+      
+    } catch (error) {
+      console.error('❌ [MembershipService] Erro em addUserToMinistry:', error);
+      console.error('❌ [MembershipService] Stack trace:', error.stack);
+      throw error;
+    }
+  }
+
+
+  /**
+   * Listar membros de um ministério (versão simplificada para ministry-memberships)
+   */
+  async getMinistryMembersSimple(
+    ministryId: string,
+    options: {
+      role?: MembershipRole;
+      includeInactive?: boolean;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ) {
+    console.log('👥 Listando membros do ministério (versão simplificada)...');
+    console.log('   - Ministry ID:', ministryId);
+    console.log('   - Options:', options);
+
+    const query: any = {
+      ministry: ministryId,
+    };
+
+    if (!options.includeInactive) {
+      query.isActive = true;
+    }
+
+    if (options.role) {
+      query.role = options.role;
+    }
+
+    const memberships = await this.membershipModel
+      .find(query)
+      .populate('user', 'name email picture phone')
+      .sort({ createdAt: -1 })
+      .limit(options.limit || 100)
+      .skip(options.offset || 0);
+
+    console.log(`✅ Encontrados ${memberships.length} membros`);
+    return memberships;
+  }
+
+  /**
+   * Listar ministérios de um usuário
+   */
+  async getUserMinistries(
+    userId: string,
+    options: {
+      includeInactive?: boolean;
+      role?: MembershipRole;
+    } = {}
+  ) {
+    console.log('🏛️ Listando ministérios do usuário...');
+    console.log('   - User ID:', userId);
+    console.log('   - Options:', options);
+
+    const query: any = {
+      user: new Types.ObjectId(userId),
+    };
+
+    if (!options.includeInactive) {
+      query.isActive = true;
+    }
+
+    if (options.role) {
+      query.role = options.role;
+    }
+
+    const memberships = await this.membershipModel
+      .find(query)
+      .populate('ministry', 'name description')
+      .sort({ createdAt: -1 });
+
+    console.log(`✅ Encontrados ${memberships.length} ministérios`);
+    return memberships;
+  }
+
+  /**
+   * Atualizar vínculo de ministério
+   */
+  async updateMinistryMembership(
+    userId: string,
+    ministryId: string,
+    updateData: {
+      role?: MembershipRole;
+    }
+  ) {
+    console.log('✏️ Atualizando vínculo de ministério...');
+    console.log('   - User ID:', userId);
+    console.log('   - Ministry ID:', ministryId);
+    console.log('   - Update data:', updateData);
+
+    const membership = await this.membershipModel.findOne({
+      user: new Types.ObjectId(userId),
+      ministry: new Types.ObjectId(ministryId),
+      isActive: true,
+    });
+
+    if (!membership) {
+      throw new NotFoundException('Vínculo não encontrado');
+    }
+
+    if (updateData.role) {
+      membership.role = updateData.role;
+    }
+
+    const updatedMembership = await membership.save();
+    console.log('✅ Vínculo atualizado com sucesso');
+    return updatedMembership;
+  }
+
+  /**
+   * Verificar se usuário está vinculado a um ministério
+   */
+  async isUserInMinistry(userId: string, ministryId: string): Promise<boolean> {
+    const membership = await this.membershipModel.findOne({
+      user: new Types.ObjectId(userId),
+      ministry: new Types.ObjectId(ministryId),
+      isActive: true,
+    });
+
+    return !!membership;
+  }
+
+  /**
+   * Obter estatísticas de um ministério
+   */
+  async getMinistryStats(ministryId: string) {
+    const totalMembers = await this.membershipModel.countDocuments({
+      ministry: new Types.ObjectId(ministryId),
+      isActive: true,
+    });
+
+    const volunteers = await this.membershipModel.countDocuments({
+      ministry: new Types.ObjectId(ministryId),
+      role: MembershipRole.Volunteer,
+      isActive: true,
+    });
+
+    const leaders = await this.membershipModel.countDocuments({
+      ministry: new Types.ObjectId(ministryId),
+      role: MembershipRole.Leader,
+      isActive: true,
+    });
+
+    return {
+      totalMembers,
+      volunteers,
+      leaders,
+    };
+  }
+
+  /**
+   * Obtém estatísticas de integridade de um usuário
+   */
+  async getUserIntegrityStats(userId: string, tenantId: string) {
+    console.log('📊 [MembershipService] Obtendo estatísticas de integridade...');
+    console.log('   - User ID:', userId);
+    console.log('   - Tenant ID:', tenantId);
+
+    // Usar o serviço de integridade
+    return await this.integrityService.getUserIntegrityStats(userId, tenantId);
+  }
+
+  /**
+   * Criar MemberFunctions para um usuário em um ministério
+   */
+  private async _createMemberFunctionsForMinistry(
+    userId: string,
+    ministryId: string,
+    role: MembershipRole,
+    tenantId: Types.ObjectId,
+    createdBy?: string,
+    createdByRole?: string
+  ): Promise<void> {
+    console.log('🔧 [MembershipService] _createMemberFunctionsForMinistry iniciado');
+    console.log('📋 [MembershipService] Parâmetros:', {
+      userId,
+      ministryId,
+      role,
+      tenantId,
+      tenantIdString: tenantId.toString(),
+      createdBy,
+      createdByRole,
+      userIdType: typeof userId,
+      ministryIdType: typeof ministryId,
+      tenantIdType: typeof tenantId
+    });
+
+    try {
+      // Apenas para LEADERS criar MemberFunctions automaticamente
+      if (role === MembershipRole.Leader) {
+        console.log('👑 [MembershipService] Leader detectado - buscando todas as funções do ministério...');
+        
+        // Buscar todas as funções disponíveis no ministério
+        console.log('🔍 [MembershipService] Buscando funções do ministério...');
+        console.log('📋 [MembershipService] Parâmetros para getMinistryFunctions:', {
+          tenantId: tenantId.toString(),
+          ministryId,
+          active: true
+        });
+        
+        const ministryFunctions = await this.functionsService.getMinistryFunctions(
+          tenantId.toString(),
+          ministryId,
+          true // apenas funções ativas
+        );
+
+        console.log('📋 [MembershipService] Funções encontradas no ministério:', ministryFunctions.length);
+        console.log('📋 [MembershipService] Detalhes das funções:', ministryFunctions.map(f => ({
+          name: f.name,
+          functionId: f.functionId
+        })));
+
+        if (ministryFunctions.length === 0) {
+          console.log('⚠️ [MembershipService] Nenhuma função encontrada no ministério para atribuir ao leader');
+          return;
+        }
+
+        // Leaders sempre aprovados automaticamente
+        const functionStatus = MemberFunctionStatus.APROVADO;
+        const functionLevel = MemberFunctionLevel.ESPECIALISTA;
+        const notes = 'Atribuído automaticamente ao líder do ministério';
+
+        console.log('📋 [MembershipService] Status das funções:', functionStatus);
+        console.log('📋 [MembershipService] Nível das funções:', functionLevel);
+        console.log('📋 [MembershipService] Notas:', notes);
+
+        // Criar MemberFunctions para todas as funções do ministério
+        for (const ministryFunction of ministryFunctions) {
+          try {
+            console.log(`🔧 [MembershipService] Criando MemberFunction para leader:`);
+            console.log(`   - userId: ${userId}`);
+            console.log(`   - ministryId: ${ministryId}`);
+            console.log(`   - functionId: ${ministryFunction.functionId}`);
+            console.log(`   - tenantId: ${tenantId.toString()}`);
+            console.log(`   - status: ${functionStatus}`);
+            console.log(`   - level: ${functionLevel}`);
+            
+            const result = await this.memberFunctionService.createMemberFunction(
+              tenantId.toString(),
+              null, // branchId
+              {
+                userId: userId,
+                ministryId: ministryId,
+                functionId: ministryFunction.functionId,
+                status: functionStatus,
+                level: functionLevel,
+                priority: 1,
+                notes: notes,
+                isActive: true,
+                createdByRole: createdByRole // Passar o role do usuário que está criando
+              },
+              createdBy || 'system'
+            );
+            console.log(`✅ [MembershipService] MemberFunction criada para leader: ${ministryFunction.functionId}`);
+          } catch (error) {
+            console.error(`❌ [MembershipService] Erro ao criar MemberFunction para leader:`, error);
+            // Continuar com as outras funções mesmo se uma falhar
+          }
+        }
+      } else {
+        console.log('👤 [MembershipService] Voluntário detectado - funções serão atribuídas via chamada específica');
+        console.log('   - As funções específicas serão criadas via endpoint /ministries/{ministryId}/members/{memberId}/functions');
+      }
+    } catch (error) {
+      console.error('❌ [MembershipService] Erro ao criar MemberFunctions:', error);
+      // Não falhar a vinculação por erro ao criar funções
+    }
   }
 }

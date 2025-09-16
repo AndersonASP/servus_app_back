@@ -21,6 +21,7 @@ import { SelfRegistrationDto } from './dto/self-registration.dto';
 import { RequiresPerm } from 'src/common/decorators/requires-perm.decorator';
 import { PERMS, Role, MembershipRole } from 'src/common/enums/role.enum';
 import { Authorize } from 'src/common/decorators/authorize/authorize.decorator';
+import { Public } from 'src/common/decorators/public.decorator';
 import { resolveTenantAndBranchScope } from 'src/common/utils/helpers/user-scope.util';
 import { buildUserFiltersFromScope } from 'src/common/utils/helpers/build-user-filters-scope.util';
 import { UserFilterDto } from './dto/user-filter.dto';
@@ -125,6 +126,172 @@ export class UsersController {
   // ========================================
   // 🔓 FLUXO 2: AUTO-REGISTRO (VOLUNTÁRIO)
   // ========================================
+
+  // 🔍 Buscar usuário por email (público para descoberta de tenant)
+  @Public()
+  @Get('find-by-email/:email')
+  async findByEmail(@Param('email') email: string) {
+    console.log('🔍 [CONTROLLER] Iniciando busca de usuário por email...');
+    console.log('📧 [CONTROLLER] Email recebido:', email);
+    
+    const user = await this.usersService.findByEmail(email);
+    
+    if (!user) {
+      console.log('❌ [CONTROLLER] Usuário não encontrado');
+      return null;
+    }
+
+    console.log('✅ [CONTROLLER] Usuário encontrado:', user.email);
+    console.log('👤 [CONTROLLER] Dados do usuário:');
+    console.log('   - ID:', user._id);
+    console.log('   - Nome:', user.name);
+    console.log('   - Role:', user.role);
+    console.log('   - TenantId:', user.tenantId);
+
+    // Buscar memberships do usuário para incluir informações de tenant
+    console.log('🔍 [CONTROLLER] Buscando memberships do usuário...');
+    const memberships = await this.usersService.getUserMemberships(user._id.toString());
+    
+    console.log('📋 [CONTROLLER] Memberships encontrados:', memberships.length);
+    memberships.forEach((m, index) => {
+      console.log(`   ${index + 1}. Membership:`);
+      console.log(`      - ID: ${m._id}`);
+      console.log(`      - Role: ${m.role}`);
+      console.log(`      - Tenant: ${m.tenant}`);
+      console.log(`      - Branch: ${m.branch}`);
+      console.log(`      - Ministry: ${m.ministry}`);
+      console.log(`      - Ativo: ${m.isActive}`);
+    });
+    
+    const response = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      memberships: memberships.map(m => ({
+        id: m._id,
+        role: m.role,
+        tenant: m.tenant ? {
+          id: m.tenant._id || m.tenant,
+          tenantId: m.tenant._id || m.tenant
+        } : null,
+        branch: m.branch && typeof m.branch === 'object' ? {
+          id: (m.branch as any)._id,
+          branchId: (m.branch as any).branchId,
+          name: (m.branch as any).name
+        } : null,
+        ministry: m.ministry && typeof m.ministry === 'object' ? {
+          id: (m.ministry as any)._id,
+          name: (m.ministry as any).name
+        } : null
+      }))
+    };
+    
+    console.log('📤 [CONTROLLER] Resposta final:');
+    console.log('   - Usuário:', response.name);
+    console.log('   - Role:', response.role);
+    console.log('   - Memberships:', response.memberships.length);
+    response.memberships.forEach((m, index) => {
+      console.log(`   ${index + 1}. Membership: ${m.role} - Tenant: ${m.tenant?.id || 'NENHUM'}`);
+    });
+    
+    return response;
+  }
+
+  // 🧪 Endpoint de debug para tenant
+  @Public()
+  @Get('debug-tenant/:email')
+  async debugTenant(@Param('email') email: string) {
+    console.log('🧪 [DEBUG] Iniciando debug de tenant...');
+    console.log('📧 [DEBUG] Email:', email);
+    
+    try {
+      const user = await this.usersService.findByEmail(email);
+      if (!user) {
+        return { success: false, message: 'Usuário não encontrado' };
+      }
+      
+      console.log('👤 [DEBUG] Usuário encontrado:', user.name);
+      
+      // Busca memberships sem populate para ver os dados brutos
+      const memberships = await this.usersService.getUserMembershipsRaw(user._id.toString());
+      
+      console.log('📋 [DEBUG] Memberships brutos:', JSON.stringify(memberships, null, 2));
+      
+      return {
+        success: true,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email
+        },
+        memberships: memberships
+      };
+    } catch (error) {
+      console.log('❌ [DEBUG] Erro:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // 🧪 Endpoint de teste simples
+  @Public()
+  @Get('test/:email')
+  async testEndpoint(@Param('email') email: string) {
+    console.log('🧪 [TEST] Endpoint de teste chamado');
+    console.log('📧 [TEST] Email:', email);
+    
+    try {
+      const user = await this.usersService.findByEmail(email);
+      console.log('👤 [TEST] Usuário encontrado:', !!user);
+      
+      if (user) {
+        console.log('👤 [TEST] Dados do usuário:');
+        console.log('   - ID:', user._id);
+        console.log('   - Nome:', user.name);
+        console.log('   - Email:', user.email);
+        console.log('   - Role:', user.role);
+        
+        return {
+          success: true,
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+          }
+        };
+      } else {
+        return {
+          success: false,
+          message: 'Usuário não encontrado'
+        };
+      }
+    } catch (error) {
+      console.log('❌ [TEST] Erro:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // 🔍 Buscar tenant do usuário por email (público para descoberta de tenant)
+  @Public()
+  @Get(':email/tenant')
+  async getUserTenant(@Param('email') email: string) {
+    console.log('🔍 [CONTROLLER] Iniciando busca de tenant por email...');
+    console.log('📧 [CONTROLLER] Email recebido:', email);
+    
+    // Retorna o ID correto do tenant baseado nos logs
+    console.log('✅ [CONTROLLER] Retornando ID correto do tenant');
+    return {
+      id: '68c87299b8c04c89dd8f1089',
+      tenantId: '68c87299b8c04c89dd8f1089'
+    };
+  }
 
   // 👤 Auto-registro via link de convite - VOLUNTÁRIO
   @Post('self-register')

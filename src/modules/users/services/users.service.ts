@@ -452,13 +452,114 @@ export class UsersService {
 
   // 🔍 Buscar memberships ativos do usuário
   async getUserMemberships(userId: string) {
-    return this.memModel
-      .find({ user: userId, isActive: true })
-      .populate('tenant', '_id tenantId name')
-      .populate('branch', '_id branchId name')
-      .populate('ministry', '_id name')
+    console.log('🔍 [SERVICE] Buscando memberships do usuário...');
+    console.log('👤 [SERVICE] User ID:', userId);
+    console.log('👤 [SERVICE] User ID tipo:', typeof userId);
+    
+    // Converte userId para ObjectId se necessário
+    let userObjectId;
+    try {
+      userObjectId = new Types.ObjectId(userId);
+      console.log('👤 [SERVICE] User ID convertido para ObjectId:', userObjectId);
+    } catch (error) {
+      console.log('❌ [SERVICE] Erro ao converter userId para ObjectId:', error);
+      return [];
+    }
+    
+    const memberships = await this.memModel
+      .find({ user: userObjectId, isActive: true })
+      .populate({
+        path: 'tenant',
+        select: '_id tenantId name'
+      })
+      .populate({
+        path: 'branch',
+        select: '_id branchId name'
+      })
+      .populate({
+        path: 'ministry',
+        select: '_id name'
+      })
       .lean()
       .exec();
+    
+    // Serializa corretamente os ObjectIds usando JSON.stringify/parse
+    const processedMemberships = JSON.parse(JSON.stringify(memberships));
+    
+    console.log('📋 [SERVICE] Memberships encontrados:', processedMemberships.length);
+    processedMemberships.forEach((m, index) => {
+      console.log(`   ${index + 1}. Membership:`);
+      console.log(`      - ID: ${m._id}`);
+      console.log(`      - Role: ${m.role}`);
+      console.log(`      - Tenant: ${m.tenant ? 'SIM' : 'NÃO'}`);
+      if (m.tenant) {
+        console.log(`        * Tenant ID: ${m.tenant}`);
+      }
+      console.log(`      - Branch: ${m.branch ? 'SIM' : 'NÃO'}`);
+      if (m.branch) {
+        console.log(`        * Branch ID: ${m.branch}`);
+      }
+      console.log(`      - Ministry: ${m.ministry ? 'SIM' : 'NÃO'}`);
+      if (m.ministry) {
+        console.log(`        * Ministry ID: ${m.ministry}`);
+      }
+      console.log(`      - Ativo: ${m.isActive}`);
+    });
+    
+    return processedMemberships;
+  }
+
+  // 🔍 Buscar memberships ativos do usuário (sem populate para debug)
+  async getUserMembershipsRaw(userId: string) {
+    console.log('🔍 [SERVICE] Buscando memberships brutos do usuário...');
+    console.log('👤 [SERVICE] User ID:', userId);
+    
+    // Converte userId para ObjectId se necessário
+    let userObjectId;
+    try {
+      userObjectId = new Types.ObjectId(userId);
+      console.log('👤 [SERVICE] User ID convertido para ObjectId:', userObjectId);
+    } catch (error) {
+      console.log('❌ [SERVICE] Erro ao converter userId para ObjectId:', error);
+      return [];
+    }
+    
+    const memberships = await this.memModel
+      .find({ user: userObjectId, isActive: true })
+      .lean()
+      .exec();
+    
+    console.log('📋 [SERVICE] Memberships brutos encontrados:', memberships.length);
+    memberships.forEach((m, index) => {
+      console.log(`   ${index + 1}. Membership:`);
+      console.log(`      - ID: ${m._id}`);
+      console.log(`      - Role: ${m.role}`);
+      console.log(`      - Tenant: ${m.tenant} (tipo: ${typeof m.tenant})`);
+      console.log(`      - Branch: ${m.branch} (tipo: ${typeof m.branch})`);
+      console.log(`      - Ministry: ${m.ministry} (tipo: ${typeof m.ministry})`);
+      console.log(`      - Ativo: ${m.isActive}`);
+    });
+    
+    return memberships;
+  }
+
+  // 🔍 Buscar tenant por ID
+  async getTenantById(tenantId: string) {
+    console.log('🔍 [SERVICE] Buscando tenant por ID:', tenantId);
+    
+    try {
+      const tenant = await this.tenantModel.findById(tenantId).lean().exec();
+      if (tenant) {
+        console.log('✅ [SERVICE] Tenant encontrado:', tenant.name);
+        return tenant;
+      } else {
+        console.log('❌ [SERVICE] Tenant não encontrado');
+        return null;
+      }
+    } catch (error) {
+      console.log('❌ [SERVICE] Erro ao buscar tenant:', error);
+      return null;
+    }
   }
 
   // ========================================
@@ -1540,8 +1641,14 @@ export class UsersService {
   async findByEmail(email: string) {
     console.log('🔍 [USERS] Buscando usuário por email...');
     console.log('📧 [USERS] Email de busca:', email);
+    console.log('📧 [USERS] Email tipo:', typeof email);
+    console.log('📧 [USERS] Email length:', email.length);
     
-    const user = await this.userModel.findOne({ email }).exec();
+    // Normaliza o email para busca
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log('📧 [USERS] Email normalizado:', normalizedEmail);
+    
+    const user = await this.userModel.findOne({ email: normalizedEmail }).exec();
     
     console.log('👤 [USERS] Resultado da busca:');
     console.log('   - Usuário encontrado:', !!user);

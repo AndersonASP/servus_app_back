@@ -29,6 +29,7 @@ import {
 } from 'src/modules/functions/schemas/user-function.schema';
 import { cacheConfig } from 'src/config/cache.config';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
+import { MembershipsModule } from 'src/modules/membership/memberships.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { NotificationsModule } from 'src/modules/notifications/notifications.mod
     ]),
     CacheModule.register(cacheConfig),
     NotificationsModule,
+    MembershipsModule,
   ],
   controllers: [UsersController, MembersController],
   providers: [UsersService, MembersService, ExportService],

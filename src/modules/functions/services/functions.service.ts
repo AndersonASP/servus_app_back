@@ -321,7 +321,7 @@ export class FunctionsService {
     memberId: string,
     ministryId: string,
     functionId: string,
-    status: MemberFunctionStatus = MemberFunctionStatus.EM_TREINO,
+    status: MemberFunctionStatus = MemberFunctionStatus.PENDING,
     createdBy: string
   ): Promise<MemberFunction> {
     // Verificar se a função está habilitada no ministério

@@ -6,8 +6,10 @@ import { MemberFunction, MemberFunctionSchema } from './schemas/member-function.
 import { UserFunction, UserFunctionSchema } from './schemas/user-function.schema';
 import { FunctionsService } from './services/functions.service';
 import { UserFunctionService } from './services/user-function.service';
+import { MemberFunctionService } from './services/member-function.service';
 import { FunctionsController, MinistryFunctionsController } from './controllers/functions.controller';
 import { UserFunctionController } from './controllers/user-function.controller';
+import { MemberFunctionController } from './controllers/member-function.controller';
 import { Membership, MembershipSchema } from '../membership/schemas/membership.schema';
 import { Tenant, TenantSchema } from '../tenants/schemas/tenant.schema';
 import { Branch, BranchSchema } from '../branches/schemas/branch.schema';
@@ -28,8 +30,8 @@ import { User, UserSchema } from '../users/schema/user.schema';
       { name: Ministry.name, schema: MinistrySchema },
     ]),
   ],
-  controllers: [FunctionsController, MinistryFunctionsController, UserFunctionController],
-  providers: [FunctionsService, UserFunctionService],
-  exports: [FunctionsService, UserFunctionService],
+  controllers: [FunctionsController, MinistryFunctionsController, UserFunctionController, MemberFunctionController],
+  providers: [FunctionsService, UserFunctionService, MemberFunctionService],
+  exports: [FunctionsService, UserFunctionService, MemberFunctionService],
 })
 export class FunctionsModule {}

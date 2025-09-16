@@ -159,15 +159,17 @@ describe('MembersService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw BadRequestException when volunteer role without ministryId', async () => {
-      const invalidDto = {
+    it('should create volunteer successfully without ministryId', async () => {
+      const validDtoWithoutMinistry = {
         ...validCreateMemberDto,
         memberships: [{ role: MembershipRole.Volunteer, isActive: true }],
       };
       
-      await expect(
-        service.createMember(invalidDto, tenantId, userRole, createdBy)
-      ).rejects.toThrow(BadRequestException);
+      const result = await service.createMember(validDtoWithoutMinistry, tenantId, userRole, createdBy);
+      
+      expect(result).toBeDefined();
+      expect(mockUserModel.save).toHaveBeenCalled();
+      expect(mockMembershipModel.findOneAndUpdate).toHaveBeenCalled();
     });
   });
 });

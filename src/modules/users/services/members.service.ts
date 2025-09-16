@@ -13,6 +13,7 @@ import { MemberFilterDto } from '../dto/member-filter.dto';
 import { MemberResponseDto } from '../dto/member-response.dto';
 import { MembershipRole, Role } from '../../../common/enums/role.enum';
 import { EmailService } from '../../notifications/services/email.service';
+import { MembershipIntegrityService } from '../../membership/services/membership-integrity.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class MembersService {
     @InjectModel(Tenant.name) private tenantModel: Model<Tenant>,
     @InjectModel(UserFunction.name) private userFunctionModel: Model<UserFunction>,
     private emailService: EmailService,
+    private integrityService: MembershipIntegrityService,
   ) {}
 
   async createMember(
@@ -121,18 +123,63 @@ export class MembersService {
 
           const userFunction = new this.userFunctionModel({
             userId: savedUser._id,
-            ministryId: membershipData.ministryId,
-            functionId: functionId,
+            ministryId: new Types.ObjectId(membershipData.ministryId),
+            functionId: new Types.ObjectId(functionId),
             status: 'approved', // Aprovado automaticamente quando criado pelo líder
             tenantId: new Types.ObjectId(tenantId), // ObjectId do tenant
-            branchId: membershipData.branchId,
-            approvedBy: createdBy,
+            branchId: membershipData.branchId ? new Types.ObjectId(membershipData.branchId) : null,
+            approvedBy: createdBy ? new Types.ObjectId(createdBy) : null,
             approvedAt: new Date(),
           });
 
           console.log('💾 [MembersService] Salvando UserFunction no banco...');
           await userFunction.save();
           console.log('✅ [MembersService] UserFunction criada com sucesso:', userFunction._id);
+        }
+      } else if (membershipData.role === 'leader' && membershipData.ministryId) {
+        // Para leaders sem funções específicas, buscar e atribuir todas as funções do ministério
+        console.log('🔍 [MembersService] Leader sem funções específicas, buscando todas as funções do ministério...');
+        
+        try {
+          // Buscar todas as funções do ministério
+          const ministryFunctions = await this.userFunctionModel.find({
+            ministryId: new Types.ObjectId(membershipData.ministryId),
+            tenantId: new Types.ObjectId(tenantId),
+          }).distinct('functionId');
+
+          console.log('📋 [MembersService] Funções encontradas no ministério:', ministryFunctions.length);
+
+          if (ministryFunctions.length > 0) {
+            // Criar UserFunctions para todas as funções do ministério
+            for (const functionId of ministryFunctions) {
+              console.log('🔧 [MembersService] Criando UserFunction automática para leader:', {
+                userId: savedUser._id,
+                ministryId: membershipData.ministryId,
+                functionId: functionId,
+                tenantId: tenantId,
+                branchId: membershipData.branchId
+              });
+
+              const userFunction = new this.userFunctionModel({
+                userId: savedUser._id,
+                ministryId: new Types.ObjectId(membershipData.ministryId),
+                functionId: new Types.ObjectId(functionId),
+                status: 'approved', // Aprovado automaticamente para leader
+                tenantId: new Types.ObjectId(tenantId),
+                branchId: membershipData.branchId ? new Types.ObjectId(membershipData.branchId) : null,
+                approvedBy: createdBy ? new Types.ObjectId(createdBy) : null,
+                approvedAt: new Date(),
+              });
+
+              await userFunction.save();
+              console.log('✅ [MembersService] UserFunction automática criada:', userFunction._id);
+            }
+          } else {
+            console.log('⚠️ [MembersService] Nenhuma função encontrada no ministério para atribuir ao leader');
+          }
+        } catch (error) {
+          console.error('❌ [MembersService] Erro ao buscar funções do ministério:', error);
+          // Não falhar a criação do membership por erro ao buscar funções
         }
       }
 
@@ -253,25 +300,53 @@ export class MembersService {
       });
     }
 
-    // Paginação
+    // CORREÇÃO: Calcular total baseado em usuários únicos, não memberships
+    const uniqueUsers = new Set(filteredMemberships.map(m => (m.user as any)._id.toString()));
+    const total = uniqueUsers.size;
+    
+    // Paginação baseada em usuários únicos
     const page = parseInt(filters.page || '1') || 1;
     const limit = parseInt(filters.limit || '10') || 10;
     const skip = (page - 1) * limit;
-    const total = filteredMemberships.length;
-    const paginatedMemberships = filteredMemberships.slice(skip, skip + limit);
+    
+    // Pegar apenas os memberships dos usuários únicos para a página atual
+    const uniqueUserIds = Array.from(uniqueUsers);
+    const paginatedUserIds = uniqueUserIds.slice(skip, skip + limit);
+    const paginatedMemberships = filteredMemberships.filter(m => 
+      paginatedUserIds.includes((m.user as any)._id.toString())
+    );
 
     console.log('📄 [MembersService] Paginação:', { page, limit, skip, total, paginatedCount: paginatedMemberships.length });
 
-    // Mapear para resposta
-    const members = paginatedMemberships.map(membership => {
+    // CORREÇÃO: Agrupar memberships por usuário para evitar duplicação
+    const userMembershipsMap = new Map();
+    
+    paginatedMemberships.forEach(membership => {
       const user = membership.user as any;
+      const userId = user._id.toString();
+      
+      if (!userMembershipsMap.has(userId)) {
+        userMembershipsMap.set(userId, {
+          user: user,
+          memberships: []
+        });
+      }
+      
+      userMembershipsMap.get(userId).memberships.push(membership);
+    });
+
+    console.log('📊 [MembersService] Usuários únicos encontrados:', userMembershipsMap.size);
+
+    // Mapear para resposta
+    const members = Array.from(userMembershipsMap.values()).map(({ user, memberships }) => {
       console.log('👤 [MembersService] Mapeando user:', {
         id: user?._id,
         name: user?.name,
         email: user?.email,
-        role: user?.role
+        role: user?.role,
+        membershipsCount: memberships.length
       });
-      return this.mapUserToMemberResponse(user, [membership]);
+      return this.mapUserToMemberResponse(user, memberships);
     });
 
     console.log('✅ [MembersService] Resposta final:', {
@@ -300,7 +375,11 @@ export class MembersService {
     }
 
     const memberships = await this.membershipModel
-      .find({ user: user._id, tenant: new Types.ObjectId(tenantId) }) // ObjectId do tenant
+      .find({ 
+        user: user._id, 
+        tenant: new Types.ObjectId(tenantId),
+        isActive: true // CORREÇÃO: Filtrar apenas memberships ativos
+      })
       .populate('branch', 'name address')
       .populate('ministry', 'name description');
 
@@ -326,6 +405,11 @@ export class MembersService {
   }
 
   async deleteMember(id: string, tenantId: string, userRole: string): Promise<void> {
+    console.log('🗑️ [MembersService] Deletando membro com validações de integridade...');
+    console.log('   - User ID:', id);
+    console.log('   - Tenant ID:', tenantId);
+    console.log('   - User Role:', userRole);
+
     const user = await this.userModel.findById(id);
     if (!user) {
       throw new Error('Usuário não encontrado');
@@ -337,11 +421,70 @@ export class MembersService {
       throw new BadRequestException('Tenant não encontrado');
     }
 
-    // Deletar memberships
-    await this.membershipModel.deleteMany({ user: user._id, tenant: new Types.ObjectId(tenantId) }); // ObjectId do tenant
+    // 🔍 VALIDAÇÃO DE INTEGRIDADE: Verificar estatísticas do usuário antes da remoção
+    const integrityStats = await this.integrityService.getUserIntegrityStats(id, tenantId);
+    console.log('📊 [MembersService] Estatísticas de integridade:', integrityStats);
 
-    // Deletar usuário
+    // 🗑️ REMOÇÃO EM CASCATA: Remover todos os vínculos relacionados ao usuário
+    console.log('🗑️ [MembersService] Iniciando remoção em cascata de todos os vínculos...');
+
+    // 1. Remover todas as UserFunctions do usuário
+    console.log('🗑️ [MembersService] Removendo UserFunctions do usuário...');
+    const deletedFunctionsCount = await this.userFunctionModel.deleteMany({
+      userId: new Types.ObjectId(id),
+      tenantId: new Types.ObjectId(tenantId)
+    });
+    console.log(`✅ [MembersService] ${deletedFunctionsCount.deletedCount} UserFunctions removidas`);
+
+    // 2. Remover todos os memberships do usuário no tenant
+    console.log('🗑️ [MembersService] Removendo memberships do usuário...');
+    const deletedMembershipsCount = await this.membershipModel.deleteMany({ 
+      user: user._id, 
+      tenant: new Types.ObjectId(tenantId) 
+    });
+    console.log(`✅ [MembersService] ${deletedMembershipsCount.deletedCount} memberships removidos`);
+
+    // 3. Ministry-memberships removidos - usando apenas memberships agora
+
+    // 4. Remover referências em campos de auditoria (createdBy, updatedBy, approvedBy)
+    console.log('🗑️ [MembersService] Removendo referências de auditoria...');
+    
+    // UserFunctions com approvedBy
+    const updatedUserFunctionsCount = await this.userFunctionModel.updateMany(
+      { approvedBy: new Types.ObjectId(id) },
+      { $unset: { approvedBy: 1 } }
+    );
+    console.log(`✅ [MembersService] ${updatedUserFunctionsCount.modifiedCount} UserFunctions com approvedBy atualizadas`);
+
+    // Memberships com createdBy/updatedBy
+    const updatedMembershipsCount = await this.membershipModel.updateMany(
+      { 
+        $or: [
+          { createdBy: new Types.ObjectId(id) },
+          { updatedBy: new Types.ObjectId(id) }
+        ]
+      },
+      { 
+        $unset: { 
+          createdBy: 1, 
+          updatedBy: 1 
+        } 
+      }
+    );
+    console.log(`✅ [MembersService] ${updatedMembershipsCount.modifiedCount} memberships com campos de auditoria atualizados`);
+
+    // 🗑️ DELETAR USUÁRIO: Remover o usuário do sistema
+    console.log('🗑️ [MembersService] Deletando usuário...');
     await this.userModel.findByIdAndDelete(id);
+    console.log('✅ [MembersService] Usuário deletado com sucesso');
+
+    console.log('📊 [MembersService] Resumo da remoção em cascata:');
+    console.log(`   - UserFunctions removidas: ${deletedFunctionsCount.deletedCount}`);
+    console.log(`   - Memberships removidos: ${deletedMembershipsCount.deletedCount}`);
+    console.log(`   - UserFunctions com approvedBy atualizadas: ${updatedUserFunctionsCount.modifiedCount}`);
+    console.log(`   - Memberships com campos de auditoria atualizados: ${updatedMembershipsCount.modifiedCount}`);
+    console.log(`   - Usuário deletado: ${id}`);
+    console.log('✅ [MembersService] Remoção em cascata concluída com sucesso');
   }
 
   /**

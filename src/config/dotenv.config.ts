@@ -8,7 +8,14 @@ import * as path from 'path';
 export const loadEnvironmentFile = (): void => {
   const nodeEnv = process.env.NODE_ENV || 'development';
   
-  // Tenta carregar o arquivo .env da raiz do projeto
+  // Em produção, usar apenas variáveis de ambiente do sistema
+  if (nodeEnv === 'production') {
+    console.log('🌍 Ambiente: PRODUÇÃO - Usando apenas variáveis de ambiente do sistema');
+    console.log('📁 Não carregando arquivo .env em produção');
+    return;
+  }
+  
+  // Em desenvolvimento, tentar carregar o arquivo .env
   const envPath = path.resolve(process.cwd(), '.env');
   const result = dotenv.config({ path: envPath });
   

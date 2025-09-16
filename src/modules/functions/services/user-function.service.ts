@@ -64,15 +64,25 @@ export class UserFunctionService {
       throw new BadRequestException('Usuário já possui vínculo com esta função');
     }
 
-    const userFunction = new this.userFunctionModel({
+    // Garantir que todos os campos sejam ObjectId
+    const userFunctionData = {
       userId: new Types.ObjectId(dto.userId),
       ministryId: new Types.ObjectId(dto.ministryId),
       functionId: new Types.ObjectId(dto.functionId),
-      status: dto.status || UserFunctionStatus.PENDING, // Usar status fornecido ou PENDING por padrão
+      status: dto.status || UserFunctionStatus.PENDING,
       notes: dto.notes,
-      tenantId: tenant._id, // UserFunction usa ObjectId do tenant
+      tenantId: tenant._id as Types.ObjectId, // tenant._id já é ObjectId
       branchId: branchId ? new Types.ObjectId(branchId) : null,
-    });
+    };
+
+    console.log('🔧 [UserFunctionService] Criando UserFunction com ObjectIds:');
+    console.log('   - userId:', userFunctionData.userId);
+    console.log('   - ministryId:', userFunctionData.ministryId);
+    console.log('   - functionId:', userFunctionData.functionId);
+    console.log('   - tenantId:', userFunctionData.tenantId);
+    console.log('   - branchId:', userFunctionData.branchId);
+
+    const userFunction = new this.userFunctionModel(userFunctionData);
 
     const saved = await userFunction.save();
     return this.mapToResponseDto(saved);
@@ -103,12 +113,30 @@ export class UserFunctionService {
 
   async getUserFunctionsByUser(
     userId: string,
-    status?: UserFunctionStatus
+    status?: UserFunctionStatus,
+    tenantId?: string
   ): Promise<UserFunctionResponseDto[]> {
+    console.log('🔍 [UserFunctionService] getUserFunctionsByUser iniciado');
+    console.log('   - userId:', userId);
+    console.log('   - status:', status);
+    console.log('   - tenantId:', tenantId);
+
     const query: any = { userId: new Types.ObjectId(userId) };
     if (status) {
       query.status = status;
     }
+    
+    // CORREÇÃO: Filtrar por tenantId se fornecido
+    if (tenantId && tenantId !== 'undefined' && tenantId !== 'null') {
+      try {
+        query.tenantId = new Types.ObjectId(tenantId);
+      } catch (error) {
+        console.error('❌ [UserFunctionService] Erro ao converter tenantId para ObjectId:', tenantId, error);
+        throw new BadRequestException('tenantId inválido');
+      }
+    }
+
+    console.log('🔍 [UserFunctionService] Query:', JSON.stringify(query, null, 2));
 
     const userFunctions = await this.userFunctionModel
       .find(query)
@@ -116,6 +144,8 @@ export class UserFunctionService {
       .populate('functionId', 'name description')
       .populate('approvedBy', 'name')
       .sort({ createdAt: -1 });
+
+    console.log('📊 [UserFunctionService] UserFunctions encontradas:', userFunctions.length);
 
     return userFunctions.map(uf => this.mapToResponseDto(uf));
   }
@@ -165,8 +195,17 @@ export class UserFunctionService {
     const query: any = {
       userId: new Types.ObjectId(userId),
       ministryId: new Types.ObjectId(ministryId),
-      tenantId: new Types.ObjectId(tenantId), // Converter para ObjectId
     };
+
+    // CORREÇÃO: Filtrar por tenantId se fornecido
+    if (tenantId && tenantId !== 'undefined' && tenantId !== 'null') {
+      try {
+        query.tenantId = new Types.ObjectId(tenantId);
+      } catch (error) {
+        console.error('❌ [UserFunctionService] Erro ao converter tenantId para ObjectId:', tenantId, error);
+        throw new BadRequestException('tenantId inválido');
+      }
+    }
 
     // Se branchId for fornecido, incluir na query
     if (branchId) {
@@ -182,25 +221,71 @@ export class UserFunctionService {
   async getUserFunctionsByUserAndMinistry(
     userId: string,
     ministryId: string,
-    status?: UserFunctionStatus
+    status?: UserFunctionStatus,
+    tenantId?: string
   ): Promise<UserFunctionResponseDto[]> {
     console.log('🔍 [UserFunctionService] getUserFunctionsByUserAndMinistry iniciado');
     console.log('   - userId:', userId);
     console.log('   - ministryId:', ministryId);
     console.log('   - status:', status);
+    console.log('   - tenantId:', tenantId);
 
     const query: any = {
       userId: new Types.ObjectId(userId),
-      ministryId: new Types.ObjectId(ministryId),
+      $or: [
+        { ministryId: new Types.ObjectId(ministryId) },
+        { ministryId: ministryId }
+      ]
     };
 
     if (status) {
       query.status = status;
     }
+    
+    // CORREÇÃO: Filtrar por tenantId se fornecido
+    if (tenantId && tenantId !== 'undefined' && tenantId !== 'null') {
+      // Caso especial: servus-system não é um ObjectId válido, pular filtro para servus_admin
+      if (tenantId === 'servus-system') {
+        console.log('🔓 [UserFunctionService] ServusAdmin detectado - pulando filtro de tenantId');
+        // Não adicionar filtro de tenantId para servus_admin
+      } else {
+        try {
+          query.tenantId = new Types.ObjectId(tenantId);
+        } catch (error) {
+          console.error('❌ [UserFunctionService] Erro ao converter tenantId para ObjectId:', tenantId, error);
+          throw new BadRequestException('tenantId inválido');
+        }
+      }
+    }
 
     console.log('🔍 [UserFunctionService] Query construída:', JSON.stringify(query, null, 2));
 
     try {
+      // DEBUG: Buscar todas as UserFunctions para esse usuário e ministério (sem filtro de tenantId)
+      const debugQuery = {
+        userId: new Types.ObjectId(userId),
+        $or: [
+          { ministryId: new Types.ObjectId(ministryId) },
+          { ministryId: ministryId }
+        ]
+      };
+      const allUserFunctions = await this.userFunctionModel.find(debugQuery);
+      console.log('🔍 [UserFunctionService] DEBUG - Todas as UserFunctions para usuário/ministério:', allUserFunctions.length);
+      allUserFunctions.forEach((uf, index) => {
+        console.log(`🔍 [UserFunctionService] DEBUG - UserFunction ${index + 1}:`, {
+          _id: uf._id,
+          userId: uf.userId,
+          ministryId: uf.ministryId,
+          tenantId: uf.tenantId,
+          status: uf.status
+        });
+      });
+
+      // DEBUG: Buscar sem populate primeiro para ver o que está sendo encontrado
+      const rawUserFunctions = await this.userFunctionModel.find(query);
+      console.log('🔍 [UserFunctionService] UserFunctions encontradas (raw):', rawUserFunctions.length);
+      console.log('🔍 [UserFunctionService] Primeira UserFunction (raw):', rawUserFunctions[0] ? JSON.stringify(rawUserFunctions[0], null, 2) : 'Nenhuma encontrada');
+
       const userFunctions = await this.userFunctionModel
         .find(query)
         .populate('userId', 'name email')
@@ -238,8 +323,12 @@ export class UserFunctionService {
     }
   }
 
-  async getApprovedFunctionsForUser(userId: string): Promise<UserFunctionResponseDto[]> {
-    return this.getUserFunctionsByUser(userId, UserFunctionStatus.APPROVED);
+  async getApprovedFunctionsForUser(userId: string, tenantId?: string): Promise<UserFunctionResponseDto[]> {
+    console.log('🔍 [UserFunctionService] getApprovedFunctionsForUser iniciado');
+    console.log('   - userId:', userId);
+    console.log('   - tenantId:', tenantId);
+    
+    return this.getUserFunctionsByUser(userId, UserFunctionStatus.APPROVED, tenantId);
   }
 
   private mapToResponseDto(userFunction: any): UserFunctionResponseDto {

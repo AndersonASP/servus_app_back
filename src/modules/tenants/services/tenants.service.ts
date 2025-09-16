@@ -13,6 +13,7 @@ import { User } from '../../users/schema/user.schema';
 import { Membership } from '../../membership/schemas/membership.schema';
 import { Role, MembershipRole } from 'src/common/enums/role.enum';
 import { EmailService } from '../../notifications/services/email.service';
+import { FeedbackService } from '../../notifications/services/feedback.service';
 import * as bcrypt from 'bcrypt';
 import { v7 as uuidv7 } from 'uuid';
 
@@ -23,6 +24,7 @@ export class TenantService {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Membership.name) private membershipModel: Model<Membership>,
     private emailService: EmailService,
+    private feedbackService: FeedbackService,
   ) {}
 
   // REMOVIDO: generateUuidTenantId - não precisamos mais de UUID, usamos ObjectId
@@ -64,22 +66,52 @@ export class TenantService {
   }
 
   async create(createTenantDto: CreateTenantDto, createdBy: string) {
-    const exists = await this.tenantModel.findOne({
-      name: createTenantDto.name,
-    });
+    try {
+      const exists = await this.tenantModel.findOne({
+        name: createTenantDto.name,
+      });
 
-    if (exists)
-      throw new ConflictException(
-        'Já existe um tenant com esse nome.',
+      if (exists) {
+        // Criar feedback de erro
+        await this.feedbackService.createTenantError(
+          createdBy,
+          createTenantDto.name,
+          'Já existe um tenant com esse nome'
+        );
+        throw new ConflictException(
+          'Já existe um tenant com esse nome.',
+        );
+      }
+
+      const tenant = new this.tenantModel({
+        ...createTenantDto,
+        createdBy,
+        isActive: true,
+      });
+
+      const savedTenant = await tenant.save();
+
+      // Criar feedback de sucesso
+      await this.feedbackService.createTenantSuccess(
+        createdBy,
+        createTenantDto.name,
+        (savedTenant._id as any).toString(),
+        false // admin não foi criado
       );
 
-    const tenant = new this.tenantModel({
-      ...createTenantDto,
-      createdBy,
-      isActive: true,
-    });
-
-    return tenant.save();
+      console.log(`✅ [TenantService] Tenant "${createTenantDto.name}" criado com sucesso`);
+      return savedTenant;
+    } catch (error) {
+      // Se não for ConflictException, criar feedback de erro genérico
+      if (!(error instanceof ConflictException)) {
+        await this.feedbackService.createTenantError(
+          createdBy,
+          createTenantDto.name,
+          error.message || 'Erro interno do servidor'
+        );
+      }
+      throw error;
+    }
   }
 
   // 🏢 ServusAdmin: Criar Tenant + TenantAdmin (opcional)
@@ -88,35 +120,51 @@ export class TenantService {
     createdBy: string,
     creatorRole: Role,
   ) {
-    // Verificar permissão
-    if (creatorRole !== Role.ServusAdmin) {
-      throw new ForbiddenException('Apenas ServusAdmin pode criar tenants');
-    }
+    try {
+      // Verificar permissão
+      if (creatorRole !== Role.ServusAdmin) {
+        await this.feedbackService.createErrorFeedback(
+          createdBy,
+          'Permissão Negada',
+          'Apenas administradores do Servus podem criar novas igrejas'
+        );
+        throw new ForbiddenException('Apenas ServusAdmin pode criar tenants');
+      }
 
-    // Verificar se tenant já existe
-    const existingTenant = await this.tenantModel.findOne({
-      name: data.tenantData.name,
-    });
-
-    if (existingTenant) {
-      throw new ConflictException('Já existe um tenant com esse nome');
-    }
-
-    // Verificar se admin já existe (se fornecido)
-    if (data.adminData) {
-      const existingAdmin = await this.userModel.findOne({
-        email: data.adminData.email.toLowerCase().trim(),
+      // Verificar se tenant já existe
+      const existingTenant = await this.tenantModel.findOne({
+        name: data.tenantData.name,
       });
 
-      if (existingAdmin) {
-        throw new ConflictException('Já existe um usuário com esse email');
+      if (existingTenant) {
+        await this.feedbackService.createTenantError(
+          createdBy,
+          data.tenantData.name,
+          'Já existe um tenant com esse nome'
+        );
+        throw new ConflictException('Já existe um tenant com esse nome');
       }
-    }
 
-    const session = await this.tenantModel.startSession();
-    session.startTransaction();
+      // Verificar se admin já existe (se fornecido)
+      if (data.adminData) {
+        const existingAdmin = await this.userModel.findOne({
+          email: data.adminData.email.toLowerCase().trim(),
+        });
 
-    try {
+        if (existingAdmin) {
+          await this.feedbackService.createErrorFeedback(
+            createdBy,
+            'Email Já Cadastrado',
+            `Já existe um usuário com o email ${data.adminData.email}`
+          );
+          throw new ConflictException('Já existe um usuário com esse email');
+        }
+      }
+
+      const session = await this.tenantModel.startSession();
+      session.startTransaction();
+
+      try {
       const tenant = new this.tenantModel({
         ...data.tenantData,
         createdBy,
@@ -163,6 +211,14 @@ export class TenantService {
       await session.commitTransaction();
       session.endSession();
 
+      // Criar feedback de sucesso
+      await this.feedbackService.createTenantSuccess(
+        createdBy,
+        data.tenantData.name,
+        (savedTenant._id as any).toString(),
+        !!adminResult // admin foi criado
+      );
+
       // Enviar e-mail com credenciais se admin foi criado
       if (adminResult && provisionalPassword) {
         try {
@@ -173,12 +229,30 @@ export class TenantService {
             (savedTenant._id as any).toString(), // ObjectId como string
             provisionalPassword,
           );
+          
+          // Feedback adicional sobre envio de email
+          await this.feedbackService.createInfoFeedback(
+            createdBy,
+            'Email Enviado',
+            `Credenciais de acesso foram enviadas para ${adminResult.email}`,
+            (savedTenant._id as any).toString()
+          );
         } catch (emailError) {
           // Log do erro mas não falha a operação
           console.error('Erro ao enviar e-mail de credenciais:', emailError);
+          
+          // Feedback sobre erro no email
+          await this.feedbackService.createWarningFeedback(
+            createdBy,
+            'Email Não Enviado',
+            `Tenant criado com sucesso, mas houve erro ao enviar credenciais por email: ${emailError.message}`,
+            (savedTenant._id as any).toString()
+          );
         }
       }
 
+      console.log(`✅ [TenantService] Tenant "${data.tenantData.name}" criado com sucesso${adminResult ? ' com administrador' : ''}`);
+      
       return {
         tenant: savedTenant,
         ...(adminResult && { admin: adminResult }),
@@ -188,6 +262,28 @@ export class TenantService {
     } catch (error) {
       await session.abortTransaction();
       session.endSession();
+      
+      // Criar feedback de erro genérico se não foi criado antes
+      if (!(error instanceof ConflictException) && !(error instanceof ForbiddenException)) {
+        await this.feedbackService.createTenantError(
+          createdBy,
+          data.tenantData.name,
+          error.message || 'Erro interno do servidor'
+        );
+      }
+      
+      throw error;
+    }
+    } catch (error) {
+      // Criar feedback de erro genérico se não foi criado antes
+      if (!(error instanceof ConflictException) && !(error instanceof ForbiddenException)) {
+        await this.feedbackService.createTenantError(
+          createdBy,
+          data.tenantData.name,
+          error.message || 'Erro interno do servidor'
+        );
+      }
+      
       throw error;
     }
   }

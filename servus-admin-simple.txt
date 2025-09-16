@@ -1,0 +1,58 @@
+// ========================================
+// COMANDOS SIMPLES PARA MONGOSH
+// ========================================
+// Copie e cole cada bloco separadamente no mongosh
+
+// 1. Conectar ao banco
+use('servus');
+
+// 2. Criar Tenant
+db.tenants.insertOne({
+  name: "Servus Admin",
+  description: "Tenant administrativo do sistema Servus",
+  isActive: true,
+  email: "admin@servus.com.br",
+  telefone: "(11) 99999-9999",
+  plan: "enterprise",
+  maxBranches: -1,
+  statusPagamento: "ativo",
+  corTema: "#1e40af",
+  idioma: "pt-BR",
+  timezone: "America/Sao_Paulo",
+  features: { functionsByMinistry: true },
+  createdAt: new Date(),
+  updatedAt: new Date()
+});
+
+// 3. Criar Usuário (substitua TENANT_ID pelo ID retornado acima)
+db.users.insertOne({
+  name: "Servus Administrator",
+  email: "admin@servus.com.br",
+  password: "$2b$10$rQZ8K9vL2mN3pO4qR5sT6uV7wX8yZ9aB0cD1eF2gH3iJ4kL5mN6oP7qR8sT9uV",
+  role: "servus_admin",
+  tenantId: ObjectId("TENANT_ID_AQUI"),
+  isActive: true,
+  profileCompleted: true,
+  refreshTokens: [],
+  createdAt: new Date(),
+  updatedAt: new Date()
+});
+
+// 4. Criar Membership (substitua USER_ID e TENANT_ID pelos IDs retornados)
+db.memberships.insertOne({
+  user: ObjectId("USER_ID_AQUI"),
+  tenant: ObjectId("TENANT_ID_AQUI"),
+  branch: null,
+  ministry: null,
+  role: "tenant_admin",
+  isActive: true,
+  createdAt: new Date(),
+  updatedAt: new Date()
+});
+
+// ========================================
+// CREDENCIAIS DE ACESSO:
+// Email: admin@servus.com.br
+// Senha: servus123
+// Role: servus_admin
+// ========================================
