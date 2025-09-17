@@ -3,36 +3,60 @@ name: Deploy to Elastic Beanstalk
 on:
   push:
     branches:
-      - main  # ou master, conforme sua branch principal
+      - main
+  workflow_dispatch: # Permite execução manual
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '22'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build project
-        run: npm run build # se tiver build (React, Next, etc.)
+        run: npm run build
 
-      - name: Zip application
-        run: zip -r app.zip . -x "*.git*" # exclui pasta .git
+      - name: Run tests
+        run: npm test --if-present
+
+      - name: Create deployment package
+        run: |
+          # Criar zip excluindo arquivos desnecessários
+          zip -r app.zip . \
+            -x "*.git*" \
+            -x "node_modules/*" \
+            -x "test/*" \
+            -x "*.spec.ts" \
+            -x "*.test.ts" \
+            -x "*.e2e-spec.ts" \
+            -x ".vscode/*" \
+            -x ".idea/*" \
+            -x "*.log" \
+            -x "coverage/*" \
+            -x ".nyc_output/*" \
+            -x "scratch/*" \
+            -x "temp.txt" \
+            -x "*.zip" \
+            -x "*.bak"
 
       - name: Deploy to Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
         with:
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          region: ${{ secrets.AWS_REGION }}
-          application_name: ${{ secrets.EB_APP }}
-          environment_name: ${{ secrets.EB_ENV }}
+          region: us-east-2
+          application_name: servus-back
+          environment_name: Servus-Back-Env
           version_label: ${{ github.sha }}
           zip_file: app.zip
+          wait_for_environment_recovery: 300
