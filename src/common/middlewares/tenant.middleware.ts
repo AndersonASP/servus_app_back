@@ -10,6 +10,10 @@ export interface TenantRequest extends Request {
   tenantSlug?: string; // slug da igreja (ex: igreja001)
   branchId?: string; // ID da branch
   ministryId?: string; // ID do ministério
+  path: string;
+  headers: any;
+  params: any;
+  hostname: string;
 }
 
 @Injectable()
