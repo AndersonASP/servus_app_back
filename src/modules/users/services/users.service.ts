@@ -483,8 +483,25 @@ export class UsersService {
       .lean()
       .exec();
     
-    // Serializa corretamente os ObjectIds usando JSON.stringify/parse
-    const processedMemberships = JSON.parse(JSON.stringify(memberships));
+    // Serializa corretamente os ObjectIds manualmente
+    const processedMemberships = memberships.map(m => ({
+      ...m,
+      _id: m._id.toString(),
+      tenant: m.tenant ? {
+        _id: (m.tenant as any)._id.toString(),
+        tenantId: (m.tenant as any).tenantId,
+        name: (m.tenant as any).name
+      } : null,
+      branch: m.branch ? {
+        _id: (m.branch as any)._id.toString(),
+        branchId: (m.branch as any).branchId,
+        name: (m.branch as any).name
+      } : null,
+      ministry: m.ministry ? {
+        _id: (m.ministry as any)._id.toString(),
+        name: (m.ministry as any).name
+      } : null
+    }));
     
     console.log('📋 [SERVICE] Memberships encontrados:', processedMemberships.length);
     processedMemberships.forEach((m, index) => {
@@ -493,15 +510,18 @@ export class UsersService {
       console.log(`      - Role: ${m.role}`);
       console.log(`      - Tenant: ${m.tenant ? 'SIM' : 'NÃO'}`);
       if (m.tenant) {
-        console.log(`        * Tenant ID: ${m.tenant}`);
+        console.log(`        * Tenant ID: ${m.tenant._id}`);
+        console.log(`        * Tenant Name: ${m.tenant.name}`);
       }
       console.log(`      - Branch: ${m.branch ? 'SIM' : 'NÃO'}`);
       if (m.branch) {
-        console.log(`        * Branch ID: ${m.branch}`);
+        console.log(`        * Branch ID: ${m.branch._id}`);
+        console.log(`        * Branch Name: ${m.branch.name}`);
       }
       console.log(`      - Ministry: ${m.ministry ? 'SIM' : 'NÃO'}`);
       if (m.ministry) {
-        console.log(`        * Ministry ID: ${m.ministry}`);
+        console.log(`        * Ministry ID: ${m.ministry._id}`);
+        console.log(`        * Ministry Name: ${m.ministry.name}`);
       }
       console.log(`      - Ativo: ${m.isActive}`);
     });

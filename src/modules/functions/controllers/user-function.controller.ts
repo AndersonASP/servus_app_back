@@ -278,14 +278,56 @@ export class UserFunctionController {
     @Param('userId') userId: string,
     @Req() req: any
   ): Promise<UserFunctionResponseDto[]> {
-    console.log('🎯 [UserFunctionController] getApprovedFunctionsForUser chamado');
+    console.log('🎯 [UserFunctionController] getApprovedFunctionsForUser chamado - REDIRECIONANDO PARA MemberFunction');
     console.log('   - userId:', userId);
     console.log('   - req.user:', req.user);
     
     const tenantId = await this.findUserTenantId(req);
     console.log('   - tenantId extraído:', tenantId);
     
-    return await this.userFunctionService.getApprovedFunctionsForUser(userId, tenantId);
+    // Usar MemberFunctionService em vez de UserFunctionService
+    const memberFunctions = await this.memberFunctionService.getApprovedFunctionsForUser(userId, tenantId);
+    
+    console.log('✅ [UserFunctionController] MemberFunctions encontradas:', memberFunctions.length);
+    
+    // Converter MemberFunctionResponseDto para UserFunctionResponseDto
+    const convertedResult = memberFunctions.map(mf => ({
+      id: mf.id,
+      userId: mf.userId,
+      ministryId: mf.ministryId,
+      functionId: mf.functionId,
+      status: this.convertMemberFunctionStatusToUserFunctionStatus(mf.status),
+      approvedBy: mf.approvedBy,
+      approvedAt: mf.approvedAt,
+      notes: mf.notes,
+      tenantId: mf.tenantId,
+      branchId: mf.branchId,
+      createdAt: mf.createdAt,
+      updatedAt: mf.updatedAt,
+      // Dados populados da função
+      function: mf.function ? {
+        id: mf.function.id,
+        name: mf.function.name,
+        description: mf.function.description,
+      } : undefined,
+      ministry: mf.ministry ? {
+        id: mf.ministry.id,
+        name: mf.ministry.name,
+      } : undefined,
+      user: mf.user ? {
+        id: mf.user.id,
+        name: mf.user.name,
+        email: mf.user.email,
+      } : undefined,
+      // Campos adicionais do MemberFunction que não existem no UserFunction
+      level: mf.level,
+      priority: mf.priority,
+      isActive: mf.isActive,
+      createdBy: mf.createdBy
+    }));
+    
+    console.log('✅ [UserFunctionController] Resultado convertido:', JSON.stringify(convertedResult, null, 2));
+    return convertedResult;
   }
 
   /**

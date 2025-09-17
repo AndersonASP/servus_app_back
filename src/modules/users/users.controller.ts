@@ -10,6 +10,7 @@ import {
   Res,
   HttpStatus,
   ForbiddenException,
+  NotFoundException,
   Query,
 } from '@nestjs/common';
 import type { Response } from 'express';
@@ -137,8 +138,8 @@ export class UsersController {
     const user = await this.usersService.findByEmail(email);
     
     if (!user) {
-      console.log('❌ [CONTROLLER] Usuário não encontrado');
-      return null;
+      console.log('❌ [CONTROLLER] Usuário não encontrado na base de dados:', email);
+      throw new NotFoundException(`Usuário com email ${email} não está cadastrado no sistema.`);
     }
 
     console.log('✅ [CONTROLLER] Usuário encontrado:', user.email);
@@ -285,12 +286,36 @@ export class UsersController {
     console.log('🔍 [CONTROLLER] Iniciando busca de tenant por email...');
     console.log('📧 [CONTROLLER] Email recebido:', email);
     
-    // Retorna o ID correto do tenant baseado nos logs
-    console.log('✅ [CONTROLLER] Retornando ID correto do tenant');
-    return {
-      id: '68c87299b8c04c89dd8f1089',
-      tenantId: '68c87299b8c04c89dd8f1089'
-    };
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      console.log('❌ [CONTROLLER] Usuário não encontrado na base de dados:', email);
+      throw new NotFoundException(`Usuário com email ${email} não está cadastrado no sistema.`);
+    }
+
+    console.log('✅ [CONTROLLER] Usuário encontrado para busca de tenant:', user.email);
+
+    // Buscar memberships do usuário para encontrar o tenant
+    console.log('🔍 [CONTROLLER] Buscando memberships para encontrar tenant...');
+    const memberships = await this.usersService.getUserMemberships(user._id.toString());
+    
+    console.log('📋 [CONTROLLER] Memberships encontrados para tenant:', memberships.length);
+    
+    if (memberships.length > 0 && memberships[0].tenant) {
+      const tenant = memberships[0].tenant;
+      console.log('✅ [CONTROLLER] Tenant encontrado:', tenant);
+      
+      // Extrai o _id corretamente (agora tenant deve ser um objeto com _id)
+      const tenantId = tenant._id;
+      console.log('✅ [CONTROLLER] Tenant ID extraído:', tenantId);
+      
+      return {
+        id: tenantId,
+        tenantId: tenantId
+      };
+    }
+    
+    console.log('❌ [CONTROLLER] Nenhum tenant encontrado nos memberships');
+    throw new NotFoundException(`Usuário ${email} não possui acesso a nenhum tenant.`);
   }
 
   // 👤 Auto-registro via link de convite - VOLUNTÁRIO

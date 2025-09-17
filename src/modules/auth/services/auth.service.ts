@@ -105,19 +105,8 @@ export class AuthService {
 
     let user = await this.usersService.findByEmail(email);
     if (!user) {
-      // Usuário global; vínculos vêm via Membership
-      user = await this.usersService.create(
-        {
-          name,
-          email,
-          password: null,
-          role: Role.Volunteer,
-          googleId,
-          picture,
-        },
-        'system', // createdBy
-        tenantSlug, // tenantId
-      );
+      console.log('❌ [AUTH] Usuário não encontrado na base de dados:', email);
+      throw new NotFoundException(`Usuário com email ${email} não está cadastrado no sistema. Entre em contato com o administrador para solicitar acesso.`);
     }
 
     return this.generateTokensAndResponse(user, deviceId, {
