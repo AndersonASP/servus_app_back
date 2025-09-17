@@ -1,0 +1,40 @@
+name: Detailed Debug
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Show file structure
+        run: |
+          echo "=== File structure ==="
+          find src -name "*.dto.ts" | head -10
+          echo "=== User DTOs ==="
+          ls -la src/modules/users/dto/
+          echo "=== User Filter DTO ==="
+          cat src/modules/users/dto/user-filter.dto.ts
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check TypeScript compilation
+        run: |
+          echo "=== TypeScript check ==="
+          npx tsc --noEmit --project tsconfig.build.json
+
+      - name: Try build with verbose output
+        run: |
+          echo "=== Build attempt ==="
+          npm run build 2>&1 || echo "Build failed"
