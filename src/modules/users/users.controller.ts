@@ -133,7 +133,6 @@ export class UsersController {
   @Get('find-by-email/:email')
   async findByEmail(@Param('email') email: string) {
     console.log('🔍 [CONTROLLER] Iniciando busca de usuário por email...');
-    console.log('📧 [CONTROLLER] Email recebido:', email);
     
     const user = await this.usersService.findByEmail(email);
     
@@ -204,7 +203,6 @@ export class UsersController {
   @Get('debug-tenant/:email')
   async debugTenant(@Param('email') email: string) {
     console.log('🧪 [DEBUG] Iniciando debug de tenant...');
-    console.log('📧 [DEBUG] Email:', email);
     
     try {
       const user = await this.usersService.findByEmail(email);
@@ -242,7 +240,6 @@ export class UsersController {
   @Get('test/:email')
   async testEndpoint(@Param('email') email: string) {
     console.log('🧪 [TEST] Endpoint de teste chamado');
-    console.log('📧 [TEST] Email:', email);
     
     try {
       const user = await this.usersService.findByEmail(email);
@@ -252,7 +249,6 @@ export class UsersController {
         console.log('👤 [TEST] Dados do usuário:');
         console.log('   - ID:', user._id);
         console.log('   - Nome:', user.name);
-        console.log('   - Email:', user.email);
         console.log('   - Role:', user.role);
         
         return {
@@ -284,7 +280,6 @@ export class UsersController {
   @Get(':email/tenant')
   async getUserTenant(@Param('email') email: string) {
     console.log('🔍 [CONTROLLER] Iniciando busca de tenant por email...');
-    console.log('📧 [CONTROLLER] Email recebido:', email);
     
     const user = await this.usersService.findByEmail(email);
     if (!user) {

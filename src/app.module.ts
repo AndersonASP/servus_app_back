@@ -26,6 +26,7 @@ import { MinistriesModule } from './modules/ministries/ministries.module';
 import { MembershipsModule } from './modules/membership/memberships.module';
 import { VolunteersModule } from './modules/volunteers/volunteers.module';
 import { FunctionsModule } from './modules/functions/functions.module';
+import { FormsModule } from './modules/forms/forms.module';
 
 
 
@@ -101,6 +102,7 @@ import {
     MembershipsModule,
     VolunteersModule,
     FunctionsModule,
+    FormsModule,
 
 
   ],
@@ -129,6 +131,12 @@ export class AppModule implements NestModule {
         // 🔓 Criação de tenants (não precisam de tenant válido)
         { path: 'tenants', method: RequestMethod.POST },
         { path: 'tenants/with-admin', method: RequestMethod.POST },
+
+        // 🔓 Formulários públicos (não precisam de tenant válido)
+        { path: 'forms/public/*path', method: RequestMethod.ALL },
+        { path: 'forms/*/submit', method: RequestMethod.POST },
+        { path: 'forms/ministries', method: RequestMethod.GET },
+        { path: 'forms/test', method: RequestMethod.GET },
       )
       .forRoutes({ path: '*', method: RequestMethod.ALL });
   }

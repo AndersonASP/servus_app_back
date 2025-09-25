@@ -155,6 +155,7 @@ export class MinistriesMatrixController {
     };
   }
 
+
   @Post()
   @RequiresPerm(
     [PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_TENANT_MINISTRIES],
@@ -332,6 +333,7 @@ export class MinistriesController {
       data: dto,
     };
   }
+
 
   @Post()
   @RequiresPerm(

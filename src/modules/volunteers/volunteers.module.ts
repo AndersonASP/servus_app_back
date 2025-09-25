@@ -10,6 +10,7 @@ import { User, UserSchema } from '../users/schema/user.schema';
 import { VolunteersService } from './services/volunteers.service';
 import { VolunteersController } from './controllers/volunteers.controller';
 import { MinistrySchema } from '../ministries/schemas/ministry.schema';
+import { FormSubmission, FormSubmissionSchema } from '../forms/schemas/form-submission.schema';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { MinistrySchema } from '../ministries/schemas/ministry.schema';
       { name: Branch.name, schema: BranchSchema },
       { name: Tenant.name, schema: TenantSchema },
       { name: User.name, schema: UserSchema },
+      { name: FormSubmission.name, schema: FormSubmissionSchema },
     ]),
   ],
   controllers: [VolunteersController],

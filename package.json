@@ -43,7 +43,9 @@
     "test:env": "node test-env.js",
     "test:env:dev": "node test-env.js dev",
     "test:env:hml": "node test-env.js hml",
-    "test:env:prod": "node test-env.js prod"
+    "test:env:prod": "node test-env.js prod",
+    "build:flutter-web": "./scripts/build-flutter-web.sh",
+    "dev:full": "npm run build:flutter-web && npm run start:dev"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",

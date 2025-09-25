@@ -6,7 +6,7 @@ import { Membership } from '../../membership/schemas/membership.schema';
 import { Branch } from '../../branches/schemas/branch.schema';
 import { Ministry } from '../../ministries/schemas/ministry.schema';
 import { Tenant } from '../../tenants/schemas/tenant.schema';
-import { UserFunction } from '../../functions/schemas/user-function.schema';
+import { MemberFunction } from '../../functions/schemas/member-function.schema';
 import { CreateMemberDto, MembershipAssignmentDto } from '../dto/create-member.dto';
 import { UpdateMemberDto } from '../dto/update-member.dto';
 import { MemberFilterDto } from '../dto/member-filter.dto';
@@ -24,7 +24,7 @@ export class MembersService {
     @InjectModel(Branch.name) private branchModel: Model<Branch>,
     @InjectModel(Ministry.name) private ministryModel: Model<Ministry>,
     @InjectModel(Tenant.name) private tenantModel: Model<Tenant>,
-    @InjectModel(UserFunction.name) private userFunctionModel: Model<UserFunction>,
+    @InjectModel(MemberFunction.name) private memberFunctionModel: Model<MemberFunction>,
     private emailService: EmailService,
     private integrityService: MembershipIntegrityService,
   ) {}
@@ -109,11 +109,11 @@ export class MembersService {
       await membership.save();
       console.log('✅ [MembersService] Membership criado com sucesso:', membership._id);
 
-      // Criar vínculos UserFunction se houver funções selecionadas
+      // Criar vínculos MemberFunction se houver funções selecionadas
       if (membershipData.functionIds && membershipData.functionIds.length > 0 && membershipData.ministryId) {
-        console.log('⚙️ [MembersService] Criando UserFunctions:', membershipData.functionIds);
+        console.log('⚙️ [MembersService] Criando MemberFunctions:', membershipData.functionIds);
         for (const functionId of membershipData.functionIds) {
-          console.log('🔧 [MembersService] Criando UserFunction:', {
+          console.log('🔧 [MembersService] Criando MemberFunction:', {
             userId: savedUser._id,
             ministryId: membershipData.ministryId,
             functionId: functionId,
@@ -121,20 +121,20 @@ export class MembersService {
             branchId: membershipData.branchId
           });
 
-          const userFunction = new this.userFunctionModel({
-            userId: savedUser._id,
+          const memberFunction = new this.memberFunctionModel({
+            memberId: savedUser._id, // ✅ Usar memberId conforme schema
             ministryId: new Types.ObjectId(membershipData.ministryId),
             functionId: new Types.ObjectId(functionId),
-            status: 'approved', // Aprovado automaticamente quando criado pelo líder
+            status: 'aprovado', // ✅ Usar status correto conforme enum
             tenantId: new Types.ObjectId(tenantId), // ObjectId do tenant
-            branchId: membershipData.branchId ? new Types.ObjectId(membershipData.branchId) : null,
-            approvedBy: createdBy ? new Types.ObjectId(createdBy) : null,
+            approvedBy: createdBy, // ✅ Manter como string conforme schema
             approvedAt: new Date(),
+            isActive: true,
           });
 
-          console.log('💾 [MembersService] Salvando UserFunction no banco...');
-          await userFunction.save();
-          console.log('✅ [MembersService] UserFunction criada com sucesso:', userFunction._id);
+          console.log('💾 [MembersService] Salvando MemberFunction no banco...');
+          await memberFunction.save();
+          console.log('✅ [MembersService] MemberFunction criada com sucesso:', memberFunction._id);
         }
       } else if (membershipData.role === 'leader' && membershipData.ministryId) {
         // Para leaders sem funções específicas, buscar e atribuir todas as funções do ministério
@@ -142,7 +142,7 @@ export class MembersService {
         
         try {
           // Buscar todas as funções do ministério
-          const ministryFunctions = await this.userFunctionModel.find({
+          const ministryFunctions = await this.memberFunctionModel.find({
             ministryId: new Types.ObjectId(membershipData.ministryId),
             tenantId: new Types.ObjectId(tenantId),
           }).distinct('functionId');
@@ -150,9 +150,9 @@ export class MembersService {
           console.log('📋 [MembersService] Funções encontradas no ministério:', ministryFunctions.length);
 
           if (ministryFunctions.length > 0) {
-            // Criar UserFunctions para todas as funções do ministério
+            // Criar MemberFunctions para todas as funções do ministério
             for (const functionId of ministryFunctions) {
-              console.log('🔧 [MembersService] Criando UserFunction automática para leader:', {
+              console.log('🔧 [MembersService] Criando MemberFunction automática para leader:', {
                 userId: savedUser._id,
                 ministryId: membershipData.ministryId,
                 functionId: functionId,
@@ -160,7 +160,7 @@ export class MembersService {
                 branchId: membershipData.branchId
               });
 
-              const userFunction = new this.userFunctionModel({
+              const memberFunction = new this.memberFunctionModel({
                 userId: savedUser._id,
                 ministryId: new Types.ObjectId(membershipData.ministryId),
                 functionId: new Types.ObjectId(functionId),
@@ -171,8 +171,8 @@ export class MembersService {
                 approvedAt: new Date(),
               });
 
-              await userFunction.save();
-              console.log('✅ [MembersService] UserFunction automática criada:', userFunction._id);
+              await memberFunction.save();
+              console.log('✅ [MembersService] MemberFunction automática criada:', memberFunction._id);
             }
           } else {
             console.log('⚠️ [MembersService] Nenhuma função encontrada no ministério para atribuir ao leader');
@@ -241,11 +241,17 @@ export class MembersService {
     filters: MemberFilterDto,
     tenantId: string, // ObjectId como string
     userRole: string,
+    currentUserId?: string,
   ): Promise<{ members: MemberResponseDto[], total: number }> {
     console.log('🔍 [MembersService] getMembers iniciado');
     console.log('📋 [MembersService] Filtros recebidos:', filters);
     console.log('🏢 [MembersService] TenantId:', tenantId);
     console.log('👤 [MembersService] UserRole:', userRole);
+    console.log('👤 [MembersService] CurrentUserId:', currentUserId);
+    console.log('🔍 [MembersService] Comparação de roles:');
+    console.log('   - userRole === MembershipRole.Leader:', userRole === MembershipRole.Leader);
+    console.log('   - userRole === "leader":', userRole === 'leader');
+    console.log('   - MembershipRole.Leader value:', MembershipRole.Leader);
 
     // Verificar se o tenant existe
     const tenant = await this.tenantModel.findById(tenantId).select('_id');
@@ -254,96 +260,163 @@ export class MembersService {
       throw new BadRequestException('Tenant não encontrado');
     }
 
-    // Buscar usuários que têm memberships neste tenant
-    const membershipsQuery: any = { tenant: new Types.ObjectId(tenantId) }; // ObjectId do tenant
-    
-    if (filters.branchId) {
-      membershipsQuery.branch = filters.branchId;
-    }
-    
-    if (filters.ministryId) {
-      membershipsQuery.ministry = filters.ministryId;
-    }
-    
-    if (filters.role) {
-      membershipsQuery.role = filters.role;
-    }
-    
-    if (filters.isActive !== undefined) {
-      membershipsQuery.isActive = filters.isActive;
+    // Validação específica para líderes
+    if (userRole === MembershipRole.Leader && currentUserId) {
+      console.log('🔍 [MembersService] Validando permissões de líder...');
+      
+      // Buscar o membership do líder atual
+      const leaderMembership = await this.membershipModel.findOne({
+        user: new Types.ObjectId(currentUserId),
+        tenant: new Types.ObjectId(tenantId),
+        role: MembershipRole.Leader,
+        isActive: true
+      }).populate('ministry', '_id name');
+
+      if (!leaderMembership) {
+        console.log('❌ [MembersService] Líder não encontrado ou inativo');
+        throw new BadRequestException('Líder não encontrado ou inativo');
+      }
+
+      const leaderMinistryId = leaderMembership.ministry?._id?.toString();
+      console.log('🏢 [MembersService] Ministério do líder:', leaderMinistryId);
+
+      // Se o líder está tentando filtrar por ministério, verificar se é o seu ministério
+      if (filters.ministryId && filters.ministryId !== leaderMinistryId) {
+        console.log('❌ [MembersService] Líder tentando acessar ministério diferente do seu');
+        throw new BadRequestException('Líder só pode acessar membros do seu próprio ministério');
+      }
+
+      // Líder pode ver todos os membros do tenant para vincular ao seu ministério
+      // Não aplicar filtro automático de ministério - deixar vazio para mostrar todos
+      console.log('🔧 [MembersService] Líder pode ver todos os membros do tenant');
+
+      console.log('🔧 [MembersService] Filtros após validação de líder:', filters);
     }
 
-    console.log('🔍 [MembersService] Query de memberships:', membershipsQuery);
+    // Buscar TODOS os usuários do tenant (incluindo os sem vínculos)
+    // Primeiro, vamos buscar usuários que têm tenantId correto
+    let usersQuery: any = { tenantId: new Types.ObjectId(tenantId) };
+    
+    console.log('🔍 [MembersService] Query de usuários:', JSON.stringify(usersQuery, null, 2));
+    console.log('🔍 [MembersService] TenantId recebido:', tenantId);
+    console.log('🔍 [MembersService] TenantId como ObjectId:', new Types.ObjectId(tenantId));
 
-    // Buscar memberships com filtros
-    const memberships = await this.membershipModel
-      .find(membershipsQuery)
-      .populate('user')
-      .populate('branch', 'name address')
-      .populate('ministry', 'name description');
+    // DEBUG: Verificar se há usuários sem tenantId que deveriam estar no tenant
+    const usersWithoutTenantIdDebug = await this.userModel
+      .find({ tenantId: { $exists: false } })
+      .select('_id name email phone role tenantId createdAt updatedAt')
+      .lean();
+    
+    console.log('🔍 [MembersService] Usuários sem tenantId:', usersWithoutTenantIdDebug.length);
+    if (usersWithoutTenantIdDebug.length > 0) {
+      console.log('🔍 [MembersService] Primeiros usuários sem tenantId:');
+      usersWithoutTenantIdDebug.slice(0, 3).forEach((user, index) => {
+        console.log(`   ${index + 1}. ${user.name} (${user.email}) - ID: ${user._id}`);
+      });
+    }
 
-    console.log('📊 [MembersService] Memberships encontrados:', memberships.length);
-    console.log('📋 [MembersService] Primeiro membership:', memberships[0] ? {
-      id: memberships[0]._id,
-      user: memberships[0].user ? 'populated' : 'not populated',
-      role: memberships[0].role
-    } : 'nenhum');
+    // DEBUG: Buscar usuário específico por email
+    const specificUser = await this.userModel
+      .findOne({ email: 'moisess@gmail.com' })
+      .select('_id name email phone role tenantId createdAt updatedAt')
+      .lean();
+    
+    console.log('🔍 [MembersService] DEBUG - Usuário moisess@gmail.com:', specificUser);
+
+    // DEBUG: Buscar usuário específico Samilla Arau
+    const samillaUser = await this.userModel
+      .findOne({ email: 'arau@gmail.com' })
+      .select('_id name email phone role tenantId createdAt updatedAt')
+      .lean();
+    
+    console.log('🔍 [MembersService] DEBUG - Usuário arau@gmail.com (Samilla):', samillaUser);
+    console.log('🔍 [MembersService] DEBUG - Samilla tem tenantId?', !!samillaUser?.tenantId);
+    console.log('🔍 [MembersService] DEBUG - Samilla tenantId:', samillaUser?.tenantId);
+
+    // DEBUG: Buscar usuário por ID específico
+    const userById = await this.userModel
+      .findById('68d4bd1300dc962134a18e8a')
+      .select('_id name email phone role tenantId createdAt updatedAt')
+      .lean();
+    
+    console.log('🔍 [MembersService] DEBUG - Usuário por ID 68d4bd1300dc962134a18e8a:', userById);
+
+    // Buscar todos os usuários do tenant (agora todos devem ter tenantId)
+    const users = await this.userModel
+      .find(usersQuery)
+      .select('_id name email phone role tenantId createdAt updatedAt')
+      .lean();
+
+    console.log('📊 [MembersService] Usuários encontrados:', users.length);
+    console.log('📋 [MembersService] Usuários encontrados:');
+    users.forEach((user, index) => {
+      console.log(`   ${index + 1}. User: ${user.name || 'N/A'}, Email: ${user.email || 'N/A'}, Role: ${user.role || 'N/A'}, TenantId: ${user.tenantId}`);
+      
+      // DEBUG: Verificar se é o usuário Samilla
+      if (user.email === 'arau@gmail.com' || user._id.toString() === '68d4bd1300dc962134a18e8a') {
+        console.log('🎯 [MembersService] ENCONTRADO - Usuário Samilla na lista principal!');
+        console.log('   - ID:', user._id);
+        console.log('   - Nome:', user.name);
+        console.log('   - Email:', user.email);
+        console.log('   - TenantId:', user.tenantId);
+        console.log('   - TenantId tipo:', typeof user.tenantId);
+        console.log('   - TenantId esperado:', tenantId);
+      }
+    });
+
+    // Para cada usuário, buscar seus memberships (se houver)
+    const usersWithMemberships = await Promise.all(
+      users.map(async (user) => {
+        const memberships = await this.membershipModel
+          .find({ user: user._id, tenant: new Types.ObjectId(tenantId) })
+          .populate('branch', 'name address')
+          .populate('ministry', 'name description')
+          .lean();
+
+        return {
+          user,
+          memberships: memberships || []
+        };
+      })
+    );
+
+    console.log('📊 [MembersService] Usuários com memberships processados:', usersWithMemberships.length);
 
     // Aplicar filtro de busca nos usuários
-    let filteredMemberships = memberships;
+    let filteredUsers = usersWithMemberships;
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
-      filteredMemberships = memberships.filter(membership => {
-        const user = membership.user as any;
+      filteredUsers = usersWithMemberships.filter(({ user }) => {
         return user.name?.toLowerCase().includes(searchTerm) ||
                user.email?.toLowerCase().includes(searchTerm);
       });
     }
 
-    // CORREÇÃO: Calcular total baseado em usuários únicos, não memberships
-    const uniqueUsers = new Set(filteredMemberships.map(m => (m.user as any)._id.toString()));
-    const total = uniqueUsers.size;
+    // Aplicar filtro de role se especificado
+    if (filters.role) {
+      filteredUsers = filteredUsers.filter(({ user }) => user.role === filters.role);
+    }
+
+    // Calcular total baseado em usuários únicos
+    const total = filteredUsers.length;
     
     // Paginação baseada em usuários únicos
     const page = parseInt(filters.page || '1') || 1;
     const limit = parseInt(filters.limit || '10') || 10;
     const skip = (page - 1) * limit;
     
-    // Pegar apenas os memberships dos usuários únicos para a página atual
-    const uniqueUserIds = Array.from(uniqueUsers);
-    const paginatedUserIds = uniqueUserIds.slice(skip, skip + limit);
-    const paginatedMemberships = filteredMemberships.filter(m => 
-      paginatedUserIds.includes((m.user as any)._id.toString())
-    );
+    // Pegar apenas os usuários para a página atual
+    const paginatedUsers = filteredUsers.slice(skip, skip + limit);
 
-    console.log('📄 [MembersService] Paginação:', { page, limit, skip, total, paginatedCount: paginatedMemberships.length });
-
-    // CORREÇÃO: Agrupar memberships por usuário para evitar duplicação
-    const userMembershipsMap = new Map();
-    
-    paginatedMemberships.forEach(membership => {
-      const user = membership.user as any;
-      const userId = user._id.toString();
-      
-      if (!userMembershipsMap.has(userId)) {
-        userMembershipsMap.set(userId, {
-          user: user,
-          memberships: []
-        });
-      }
-      
-      userMembershipsMap.get(userId).memberships.push(membership);
-    });
-
-    console.log('📊 [MembersService] Usuários únicos encontrados:', userMembershipsMap.size);
+    console.log('📄 [MembersService] Paginação:', { page, limit, skip, total, paginatedCount: paginatedUsers.length });
 
     // Mapear para resposta
-    const members = Array.from(userMembershipsMap.values()).map(({ user, memberships }) => {
+    const members = paginatedUsers.map(({ user, memberships }) => {
       console.log('👤 [MembersService] Mapeando user:', {
-        id: user?._id,
-        name: user?.name,
-        email: user?.email,
-        role: user?.role,
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
         membershipsCount: memberships.length
       });
       return this.mapUserToMemberResponse(user, memberships);
@@ -404,15 +477,55 @@ export class MembersService {
     return this.getMemberById(id, tenantId);
   }
 
-  async deleteMember(id: string, tenantId: string, userRole: string): Promise<void> {
+  async deleteMember(id: string, tenantId: string, userRole: string, currentUserId?: string): Promise<void> {
     console.log('🗑️ [MembersService] Deletando membro com validações de integridade...');
     console.log('   - User ID:', id);
     console.log('   - Tenant ID:', tenantId);
     console.log('   - User Role:', userRole);
+    console.log('   - Current User ID:', currentUserId);
 
     const user = await this.userModel.findById(id);
     if (!user) {
       throw new Error('Usuário não encontrado');
+    }
+
+    // Validação específica para líderes
+    if (userRole === MembershipRole.Leader || userRole === 'leader') {
+      console.log('🔐 [MembersService] Validando permissões de líder para exclusão...');
+      
+      // Líder não pode excluir a si mesmo
+      if (currentUserId && currentUserId === id) {
+        throw new BadRequestException('Você não pode excluir a si mesmo');
+      }
+      
+      // Verificar se o membro a ser excluído pertence ao ministério do líder
+      const leaderMembership = await this.membershipModel.findOne({
+        user: new Types.ObjectId(currentUserId),
+        tenant: new Types.ObjectId(tenantId),
+        role: MembershipRole.Leader,
+        isActive: true
+      }).populate('ministry', '_id name');
+
+      if (!leaderMembership) {
+        throw new BadRequestException('Líder não encontrado ou inativo');
+      }
+
+      const leaderMinistryId = leaderMembership.ministry?._id?.toString();
+      console.log('🏢 [MembersService] Ministério do líder:', leaderMinistryId);
+
+      // Verificar se o membro a ser excluído pertence ao ministério do líder
+      const targetMembership = await this.membershipModel.findOne({
+        user: new Types.ObjectId(id),
+        tenant: new Types.ObjectId(tenantId),
+        ministry: new Types.ObjectId(leaderMinistryId),
+        isActive: true
+      });
+
+      if (!targetMembership) {
+        throw new BadRequestException('Você só pode excluir membros do seu próprio ministério');
+      }
+
+      console.log('✅ [MembersService] Permissões de líder validadas');
     }
 
     // Verificar se o tenant existe
@@ -428,13 +541,13 @@ export class MembersService {
     // 🗑️ REMOÇÃO EM CASCATA: Remover todos os vínculos relacionados ao usuário
     console.log('🗑️ [MembersService] Iniciando remoção em cascata de todos os vínculos...');
 
-    // 1. Remover todas as UserFunctions do usuário
-    console.log('🗑️ [MembersService] Removendo UserFunctions do usuário...');
-    const deletedFunctionsCount = await this.userFunctionModel.deleteMany({
+    // 1. Remover todas as MemberFunctions do usuário
+    console.log('🗑️ [MembersService] Removendo MemberFunctions do usuário...');
+    const deletedFunctionsCount = await this.memberFunctionModel.deleteMany({
       userId: new Types.ObjectId(id),
       tenantId: new Types.ObjectId(tenantId)
     });
-    console.log(`✅ [MembersService] ${deletedFunctionsCount.deletedCount} UserFunctions removidas`);
+    console.log(`✅ [MembersService] ${deletedFunctionsCount.deletedCount} MemberFunctions removidas`);
 
     // 2. Remover todos os memberships do usuário no tenant
     console.log('🗑️ [MembersService] Removendo memberships do usuário...');
@@ -449,12 +562,12 @@ export class MembersService {
     // 4. Remover referências em campos de auditoria (createdBy, updatedBy, approvedBy)
     console.log('🗑️ [MembersService] Removendo referências de auditoria...');
     
-    // UserFunctions com approvedBy
-    const updatedUserFunctionsCount = await this.userFunctionModel.updateMany(
+    // MemberFunctions com approvedBy
+    const updatedMemberFunctionsCount = await this.memberFunctionModel.updateMany(
       { approvedBy: new Types.ObjectId(id) },
       { $unset: { approvedBy: 1 } }
     );
-    console.log(`✅ [MembersService] ${updatedUserFunctionsCount.modifiedCount} UserFunctions com approvedBy atualizadas`);
+    console.log(`✅ [MembersService] ${updatedMemberFunctionsCount.modifiedCount} MemberFunctions com approvedBy atualizadas`);
 
     // Memberships com createdBy/updatedBy
     const updatedMembershipsCount = await this.membershipModel.updateMany(
@@ -479,9 +592,9 @@ export class MembersService {
     console.log('✅ [MembersService] Usuário deletado com sucesso');
 
     console.log('📊 [MembersService] Resumo da remoção em cascata:');
-    console.log(`   - UserFunctions removidas: ${deletedFunctionsCount.deletedCount}`);
+    console.log(`   - MemberFunctions removidas: ${deletedFunctionsCount.deletedCount}`);
     console.log(`   - Memberships removidos: ${deletedMembershipsCount.deletedCount}`);
-    console.log(`   - UserFunctions com approvedBy atualizadas: ${updatedUserFunctionsCount.modifiedCount}`);
+    console.log(`   - MemberFunctions com approvedBy atualizadas: ${updatedMemberFunctionsCount.modifiedCount}`);
     console.log(`   - Memberships com campos de auditoria atualizados: ${updatedMembershipsCount.modifiedCount}`);
     console.log(`   - Usuário deletado: ${id}`);
     console.log('✅ [MembersService] Remoção em cascata concluída com sucesso');
@@ -623,5 +736,85 @@ export class MembersService {
       createdAt: (user as any).createdAt || new Date(),
       updatedAt: (user as any).updatedAt || new Date(),
     };
+  }
+
+  /**
+   * Busca membros pendentes de aprovação em um ministério específico
+   */
+  async getPendingMembersByMinistry(
+    ministryId: string,
+    tenantId: string,
+    branchId?: string
+  ): Promise<MemberResponseDto[]> {
+    console.log('🔍 [MembersService] Buscando membros pendentes...');
+    console.log('   - Ministry ID:', ministryId);
+    console.log('   - Tenant ID:', tenantId);
+    console.log('   - Branch ID:', branchId);
+
+    try {
+      // Buscar memberships que precisam de aprovação do líder
+      // (usuários inativos OU que têm flag needsApproval)
+      const memberships = await this.membershipModel
+        .find({
+          ministry: new Types.ObjectId(ministryId),
+          tenant: new Types.ObjectId(tenantId),
+          $or: [
+            { isActive: false }, // Membros inativos (fluxo antigo)
+            { needsApproval: true } // Membros que precisam aprovação (fluxo novo)
+          ],
+          ...(branchId && { branch: new Types.ObjectId(branchId) })
+        })
+        .populate('user', 'name email phone role isActive createdAt profileCompleted')
+        .populate('ministry', 'name')
+        .populate('branch', 'name')
+        .populate('tenant', 'name')
+        .sort({ createdAt: -1 }); // Mais recentes primeiro
+
+      console.log(`✅ Encontrados ${memberships.length} membros pendentes de aprovação`);
+
+      // Converter para DTO
+      const pendingMembers: MemberResponseDto[] = memberships.map(membership => {
+        const user = membership.user as any;
+        return {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          isActive: user.isActive,
+          profileCompleted: user.profileCompleted || false,
+          memberships: [{
+            id: (membership as any)._id.toString(),
+            role: membership.role,
+            tenant: {
+              id: (membership.tenant as any)._id.toString(),
+              tenantId: (membership.tenant as any).tenantId,
+              name: (membership.tenant as any).name,
+            },
+            branch: membership.branch ? {
+              id: (membership.branch as any)._id.toString(),
+              branchId: (membership.branch as any).branchId,
+              name: (membership.branch as any).name,
+            } : undefined,
+            ministry: {
+              id: (membership.ministry as any)._id.toString(),
+              name: (membership.ministry as any).name,
+            },
+            isActive: membership.isActive,
+            createdAt: (membership as any).createdAt || new Date(),
+            updatedAt: (membership as any).updatedAt || new Date(),
+          }],
+          createdAt: user.createdAt || new Date(),
+          updatedAt: user.updatedAt || new Date(),
+        };
+      });
+
+      console.log('✅ Membros pendentes convertidos para DTO');
+      return pendingMembers;
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar membros pendentes:', error);
+      throw new BadRequestException('Erro ao buscar membros pendentes');
+    }
   }
 }

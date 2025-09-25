@@ -1,3 +1,0 @@
-    "moduleNameMapping": {
-      "^src/(.*)$": "<rootDir>/$1"
-    }

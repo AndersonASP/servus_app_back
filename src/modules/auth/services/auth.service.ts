@@ -69,6 +69,14 @@ export class AuthService {
       );
     }
 
+    // Verificar se o usuário está ativo
+    if (!user.isActive) {
+      console.log('❌ [AUTH] Usuário inativo - bloqueando login');
+      throw new UnauthorizedException(
+        'Sua conta está aguardando aprovação do líder do ministério. Entre em contato com o líder ou aguarde a aprovação.',
+      );
+    }
+
     console.log('🔐 [AUTH] Comparando senhas...');
     const ok = await bcrypt.compare(loginDto.password ?? '', user.password);
     console.log('🔐 [AUTH] Senha válida:', ok);
@@ -107,6 +115,14 @@ export class AuthService {
     if (!user) {
       console.log('❌ [AUTH] Usuário não encontrado na base de dados:', email);
       throw new NotFoundException(`Usuário com email ${email} não está cadastrado no sistema. Entre em contato com o administrador para solicitar acesso.`);
+    }
+
+    // Verificar se o usuário está ativo
+    if (!user.isActive) {
+      console.log('❌ [AUTH] Usuário inativo - bloqueando login Google');
+      throw new UnauthorizedException(
+        'Sua conta está aguardando aprovação do líder do ministério. Entre em contato com o líder ou aguarde a aprovação.',
+      );
     }
 
     return this.generateTokensAndResponse(user, deviceId, {
@@ -205,6 +221,10 @@ export class AuthService {
 
       if (tenant) {
         // Buscar memberships do usuário neste tenant
+        console.log('🔍 [AUTH] Buscando memberships do usuário:');
+        console.log('   - User ID:', user._id);
+        console.log('   - Tenant ID:', opts.tenantSlug);
+        
         const memberships = await this.memModel
           .find({
             user: user._id,
@@ -221,12 +241,26 @@ export class AuthService {
             select: '_id name',
             match: { isActive: true },
           })
-          .select('role branch ministry')
+          .select('role branch ministry isActive')
           .lean();
+          
+        console.log('🔍 [AUTH] Memberships encontrados:', memberships.length);
+        memberships.forEach((m, index) => {
+          console.log(`   - Membership ${index + 1}:`);
+          console.log(`     - Role: ${m.role}`);
+          console.log(`     - IsActive: ${m.isActive}`);
+          console.log(`     - Branch: ${m.branch ? 'Sim' : 'Não'}`);
+          console.log(`     - Ministry: ${m.ministry ? 'Sim' : 'Não'}`);
+        });
 
         if (memberships.length > 0) {
           // 🆕 Atualizar claims de segurança com dados do tenant específico
           const mainMembership = memberships[0];
+          console.log('🔍 [AUTH] Usando membership principal:');
+          console.log('   - Role do usuário:', user.role);
+          console.log('   - Role do membership:', mainMembership.role);
+          console.log('   - Membership ativo:', mainMembership.isActive);
+          
           securityClaims.tenantId = tenant._id.toString(); // ObjectId como string
           securityClaims.branchId =
             (mainMembership.branch as any)?.branchId || null;
@@ -235,6 +269,10 @@ export class AuthService {
             user.role,
             mainMembership.role,
           );
+          
+          console.log('🔍 [AUTH] Claims de segurança definidos:');
+          console.log('   - membershipRole:', securityClaims.membershipRole);
+          console.log('   - permissions:', securityClaims.permissions);
 
           // 🆕 Adicionar dados não sensíveis na resposta (apenas para UI)
           response.tenant = {

@@ -453,8 +453,6 @@ export class UsersService {
   // 🔍 Buscar memberships ativos do usuário
   async getUserMemberships(userId: string) {
     console.log('🔍 [SERVICE] Buscando memberships do usuário...');
-    console.log('👤 [SERVICE] User ID:', userId);
-    console.log('👤 [SERVICE] User ID tipo:', typeof userId);
     
     // Converte userId para ObjectId se necessário
     let userObjectId;
@@ -862,6 +860,7 @@ export class UsersService {
   }
 
   // 🔎 Listar voluntários por ministry (Leader)
+
   async listVolunteersByMinistry(
     tenantId: string,
     ministryId: string,
@@ -983,6 +982,48 @@ export class UsersService {
       },
       { $unwind: { path: '$branchData', preserveNullAndEmptyArrays: true } },
       {
+        $lookup: {
+          from: 'memberfunctions',
+          let: { userId: '$userData._id', ministryId: '$ministry' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$memberId', '$$userId'] },
+                    { $eq: ['$ministryId', '$$ministryId'] },
+                    { $eq: ['$status', 'aprovado'] },
+                    { $eq: ['$isActive', true] }
+                  ]
+                }
+              }
+            },
+            {
+              $lookup: {
+                from: 'functions',
+                localField: 'functionId',
+                foreignField: '_id',
+                as: 'functionData'
+              }
+            },
+            { $unwind: { path: '$functionData', preserveNullAndEmptyArrays: true } },
+            {
+              $project: {
+                _id: 1,
+                status: 1,
+                approvedAt: 1,
+                function: {
+                  _id: '$functionData._id',
+                  name: '$functionData.name',
+                  description: '$functionData.description'
+                }
+              }
+            }
+          ],
+          as: 'functions'
+        }
+      },
+      {
         $project: {
           _id: '$userData._id',
           name: '$userData.name',
@@ -997,6 +1038,7 @@ export class UsersService {
             branch: '$branchData',
             isActive: '$isActive',
           },
+          functions: '$functions',
         },
       },
     ]);

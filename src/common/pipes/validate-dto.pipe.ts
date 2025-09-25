@@ -34,7 +34,7 @@ export class ValidateDtoPipe implements PipeTransform {
       // Valida
       const errors = await validate(object, {
         whitelist: true, // Remove propriedades não declaradas no DTO
-        forbidNonWhitelisted: true, // Lança erro se vier propriedade não declarada
+        forbidNonWhitelisted: false, // Permitir propriedades não declaradas para campos dinâmicos
         forbidUnknownValues: true,
       });
 

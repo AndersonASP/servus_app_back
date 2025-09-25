@@ -14,22 +14,27 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { MembersService } from '../services/members.service';
+import { MembershipService } from '../../membership/services/membership.service';
 import { CreateMemberDto } from '../dto/create-member.dto';
 import { UpdateMemberDto } from '../dto/update-member.dto';
 import { MemberFilterDto } from '../dto/member-filter.dto';
 import { MemberResponseDto } from '../dto/member-response.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { PolicyGuard } from 'src/common/guards/policy.guard';
 import { RequiresPerm } from 'src/common/decorators/requires-perm.decorator';
-import { PERMS } from 'src/common/enums/role.enum';
+import { PERMS, Role, MembershipRole } from 'src/common/enums/role.enum';
 import { Authorize } from 'src/common/decorators/authorize/authorize.decorator';
 import { resolveTenantAndBranchScope } from 'src/common/utils/helpers/user-scope.util';
 
 @ApiTags('Members')
 @ApiBearerAuth()
 @Controller('members')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PolicyGuard)
 export class MembersController {
-  constructor(private readonly membersService: MembersService) {}
+  constructor(
+    private readonly membersService: MembersService,
+    private readonly membershipService: MembershipService,
+  ) {}
 
   @Post()
   @ApiOperation({ 
@@ -54,8 +59,14 @@ export class MembersController {
     status: 409, 
     description: 'Email ou telefone já está em uso no tenant' 
   })
-  @RequiresPerm(PERMS.MANAGE_USERS)
-  @Authorize({ anyOf: [] })
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
+    ]
+  })
   async createMember(
     @Body() createMemberDto: CreateMemberDto,
     @Req() req: any,
@@ -98,8 +109,14 @@ export class MembersController {
   }
 
   @Get()
-  @RequiresPerm(PERMS.MANAGE_USERS)
-  @Authorize({ anyOf: [] })
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
+    ]
+  })
   async getMembers(
     @Query() filters: MemberFilterDto,
     @Req() req: any,
@@ -108,9 +125,51 @@ export class MembersController {
       dtoBranchId: filters.branchId,
     });
     if (!tenantId) throw new BadRequestException('Tenant ID não encontrado');
-    const userRole = req.user.memberships?.find(m => m.tenant === tenantId)?.role || 'volunteer';
+    const currentUserId = req.user.sub || req.user._id;
     
-    return this.membersService.getMembers(filters, tenantId, userRole);
+    // Buscar o membership do usuário atual no banco de dados
+    const userMembership = await this.membershipService.getUserMembership(currentUserId, tenantId);
+    
+    const userRole = userMembership?.role || 'volunteer';
+    
+    console.log('🔍 [MembersController] User info:', {
+      userId: currentUserId,
+      userRole: userRole,
+      tenantId: tenantId,
+      userMembership: userMembership ? { role: userMembership.role, ministry: userMembership.ministry } : null,
+      reqUserMemberships: req.user.memberships?.map(m => ({ tenant: m.tenant, role: m.role }))
+    });
+    
+    return this.membersService.getMembers(filters, tenantId, userRole, currentUserId);
+  }
+
+  @Get('ministry/:ministryId/pending')
+  @ApiOperation({ 
+    summary: 'Listar membros pendentes de aprovação',
+    description: 'Retorna membros que se registraram via código de convite e estão aguardando aprovação do líder'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Lista de membros pendentes',
+    type: [MemberResponseDto]
+  })
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
+    ]
+  })
+  async getPendingMembersByMinistry(
+    @Param('ministryId') ministryId: string,
+    @Req() req: any
+  ): Promise<MemberResponseDto[]> {
+    const { tenantId, branchId } = resolveTenantAndBranchScope(req.user);
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID não encontrado');
+    }
+    return await this.membersService.getPendingMembersByMinistry(ministryId, tenantId, branchId);
   }
 
   @Get(':id')
@@ -144,17 +203,27 @@ export class MembersController {
   }
 
   @Delete(':id')
-  @RequiresPerm(PERMS.MANAGE_USERS)
-  @Authorize({ anyOf: [] })
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
+    ]
+  })
   async deleteMember(
     @Param('id') id: string,
     @Req() req: any,
   ): Promise<void> {
     const { tenantId } = resolveTenantAndBranchScope(req.user);
     if (!tenantId) throw new BadRequestException('Tenant ID não encontrado');
-    const userRole = req.user.memberships?.find(m => m.tenant === tenantId)?.role || 'volunteer';
+    const currentUserId = req.user.sub || req.user._id;
     
-    return this.membersService.deleteMember(id, tenantId, userRole);
+    // Buscar o membership do usuário atual no banco de dados
+    const userMembership = await this.membershipService.getUserMembership(currentUserId, tenantId);
+    const userRole = userMembership?.role || 'volunteer';
+    
+    return this.membersService.deleteMember(id, tenantId, userRole, currentUserId);
   }
 
   @Patch(':id/toggle-status')

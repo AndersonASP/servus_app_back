@@ -36,12 +36,12 @@ export class MemberFunctionController {
       { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
     ]
   })
-  async getUserFunctions(
+  async getMemberFunctions(
     @Param('userId') userId: string,
     @Request() req: any
   ): Promise<MemberFunctionResponseDto[]> {
     const tenantId = await this.findUserTenantId(req);
-    return await this.memberFunctionService.getUserFunctionsByUser(userId, tenantId);
+    return await this.memberFunctionService.getMemberFunctionsByUser(userId, tenantId);
   }
 
   /**
@@ -57,13 +57,13 @@ export class MemberFunctionController {
       { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
     ]
   })
-  async getUserFunctionsByUserAndMinistry(
+  async getMemberFunctionsByUserAndMinistry(
     @Param('userId') userId: string,
     @Param('ministryId') ministryId: string,
     @Request() req: any,
     @Query('status') status?: MemberFunctionStatus
   ): Promise<MemberFunctionResponseDto[]> {
-    console.log('🎯 [MemberFunctionController] getUserFunctionsByUserAndMinistry chamado');
+    console.log('🎯 [MemberFunctionController] getMemberFunctionsByUserAndMinistry chamado');
     console.log('   - userId:', userId);
     console.log('   - ministryId:', ministryId);
     console.log('   - status:', status);
@@ -76,7 +76,7 @@ export class MemberFunctionController {
     console.log('   - tenantId é null?', tenantId === null);
     
     try {
-      const result = await this.memberFunctionService.getUserFunctionsByUserAndMinistry(userId, ministryId, status, tenantId);
+      const result = await this.memberFunctionService.getMemberFunctionsByUserAndMinistry(userId, ministryId, status, tenantId);
       console.log('✅ [MemberFunctionController] Resultado retornado:', JSON.stringify(result, null, 2));
       return result;
     } catch (error) {

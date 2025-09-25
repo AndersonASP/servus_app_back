@@ -24,9 +24,9 @@ import {
   MinistrySchema,
 } from 'src/modules/ministries/schemas/ministry.schema';
 import {
-  UserFunction,
-  UserFunctionSchema,
-} from 'src/modules/functions/schemas/user-function.schema';
+  MemberFunction,
+  MemberFunctionSchema,
+} from 'src/modules/functions/schemas/member-function.schema';
 import { cacheConfig } from 'src/config/cache.config';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 import { MembershipsModule } from 'src/modules/membership/memberships.module';
@@ -39,7 +39,7 @@ import { MembershipsModule } from 'src/modules/membership/memberships.module';
       { name: Tenant.name, schema: TenantSchema },
       { name: Branch.name, schema: BranchSchema },
       { name: Ministry.name, schema: MinistrySchema },
-      { name: UserFunction.name, schema: UserFunctionSchema },
+      { name: MemberFunction.name, schema: MemberFunctionSchema },
     ]),
     CacheModule.register(cacheConfig),
     NotificationsModule,

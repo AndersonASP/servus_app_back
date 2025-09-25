@@ -11,7 +11,10 @@ export interface NotificationData {
     | 'user_created'
     | 'user_profile_completed'
     | 'membership_created'
-    | 'user_joined_ministry';
+    | 'user_joined_ministry'
+    | 'volunteer_submission_pending' // 🆕 Nova submissão de voluntário
+    | 'volunteer_submission_approved' // 🆕 Voluntário aprovado
+    | 'volunteer_submission_rejected'; // 🆕 Voluntário rejeitado
   title: string;
   message: string;
   data: any;
@@ -332,6 +335,104 @@ export class NotificationService {
   // 🆔 Gerar ID único
   private generateId(): string {
     return `notification_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  }
+
+  // 🆕 Notificar líderes sobre nova submissão de voluntário
+  async notifyMinistryLeadersAboutSubmission(
+    submission: any,
+    ministryId: string,
+    tenantId: string,
+  ): Promise<void> {
+    try {
+      console.log(`🔔 [NotificationService] Notificando líderes sobre submissão de voluntário`);
+
+      // Buscar líderes do ministério
+      const leaders = await this.getMinistryLeaders(tenantId, ministryId);
+      
+      if (leaders.length === 0) {
+        console.log(`⚠️ [NotificationService] Nenhum líder encontrado para ministério ${ministryId}`);
+        return;
+      }
+
+      const notification: NotificationData = {
+        id: `submission_${submission._id}`,
+        type: 'volunteer_submission_pending',
+        title: 'Nova Submissão de Voluntário',
+        message: `${submission.volunteerName} submeteu candidatura para o ministério`,
+        data: {
+          submissionId: submission._id,
+          volunteerName: submission.volunteerName,
+          volunteerEmail: submission.email,
+          ministryId,
+          selectedFunctions: submission.selectedFunctions || [],
+        },
+        recipients: leaders.map(leader => leader._id.toString()),
+        tenantId,
+        ministryId,
+        createdAt: new Date(),
+        readBy: [],
+        actionUrl: `/ministry-approvals/ministries/${ministryId}/pending`,
+      };
+
+      await this.sendNotificationToUsers(notification, leaders);
+      
+      console.log(`✅ [NotificationService] Notificação enviada para ${leaders.length} líderes`);
+    } catch (error) {
+      console.error('❌ [NotificationService] Erro ao notificar líderes:', error);
+    }
+  }
+
+  // 🆕 Notificar voluntário sobre aprovação/rejeição
+  async notifyVolunteerAboutDecision(
+    submission: any,
+    decision: 'approved' | 'rejected',
+    leaderName: string,
+    notes?: string,
+  ): Promise<void> {
+    try {
+      console.log(`🔔 [NotificationService] Notificando voluntário sobre decisão: ${decision}`);
+
+      const notification: NotificationData = {
+        id: `decision_${submission._id}`,
+        type: decision === 'approved' ? 'volunteer_submission_approved' : 'volunteer_submission_rejected',
+        title: decision === 'approved' ? 'Candidatura Aprovada!' : 'Candidatura Não Aprovada',
+        message: decision === 'approved' 
+          ? `Sua candidatura foi aprovada por ${leaderName}. Bem-vindo ao ministério!`
+          : `Sua candidatura não foi aprovada por ${leaderName}. ${notes || ''}`,
+        data: {
+          submissionId: submission._id,
+          volunteerName: submission.volunteerName,
+          volunteerEmail: submission.email,
+          ministryId: submission.preferredMinistry,
+          decision,
+          leaderName,
+          notes,
+        },
+        recipients: [submission.email], // Usar email como identificador
+        tenantId: submission.tenantId.toString(),
+        ministryId: submission.preferredMinistry?.toString(),
+        createdAt: new Date(),
+        readBy: [],
+        actionUrl: decision === 'approved' ? '/dashboard' : '/forms',
+      };
+
+      // Para notificações de voluntários, enviar por email
+      await this.sendVolunteerEmailNotification(notification);
+      
+      console.log(`✅ [NotificationService] Notificação de ${decision} enviada para ${submission.email}`);
+    } catch (error) {
+      console.error('❌ [NotificationService] Erro ao notificar voluntário:', error);
+    }
+  }
+
+  // 🆕 Enviar notificação por email para voluntários
+  private async sendVolunteerEmailNotification(notification: NotificationData): Promise<void> {
+    // TODO: Implementar envio de email específico para voluntários
+    console.log('📧 Email de notificação para voluntário:', {
+      type: notification.type,
+      title: notification.title,
+      recipient: notification.recipients[0],
+    });
   }
 
   // 📊 Estatísticas de notificações

@@ -350,4 +350,5 @@ export class MinistriesService {
 
     return doc.toObject();
   }
+
 }

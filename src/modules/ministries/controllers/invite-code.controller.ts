@@ -18,6 +18,8 @@ import {
   RegisterWithInviteDto,
 } from '../dto/invite-code.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { Public } from 'src/common/decorators/public.decorator';
+import { resolveTenantAndBranchScope } from 'src/common/utils/helpers/user-scope.util';
 
 @Controller('invite-codes')
 export class InviteCodeController {
@@ -26,6 +28,7 @@ export class InviteCodeController {
   /**
    * Valida um código de convite (público)
    */
+  @Public()
   @Post('validate')
   async validateInviteCode(
     @Body() validateDto: ValidateInviteCodeDto,
@@ -44,6 +47,7 @@ export class InviteCodeController {
   /**
    * Registra um novo usuário usando código de convite (público)
    */
+  @Public()
   @Post('register')
   async registerWithInviteCode(
     @Body() registerDto: RegisterWithInviteDto,
@@ -84,8 +88,7 @@ export class InviteCodeController {
       // TODO: Verificar permissões do usuário para este ministério
       // Por enquanto, assumindo que o usuário tem permissão
 
-      const tenantId = req.user?.tenantId;
-      const branchId = req.user?.branchId;
+      const { tenantId, branchId } = resolveTenantAndBranchScope(req.user);
 
       if (!tenantId) {
         return res.status(HttpStatus.BAD_REQUEST).json({
@@ -96,7 +99,7 @@ export class InviteCodeController {
       const result = await this.inviteCodeService.createOrRegenerateInviteCode(
         ministryId,
         tenantId,
-        branchId,
+        branchId || null,
         userId,
         createDto,
       );
@@ -164,8 +167,7 @@ export class InviteCodeController {
         });
       }
 
-      const tenantId = req.user?.tenantId;
-      const branchId = req.user?.branchId;
+      const { tenantId, branchId } = resolveTenantAndBranchScope(req.user);
 
       if (!tenantId) {
         return res.status(HttpStatus.BAD_REQUEST).json({
@@ -176,7 +178,7 @@ export class InviteCodeController {
       const result = await this.inviteCodeService.createOrRegenerateInviteCode(
         ministryId,
         tenantId,
-        branchId,
+        branchId || null,
         userId,
         { ...createDto, regenerate: true },
       );

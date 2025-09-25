@@ -24,8 +24,12 @@ export async function resolveScope(
   tenantOid: Types.ObjectId,
   memModel: Model<Membership>,
 ): Promise<RbacScope> {
+  console.log('🔍 resolveScope - user:', { _id: user._id, role: user.role, email: user.email });
+  console.log('🔍 resolveScope - tenantOid:', tenantOid);
+
   // 1) Servus admin: pode tudo (acima de qualquer tenant/branch)
   if (user.role === Role.ServusAdmin) {
+    console.log('✅ resolveScope - ServusAdmin detectado');
     return {
       isServusAdmin: true,
       isTenantAdmin: true,
@@ -37,12 +41,15 @@ export async function resolveScope(
   // 2) Escopo via memberships
   const ms = await memModel
     .find({
-      user: user._id,
+      user: new Types.ObjectId(user._id),
       tenant: tenantOid,
       isActive: true,
     })
     .select('role branch ministry')
     .lean();
+
+  console.log('🔍 resolveScope - memberships encontrados:', ms.length);
+  console.log('🔍 resolveScope - memberships:', ms);
 
   const isTenantAdmin = ms.some((m) => m.role === 'tenant_admin' && !m.branch);
 
@@ -57,7 +64,10 @@ export async function resolveScope(
       ministry: m.ministry as Types.ObjectId,
     }));
 
-  return { isServusAdmin: false, isTenantAdmin, branchAdminIds, leaderPairs };
+  const scope = { isServusAdmin: false, isTenantAdmin, branchAdminIds, leaderPairs };
+  console.log('🔍 resolveScope - scope final:', scope);
+
+  return scope;
 }
 
 /** Retorna stages ($match) de RBAC para usar no aggregation pipeline */
@@ -77,16 +87,17 @@ export function buildRbacMatch(scope: RbacScope) {
 
   // leader: restringe aos pares (branch,ministry) que lidera
   if (scope.leaderPairs.length) {
-    blocks.push({
-      $or: scope.leaderPairs.map((p) => ({
-        $and: [
-          { ministry: p.ministry },
-          ...(p.branch
-            ? [{ branch: p.branch }]
-            : [{ $or: [{ branch: { $exists: false } }, { branch: null }] }]),
-        ],
-      })),
+    const leaderConditions = scope.leaderPairs.map((p) => {
+      const condition: any = { ministry: p.ministry };
+      if (p.branch) {
+        condition.branch = p.branch;
+      } else {
+        condition.branch = null;
+      }
+      return condition;
     });
+    
+    blocks.push({ $or: leaderConditions });
   }
 
   // sem papel válido → bloqueia resultados

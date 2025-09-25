@@ -90,6 +90,33 @@ export class MembershipIntegrityService {
 
       if (existingDefaultMembership) {
         console.log('✅ [MembershipIntegrity] Membership padrão já existe:', existingDefaultMembership._id);
+        
+        // Se o membership padrão está inativo, reativá-lo para permitir novos vínculos
+        if (!existingDefaultMembership.isActive) {
+          console.log('🔄 [MembershipIntegrity] Reativando membership padrão inativo...');
+          
+          const updateData: any = {
+            isActive: true,
+          };
+          
+          if (createdBy) {
+            updateData.updatedBy = new Types.ObjectId(createdBy);
+          }
+          
+          const reactivatedMembership = await this.membershipModel.findByIdAndUpdate(
+            existingDefaultMembership._id,
+            updateData,
+            { new: true }
+          );
+          
+          if (!reactivatedMembership) {
+            throw new Error('Falha ao reativar membership padrão');
+          }
+          
+          console.log('✅ [MembershipIntegrity] Membership padrão reativado:', reactivatedMembership._id);
+          return reactivatedMembership;
+        }
+        
         return existingDefaultMembership;
       }
 
@@ -101,7 +128,8 @@ export class MembershipIntegrityService {
         branch: null, // Matriz
         ministry: null, // Sem ministério específico
         role: MembershipRole.Volunteer,
-        isActive: false, // Inativo até ser vinculado a um ministério
+        isActive: true, // Ativo para permitir vínculos futuros
+        createdBy: createdBy ? new Types.ObjectId(createdBy) : undefined,
       });
 
       const savedMembership = await defaultMembership.save();
@@ -207,7 +235,7 @@ export class MembershipIntegrityService {
     totalMemberships: number;
     activeMemberships: number;
     inactiveMemberships: number;
-    totalUserFunctions: number;
+    totalMemberFunctions: number;
     ministries: string[];
     branches: string[];
   }> {
@@ -215,7 +243,7 @@ export class MembershipIntegrityService {
     console.log('   - User ID:', userId);
     console.log('   - Tenant ID:', tenantId);
 
-    const [totalMemberships, activeMemberships, inactiveMemberships, userFunctions, memberships] = await Promise.all([
+    const [totalMemberships, activeMemberships, inactiveMemberships, memberFunctions, memberships] = await Promise.all([
       this.membershipModel.countDocuments({
         user: new Types.ObjectId(userId),
         tenant: new Types.ObjectId(tenantId)
@@ -248,7 +276,7 @@ export class MembershipIntegrityService {
       totalMemberships,
       activeMemberships,
       inactiveMemberships,
-      totalUserFunctions: userFunctions,
+      totalMemberFunctions: memberFunctions,
       ministries,
       branches
     };

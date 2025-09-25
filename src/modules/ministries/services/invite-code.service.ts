@@ -15,6 +15,8 @@ import {
   InviteCodeValidationDto 
 } from '../dto/invite-code.dto';
 import { MembershipRole } from 'src/common/enums/role.enum';
+import { FunctionsService } from '../../functions/services/functions.service';
+import { MemberFunctionService, CreateMemberFunctionDto } from '../../functions/services/member-function.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -26,6 +28,8 @@ export class InviteCodeService {
     @InjectModel('Tenant') private tenantModel: Model<Tenant>,
     @InjectModel('User') private userModel: Model<User>,
     @InjectModel('Membership') private membershipModel: Model<Membership>,
+    private readonly functionsService: FunctionsService,
+    private readonly memberFunctionService: MemberFunctionService,
   ) {}
 
   /**
@@ -81,13 +85,31 @@ export class InviteCodeService {
     createInviteCodeDto: CreateInviteCodeDto,
   ): Promise<InviteCodeResponseDto> {
     console.log('🎫 Criando/regenerando código de convite...');
-    console.log('   - Ministry ID:', ministryId);
-    console.log('   - Tenant ID:', tenantId);
-    console.log('   - Branch ID:', branchId);
-    console.log('   - Created By:', createdBy);
+    console.log('   - Ministry ID:', ministryId, '(tipo:', typeof ministryId, ')');
+    console.log('   - Tenant ID:', tenantId, '(tipo:', typeof tenantId, ')');
+    console.log('   - Branch ID:', branchId, '(tipo:', typeof branchId, ')');
+    console.log('   - Created By:', createdBy, '(tipo:', typeof createdBy, ')');
+
+    // Verificar se os IDs são válidos
+    try {
+      new Types.ObjectId(ministryId);
+      new Types.ObjectId(tenantId);
+      if (branchId) new Types.ObjectId(branchId);
+      new Types.ObjectId(createdBy);
+      console.log('✅ Todos os IDs são válidos');
+    } catch (error) {
+      console.error('❌ ID inválido:', error);
+      throw new BadRequestException('ID inválido fornecido');
+    }
 
     // Verificar se o ministério existe
     const ministry = await this.ministryModel.findById(ministryId);
+    console.log('🔍 Ministério encontrado na criação do código:');
+    console.log('   - Ministry ID:', ministryId);
+    console.log('   - Ministry encontrado:', !!ministry);
+    console.log('   - Ministry name:', ministry?.name);
+    console.log('   - Ministry isActive:', ministry?.isActive);
+    
     if (!ministry) {
       throw new NotFoundException('Ministério não encontrado');
     }
@@ -164,7 +186,9 @@ export class InviteCodeService {
     const inviteCode = await this.inviteCodeModel.findOne({
       code: validateDto.code.toUpperCase(),
       isActive: true,
-    }).populate('ministryId', 'name').populate('tenantId', 'name').populate('branchId', 'name');
+    });
+
+    console.log('🔍 InviteCode encontrado (raw):', inviteCode);
 
     if (!inviteCode) {
       return {
@@ -172,6 +196,23 @@ export class InviteCodeService {
         message: 'Código de convite inválido ou expirado',
       };
     }
+
+    // Buscar dados relacionados separadamente
+    const [ministry, tenant, branch] = await Promise.all([
+      this.ministryModel.findById(inviteCode.ministryId).select('name isActive'),
+      this.tenantModel.findById(inviteCode.tenantId).select('name'),
+      inviteCode.branchId ? this.branchModel.findById(inviteCode.branchId).select('name') : null,
+    ]);
+
+    console.log('🔍 Dados relacionados encontrados:');
+    console.log('   - Ministry:', ministry);
+    console.log('   - Tenant:', tenant);
+    console.log('   - Branch:', branch);
+
+    console.log('🔍 Dados do inviteCode encontrado:');
+    console.log('   - ministryId:', inviteCode.ministryId, '(tipo:', typeof inviteCode.ministryId, ')');
+    console.log('   - tenantId:', inviteCode.tenantId, '(tipo:', typeof inviteCode.tenantId, ')');
+    console.log('   - branchId:', inviteCode.branchId, '(tipo:', typeof inviteCode.branchId, ')');
 
     // Verificar se o código expirou
     if (inviteCode.expiresAt && inviteCode.expiresAt < new Date()) {
@@ -182,13 +223,28 @@ export class InviteCodeService {
     }
 
     // Verificar se o ministério ainda está ativo
-    const ministry = await this.ministryModel.findById(inviteCode.ministryId);
-    if (!ministry || !ministry.isActive) {
+    console.log('🔍 Verificando status do ministério:');
+    console.log('   - Ministry encontrado:', !!ministry);
+    console.log('   - Ministry isActive:', ministry?.isActive);
+    console.log('   - Ministry name:', ministry?.name);
+    
+    if (!ministry) {
+      console.log('❌ Ministério não encontrado no banco');
+      return {
+        isValid: false,
+        message: 'Ministério não encontrado',
+      };
+    }
+    
+    if (!ministry.isActive) {
+      console.log('❌ Ministério está inativo');
       return {
         isValid: false,
         message: 'Ministério não está mais ativo',
       };
     }
+    
+    console.log('✅ Ministério está ativo');
 
     return {
       isValid: true,
@@ -196,7 +252,7 @@ export class InviteCodeService {
       ministryName: ministry.name,
       tenantId: inviteCode.tenantId.toString(),
       branchId: inviteCode.branchId?.toString(),
-      branchName: inviteCode.branchId ? (inviteCode.branchId as any).name : undefined,
+      branchName: branch?.name,
       expiresAt: inviteCode.expiresAt,
     };
   }
@@ -209,24 +265,32 @@ export class InviteCodeService {
     console.log('   - Code:', registerDto.code);
     console.log('   - Name:', registerDto.name);
     console.log('   - Email:', registerDto.email);
+    console.log('   - Phone:', registerDto.phone);
 
     // Validar código
     const validation = await this.validateInviteCode({ code: registerDto.code });
     if (!validation.isValid) {
+      console.log('❌ Código inválido:', validation.message);
       throw new BadRequestException(validation.message);
     }
+
+    console.log('✅ Código válido:', validation);
 
     // Verificar se email já existe
     const existingUser = await this.userModel.findOne({ email: registerDto.email });
     if (existingUser) {
+      console.log('❌ Email já existe:', registerDto.email);
       throw new BadRequestException('Email já está em uso');
     }
+
+    console.log('✅ Email disponível');
 
     // Hash da senha
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(registerDto.password, saltRounds);
+    console.log('✅ Senha hashada');
 
-    // Criar usuário
+    // Criar usuário (INATIVO até aprovação de função)
     const userData = {
       name: registerDto.name,
       email: registerDto.email,
@@ -234,51 +298,94 @@ export class InviteCodeService {
       password: hashedPassword,
       role: 'volunteer', // Sempre volunteer para convites
       profileCompleted: false,
-      isActive: true,
+      isActive: false, // INATIVO até aprovação
+      tenantId: new Types.ObjectId(validation.tenantId), // ✅ Adicionar tenantId no registro
     };
+
+    console.log('📝 Criando usuário INATIVO com dados:', userData);
 
     const newUser = new this.userModel(userData);
     await newUser.save();
-    console.log('✅ Usuário criado:', newUser._id);
+    console.log('✅ Usuário criado (INATIVO):', newUser._id);
 
-    // Criar membership
-    const membershipData = {
-      user: newUser._id,
-      tenant: new Types.ObjectId(validation.tenantId!),
-      branch: validation.branchId ? new Types.ObjectId(validation.branchId) : null,
-      ministry: new Types.ObjectId(validation.ministryId!),
-      role: MembershipRole.Volunteer,
-      isActive: true,
-      createdBy: newUser._id, // Auto-criado
-    };
+    // Criar membership (INATIVO até aprovação de função)
+    console.log('🔍 Dados de validação para membership:');
+    console.log('   - tenantId:', validation.tenantId, '(tipo:', typeof validation.tenantId, ')');
+    console.log('   - branchId:', validation.branchId, '(tipo:', typeof validation.branchId, ')');
+    console.log('   - ministryId:', validation.ministryId, '(tipo:', typeof validation.ministryId, ')');
 
-    const membership = new this.membershipModel(membershipData);
-    await membership.save();
-    console.log('✅ Membership criado:', membership._id);
+    // Verificar se os IDs são válidos antes de converter
+    try {
+      const tenantObjectId = new Types.ObjectId(validation.tenantId!);
+      const ministryObjectId = new Types.ObjectId(validation.ministryId!);
+      const branchObjectId = validation.branchId ? new Types.ObjectId(validation.branchId) : null;
+      
+      console.log('✅ IDs convertidos com sucesso:');
+      console.log('   - tenantObjectId:', tenantObjectId);
+      console.log('   - ministryObjectId:', ministryObjectId);
+      console.log('   - branchObjectId:', branchObjectId);
 
-    // Incrementar contador de uso do código
-    await this.inviteCodeModel.findOneAndUpdate(
-      { code: registerDto.code.toUpperCase() },
-      { $inc: { usageCount: 1 } }
-    );
-
-    console.log('✅ Usuário registrado e vinculado ao ministério');
-
-    return {
-      user: {
-        id: newUser._id,
-        name: newUser.name,
-        email: newUser.email,
-        phone: newUser.phone,
-        role: newUser.role,
-      },
-      membership: {
-        id: membership._id,
-        ministryId: validation.ministryId,
-        ministryName: validation.ministryName,
+      const membershipData = {
+        user: newUser._id,
+        tenant: tenantObjectId,
+        branch: branchObjectId,
+        ministry: ministryObjectId,
         role: MembershipRole.Volunteer,
-      },
-    };
+        isActive: false, // INATIVO até aprovação
+        needsApproval: true, // Precisa de aprovação do líder
+        source: 'invite', // Origem: código de convite
+        sourceData: {
+          inviteCode: registerDto.code.toUpperCase(),
+        },
+        createdBy: newUser._id, // Auto-criado
+      };
+
+      console.log('📝 Criando membership INATIVO com dados:', membershipData);
+
+      const membership = new this.membershipModel(membershipData);
+      await membership.save();
+      console.log('✅ Membership criado (INATIVO):', membership._id);
+      console.log('✅ Membership role:', membership.role);
+      console.log('✅ Membership isActive:', membership.isActive);
+
+      // Incrementar contador de uso do código
+      await this.inviteCodeModel.findOneAndUpdate(
+        { code: registerDto.code.toUpperCase() },
+        { $inc: { usageCount: 1 } }
+      );
+
+      console.log('✅ Contador de uso incrementado');
+
+      // ✅ NÃO criar MemberFunctions automaticamente para invites
+      // As funções serão criadas apenas quando o líder aprovar e escolher as funções
+      console.log('ℹ️ MemberFunctions não serão criadas automaticamente para invites');
+      console.log('ℹ️ As funções serão atribuídas quando o líder aprovar o voluntário');
+
+      console.log('✅ Usuário registrado e vinculado ao ministério (PENDENTE)');
+
+      return {
+        user: {
+          id: newUser._id,
+          name: newUser.name,
+          email: newUser.email,
+          phone: newUser.phone,
+          role: newUser.role,
+          isActive: false, // Usuário inativo
+        },
+        membership: {
+          id: membership._id,
+          ministryId: validation.ministryId,
+          ministryName: validation.ministryName,
+          role: MembershipRole.Volunteer,
+          isActive: false, // Membership inativo
+        },
+        status: 'pending_approval', // Status de pendência
+        message: 'Aguardando aprovação do líder do ministério',
+      };
+    } catch (error) {
+      console.error('❌ Erro ao converter IDs para ObjectId:', error);
+      throw new BadRequestException('IDs inválidos para criação do membership');
+    }
   }
 
   /**

@@ -8,7 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
-  Request,
+  Req,
   BadRequestException,
 } from '@nestjs/common';
 import { MembershipService } from '../services/membership.service';
@@ -52,7 +52,7 @@ export class MinistryMembershipUnifiedController {
   })
   async addUserToMinistry(
     @Body() createDto: CreateMinistryMembershipDto,
-    @Request() req: any
+    @Req() req: any
   ) {
     console.log('🎬 [MinistryMembershipController] addUserToMinistry iniciado');
     console.log('📋 [MinistryMembershipController] Dados recebidos:', {
@@ -115,7 +115,7 @@ export class MinistryMembershipUnifiedController {
   async removeUserFromMinistry(
     @Param('userId') userId: string,
     @Param('ministryId') ministryId: string,
-    @Request() req: any
+    @Req() req: any
   ) {
     // Obter tenantId e branchId usando o helper padrão
     const { tenantId, branchId } = resolveTenantAndBranchScope(req.user);
@@ -128,7 +128,7 @@ export class MinistryMembershipUnifiedController {
       tenantId,
       ministryId,
       userId,
-      req.user?.id,
+      req.user?.sub || req.user?._id,
       branchId
     );
   }
@@ -151,14 +151,16 @@ export class MinistryMembershipUnifiedController {
     @Query('role') role?: MembershipRole,
     @Query('includeInactive') includeInactive?: boolean,
     @Query('limit') limit?: number,
-    @Query('offset') offset?: number
+    @Query('offset') offset?: number,
+    @Req() req?: any
   ) {
+    const tenantId = req.headers['x-tenant-id'];
     return await this.membershipService.getMinistryMembersSimple(ministryId, {
       role,
       includeInactive: includeInactive === true,
       limit: limit ? parseInt(limit.toString()) : undefined,
       offset: offset ? parseInt(offset.toString()) : undefined,
-    });
+    }, req.user, tenantId);
   }
 
   /**
@@ -185,6 +187,27 @@ export class MinistryMembershipUnifiedController {
     });
   }
 
+  @Get('me')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
+    ]
+  })
+  async getMyMinistries(
+    @Req() req: any,
+    @Query('includeInactive') includeInactive?: boolean,
+    @Query('role') role?: MembershipRole
+  ) {
+    const userId = req.user._id;
+    return await this.membershipService.getUserMinistries(userId, {
+      includeInactive: includeInactive === true,
+      role,
+    });
+  }
+
   /**
    * PUT /ministry-memberships/user/:userId/ministry/:ministryId
    * Atualizar vínculo de ministério
@@ -202,7 +225,7 @@ export class MinistryMembershipUnifiedController {
     @Param('userId') userId: string,
     @Param('ministryId') ministryId: string,
     @Body() updateData: UpdateMinistryMembershipDto,
-    @Request() req: any
+    @Req() req: any
   ) {
     return await this.membershipService.updateMinistryMembership(
       userId,
@@ -267,7 +290,7 @@ export class MinistryMembershipUnifiedController {
   })
   async getUserIntegrity(
     @Param('userId') userId: string,
-    @Request() req: any
+    @Req() req: any
   ) {
     const tenantId = req.headers['x-tenant-id'] || req.user?.tenantId;
     if (!tenantId) {

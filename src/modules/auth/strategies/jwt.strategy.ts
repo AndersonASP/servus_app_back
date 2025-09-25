@@ -17,6 +17,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // payload contém o que foi assinado no token
     return {
       sub: payload.sub, // ID do usuário (MongoDB ObjectId como string)
+      _id: payload.sub, // Mapear sub para _id para compatibilidade com o PolicyGuard
       email: payload.email,
       role: payload.role,
       name: payload.name,

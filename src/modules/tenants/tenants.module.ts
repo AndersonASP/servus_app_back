@@ -6,6 +6,7 @@ import {
   Membership,
   MembershipSchema,
 } from '../membership/schemas/membership.schema';
+import { Branch, BranchSchema } from '../branches/schemas/branch.schema';
 import { TenantService } from './services/tenants.service';
 import { TenantController } from './controllers/tenants.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -16,6 +17,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       { name: Tenant.name, schema: TenantSchema },
       { name: User.name, schema: UserSchema },
       { name: Membership.name, schema: MembershipSchema },
+      { name: Branch.name, schema: BranchSchema },
     ]),
     NotificationsModule,
   ],

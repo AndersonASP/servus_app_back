@@ -2,7 +2,10 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { MemberFunction, MemberFunctionStatus, MemberFunctionLevel } from '../schemas/member-function.schema';
+import { MinistryFunction } from '../schemas/ministry-function.schema';
 import { Tenant } from '../../tenants/schemas/tenant.schema';
+import { Membership } from '../../membership/schemas/membership.schema';
+import { User } from '../../users/schema/user.schema';
 
 export interface CreateMemberFunctionDto {
   userId: string;
@@ -61,7 +64,10 @@ export interface MemberFunctionResponseDto {
 export class MemberFunctionService {
   constructor(
     @InjectModel(MemberFunction.name) private memberFunctionModel: Model<MemberFunction>,
+    @InjectModel(MinistryFunction.name) private ministryFunctionModel: Model<MinistryFunction>,
     @InjectModel(Tenant.name) private tenantModel: Model<Tenant>,
+    @InjectModel(Membership.name) private membershipModel: Model<Membership>,
+    @InjectModel(User.name) private userModel: Model<User>,
   ) {}
 
   async createMemberFunction(
@@ -178,14 +184,62 @@ export class MemberFunctionService {
     return this.mapToResponseDto(savedMemberFunction);
   }
 
+  /**
+   * Busca uma função pelo nome em um ministério específico
+   */
+  async findFunctionByNameInMinistry(
+    functionName: string,
+    ministryId: string,
+    tenantId: string
+  ): Promise<any> {
+    console.log(`🔍 Buscando função "${functionName}" no ministério ${ministryId}`);
+    
+    // Buscar na tabela MinistryFunction
+    const ministryFunction = await this.ministryFunctionModel.findOne({
+      ministryId: new Types.ObjectId(ministryId),
+      tenantId: tenantId === 'servus-system' ? 'servus-system' : new Types.ObjectId(tenantId),
+      isActive: true
+    }).populate('functionId', 'name');
+    
+    if (!ministryFunction) {
+      console.log(`❌ Nenhuma função encontrada no ministério ${ministryId}`);
+      return null;
+    }
+    
+    // Verificar se o nome da função corresponde
+    const functionData = ministryFunction.functionId as any;
+    if (functionData.name === functionName) {
+      console.log(`✅ Função "${functionName}" encontrada com ID: ${functionData._id}`);
+      return {
+        functionId: functionData._id,
+        functionName: functionData.name
+      };
+    }
+    
+    console.log(`❌ Função "${functionName}" não encontrada. Função disponível: "${functionData.name}"`);
+    return null;
+  }
+
   async updateMemberFunctionStatus(
     memberFunctionId: string,
     dto: UpdateMemberFunctionStatusDto
   ): Promise<MemberFunctionResponseDto> {
+    console.log('🔄 [MemberFunctionService] Atualizando status da função...');
+    console.log('   - MemberFunction ID:', memberFunctionId);
+    console.log('   - Novo status:', dto.status);
+
     const memberFunction = await this.memberFunctionModel.findById(memberFunctionId);
     if (!memberFunction) {
       throw new NotFoundException('MemberFunction não encontrada');
     }
+
+    console.log('✅ MemberFunction encontrada:', {
+      id: memberFunction._id,
+      userId: memberFunction.memberId,
+      ministryId: memberFunction.ministryId,
+      currentStatus: memberFunction.status,
+      newStatus: dto.status
+    });
 
     memberFunction.status = dto.status;
     if (dto.notes !== undefined) {
@@ -197,10 +251,47 @@ export class MemberFunctionService {
     }
 
     const updatedMemberFunction = await memberFunction.save();
+    console.log('✅ Status da função atualizado');
+
+    // Se a função foi APROVADA, ativar o membership e usuário
+    if (dto.status === MemberFunctionStatus.APROVADO) {
+      console.log('🎉 Função aprovada! Ativando membership e usuário...');
+      
+      try {
+        // Ativar o membership e remover flag de aprovação pendente
+        await this.membershipModel.findOneAndUpdate(
+          {
+            user: memberFunction.memberId,
+            ministry: memberFunction.ministryId,
+            tenantId: memberFunction.tenantId
+          },
+          { 
+            isActive: true,
+            needsApproval: false // Remover flag de aprovação pendente
+          },
+          { new: true }
+        );
+        console.log('✅ Membership ativado e flag de aprovação removida');
+
+        // Ativar o usuário (se ainda estiver inativo)
+        await this.userModel.findByIdAndUpdate(
+          memberFunction.memberId,
+          { isActive: true },
+          { new: true }
+        );
+        console.log('✅ Usuário ativado');
+
+        console.log('🎉 Usuário e membership ativados com sucesso!');
+      } catch (error) {
+        console.error('❌ Erro ao ativar membership/usuário:', error);
+        // Não falhar a operação se houver erro na ativação
+      }
+    }
+
     return this.mapToResponseDto(updatedMemberFunction);
   }
 
-  async getUserFunctionsByUser(
+  async getMemberFunctionsByUser(
     userId: string,
     tenantId?: string
   ): Promise<MemberFunctionResponseDto[]> {
@@ -240,7 +331,7 @@ export class MemberFunctionService {
     return memberFunctions.map(mf => this.mapToResponseDto(mf));
   }
 
-  async getUserFunctionsByUserAndMinistry(
+  async getMemberFunctionsByUserAndMinistry(
     userId: string,
     ministryId: string,
     status?: MemberFunctionStatus,
@@ -359,7 +450,7 @@ export class MemberFunctionService {
       createdAt: memberFunction.createdAt,
       updatedAt: memberFunction.updatedAt,
       // Dados populados
-      function: memberFunction.functionId && typeof memberFunction.functionId === 'object' ? {
+      function: memberFunction.functionId && typeof memberFunction.functionId === 'object' && memberFunction.functionId.name ? {
         id: memberFunction.functionId._id.toString(),
         name: memberFunction.functionId.name,
         description: memberFunction.functionId.description,

@@ -22,6 +22,41 @@ export class Membership extends Document {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  @Prop({ default: false })
+  needsApproval: boolean; // Para usuários criados via invite que precisam de aprovação do líder
+
+  @Prop({ 
+    type: String, 
+    enum: ['invite', 'form', 'manual'], 
+    default: 'manual',
+    required: true 
+  })
+  source: string; // Origem do voluntário: invite, form, manual
+
+  @Prop({ type: Object, required: false })
+  sourceData?: {
+    // Para invites
+    inviteCode?: string;
+    // Para formulários
+    formSubmissionId?: Types.ObjectId;
+    formData?: any;
+  }; // Dados específicos da origem
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  approvedBy?: Types.ObjectId; // Quem aprovou o membership
+
+  @Prop({ required: false })
+  approvedAt?: Date; // Quando foi aprovado
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  rejectedBy?: Types.ObjectId; // Quem rejeitou o membership
+
+  @Prop({ required: false })
+  rejectedAt?: Date; // Quando foi rejeitado
+
+  @Prop({ required: false })
+  rejectionNotes?: string; // Motivo da rejeição
 }
 export const MembershipSchema = SchemaFactory.createForClass(Membership);
 export type MembershipDocument = Membership & Document;

@@ -13,7 +13,7 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
-import { Role, ROLE_PERMISSIONS } from '../enums/role.enum';
+import { Role, ROLE_PERMISSIONS, MembershipRole } from '../enums/role.enum';
 import { Membership } from 'src/modules/membership/schemas/membership.schema';
 import { Tenant } from 'src/modules/tenants/schemas/tenant.schema';
 import { Branch } from 'src/modules/branches/schemas/branch.schema';
@@ -54,15 +54,20 @@ export class PolicyGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest();
     const user = req.user;
 
-    // console.log('🔍 PolicyGuard.canActivate - req.user completo:', user);
-    // console.log('🔍 PolicyGuard.canActivate - user._id:', user?._id);
-    // console.log('🔍 PolicyGuard.canActivate - user.sub:', user?.sub);
-    // console.log('🔍 PolicyGuard.canActivate - user.role:', user?.role);
+    console.log('🔍 PolicyGuard.canActivate - req.user completo:', user);
+    console.log('🔍 PolicyGuard.canActivate - user._id:', user?._id);
+    console.log('🔍 PolicyGuard.canActivate - user.sub:', user?.sub);
+    console.log('🔍 PolicyGuard.canActivate - user.role:', user?.role);
+    console.log('🔍 PolicyGuard.canActivate - URL:', req.url);
+    console.log('🔍 PolicyGuard.canActivate - Method:', req.method);
 
     if (!user) throw new ForbiddenException('Usuário não autenticado.');
 
     // 🚀 Bypass para ServusAdmin
-    if (user.role === Role.ServusAdmin) return true;
+    if (user.role === Role.ServusAdmin) {
+      console.log('✅ PolicyGuard - ServusAdmin detectado, liberando acesso');
+      return true;
+    }
 
     // Verifica permissões específicas primeiro
     const requiresPerm = this.reflector.getAllAndOverride<RequiresPermMetadata>(
@@ -103,7 +108,13 @@ export class PolicyGuard implements CanActivate {
       AUTHZ_KEY,
       [ctx.getHandler(), ctx.getClass()],
     );
-    if (!policy) return true;
+    
+    console.log('🔍 PolicyGuard - Policy encontrada:', policy);
+    
+    if (!policy) {
+      console.log('✅ PolicyGuard - Nenhuma policy encontrada, liberando acesso');
+      return true;
+    }
 
     // Cache do tenant para evitar múltiplas queries
     let tenant: any = null;
@@ -185,8 +196,16 @@ export class PolicyGuard implements CanActivate {
         if (branchOid) cond.branch = branchOid;
         else if (m.allowNullBranch) cond.branch = null;
 
-        if (ministryOid) cond.ministry = ministryOid;
-        else if (m.allowNullMinistry) cond.ministry = null;
+        // Para líderes, não verificar ministério específico - a validação será feita no service
+        if (role === MembershipRole.Leader) {
+          console.log('🔍 PolicyGuard - Líder detectado, permitindo acesso a qualquer ministério');
+          // Líder pode ter membership em qualquer ministério, a validação específica será feita no service
+          cond.ministry = { $exists: true }; // Apenas verificar se tem algum ministério
+        } else if (ministryOid) {
+          cond.ministry = ministryOid;
+        } else if (m.allowNullMinistry) {
+          cond.ministry = null;
+        }
 
         or.push(cond);
       }
@@ -202,7 +221,9 @@ export class PolicyGuard implements CanActivate {
       }
     }
 
-    // console.log('❌ PolicyGuard - Todas as regras falharam. Negando acesso.');
+    console.log('❌ PolicyGuard - Todas as regras falharam. Negando acesso.');
+    console.log('❌ PolicyGuard - User:', { _id: user._id, role: user.role, email: user.email });
+    console.log('❌ PolicyGuard - Tenant:', tenantSlug);
     throw new ForbiddenException(
       'Você não tem permissão para acessar este recurso.',
     );
