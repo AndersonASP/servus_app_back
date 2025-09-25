@@ -304,7 +304,7 @@ export class MembersService {
     // DEBUG: Verificar se há usuários sem tenantId que deveriam estar no tenant
     const usersWithoutTenantIdDebug = await this.userModel
       .find({ tenantId: { $exists: false } })
-      .select('_id name email phone role tenantId createdAt updatedAt')
+      .select('_id name email phone role tenantId isActive createdAt updatedAt')
       .lean();
     
     console.log('🔍 [MembersService] Usuários sem tenantId:', usersWithoutTenantIdDebug.length);
@@ -318,7 +318,7 @@ export class MembersService {
     // DEBUG: Buscar usuário específico por email
     const specificUser = await this.userModel
       .findOne({ email: 'moisess@gmail.com' })
-      .select('_id name email phone role tenantId createdAt updatedAt')
+      .select('_id name email phone role tenantId isActive createdAt updatedAt')
       .lean();
     
     console.log('🔍 [MembersService] DEBUG - Usuário moisess@gmail.com:', specificUser);
@@ -326,7 +326,7 @@ export class MembersService {
     // DEBUG: Buscar usuário específico Samilla Arau
     const samillaUser = await this.userModel
       .findOne({ email: 'arau@gmail.com' })
-      .select('_id name email phone role tenantId createdAt updatedAt')
+      .select('_id name email phone role tenantId isActive createdAt updatedAt')
       .lean();
     
     console.log('🔍 [MembersService] DEBUG - Usuário arau@gmail.com (Samilla):', samillaUser);
@@ -336,7 +336,7 @@ export class MembersService {
     // DEBUG: Buscar usuário por ID específico
     const userById = await this.userModel
       .findById('68d4bd1300dc962134a18e8a')
-      .select('_id name email phone role tenantId createdAt updatedAt')
+      .select('_id name email phone role tenantId isActive createdAt updatedAt')
       .lean();
     
     console.log('🔍 [MembersService] DEBUG - Usuário por ID 68d4bd1300dc962134a18e8a:', userById);
@@ -344,7 +344,7 @@ export class MembersService {
     // Buscar todos os usuários do tenant (agora todos devem ter tenantId)
     const users = await this.userModel
       .find(usersQuery)
-      .select('_id name email phone role tenantId createdAt updatedAt')
+      .select('_id name email phone role tenantId isActive createdAt updatedAt')
       .lean();
 
     console.log('📊 [MembersService] Usuários encontrados:', users.length);
