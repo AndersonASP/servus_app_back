@@ -18,6 +18,7 @@ import { UpdateUserDto } from '../dto/update-user.dto';
 import { User } from '../schema/user.schema';
 import { MembershipRole, Role } from 'src/common/enums/role.enum';
 import { Membership } from 'src/modules/membership/schemas/membership.schema';
+import { resolveTenantObjectId } from 'src/common/utils/rbac/rbac.helpers';
 import { Tenant } from 'src/modules/tenants/schemas/tenant.schema';
 import { Branch } from 'src/modules/branches/schemas/branch.schema';
 import { SelfRegistrationDto } from '../dto/self-registration.dto';
@@ -636,7 +637,7 @@ export class UsersService {
           'Branch não encontrada ou não pertence ao tenant',
         );
       }
-      filters['memberships.branch'] = branch._id;
+      filters.branch = branch._id; // ✅ CORREÇÃO: Campo direto do modelo
     }
 
     // Buscar usuários via membership
@@ -704,12 +705,18 @@ export class UsersService {
       { $count: 'total' },
     ]);
 
+    console.log('🔍 [listVolunteersByMinistry] Executando query de contagem...');
     const [totalResult] = await totalQuery;
     const total = totalResult?.total || 0;
+    console.log('🔍 [listVolunteersByMinistry] Total encontrado:', total);
 
     // Aplicar paginação
     const skip = (options.page - 1) * options.limit;
+    console.log('🔍 [listVolunteersByMinistry] Executando query principal...');
+    console.log('🔍 [listVolunteersByMinistry] Skip:', skip, 'Limit:', options.limit);
     const users = await query.skip(skip).limit(options.limit);
+    console.log('🔍 [listVolunteersByMinistry] Usuários encontrados:', users.length);
+    console.log('🔍 [listVolunteersByMinistry] Primeiro usuário:', users[0] ? JSON.stringify(users[0], null, 2) : 'nenhum');
 
     return {
       users,
@@ -841,12 +848,18 @@ export class UsersService {
       { $count: 'total' },
     ]);
 
+    console.log('🔍 [listVolunteersByMinistry] Executando query de contagem...');
     const [totalResult] = await totalQuery;
     const total = totalResult?.total || 0;
+    console.log('🔍 [listVolunteersByMinistry] Total encontrado:', total);
 
     // Aplicar paginação
     const skip = (options.page - 1) * options.limit;
+    console.log('🔍 [listVolunteersByMinistry] Executando query principal...');
+    console.log('🔍 [listVolunteersByMinistry] Skip:', skip, 'Limit:', options.limit);
     const users = await query.skip(skip).limit(options.limit);
+    console.log('🔍 [listVolunteersByMinistry] Usuários encontrados:', users.length);
+    console.log('🔍 [listVolunteersByMinistry] Primeiro usuário:', users[0] ? JSON.stringify(users[0], null, 2) : 'nenhum');
 
     return {
       users,
@@ -872,21 +885,23 @@ export class UsersService {
     },
     currentUser: any,
   ) {
-    // Verificar se tenant e ministry existem
-    const tenant = (await this.tenantModel
-      .findById(tenantId)
-      .lean()) as unknown as LeanTenant;
-    if (!tenant) {
-      throw new NotFoundException('Tenant não encontrado');
-    }
-
+    console.log('🔍 [listVolunteersByMinistry] Iniciando método...');
+    console.log('🔍 [listVolunteersByMinistry] tenantId:', tenantId);
+    console.log('🔍 [listVolunteersByMinistry] ministryId:', ministryId);
+    console.log('🔍 [listVolunteersByMinistry] options:', options);
+    
+    // 🆕 CORREÇÃO: Usar resolveTenantObjectId para converter tenantId para ObjectId
+    const tenantOid = await resolveTenantObjectId(this.tenantModel, tenantId);
+    console.log('🔍 [listVolunteersByMinistry] tenantOid:', tenantOid);
+    
+    // Verificar se ministry existe
     const ministry = await this.ministryModel.findOne({ _id: ministryId });
     if (!ministry) {
       throw new NotFoundException('Ministry não encontrado');
     }
 
     // Verificar se ministry pertence ao tenant
-    if (ministry.tenantId.toString() !== tenant.tenantId.toString()) {
+    if (ministry.tenantId?.toString() !== tenantId) {
       throw new BadRequestException(
         'Ministry não pertence ao tenant especificado',
       );
@@ -896,7 +911,7 @@ export class UsersService {
     console.log('🔍 listVolunteersByMinistry - currentUser:', JSON.stringify(currentUser, null, 2));
     console.log('🔍 listVolunteersByMinistry - currentUser._id:', currentUser._id);
     console.log('🔍 listVolunteersByMinistry - currentUser.role:', currentUser.role);
-    console.log('🔍 listVolunteersByMinistry - tenant._id:', tenant._id);
+    console.log('🔍 listVolunteersByMinistry - tenantOid:', tenantOid);
     console.log('🔍 listVolunteersByMinistry - ministryId:', ministryId);
     
     // Verificar se é ServusAdmin (acesso global)
@@ -908,7 +923,7 @@ export class UsersService {
       console.log('🔍 Verificando se é TenantAdmin...');
       const isTenantAdmin = await this.hasMembershipInTenant(
         currentUser._id,
-        tenant._id.toString(),
+        tenantOid.toString(),
         [MembershipRole.TenantAdmin]
       );
       
@@ -922,7 +937,7 @@ export class UsersService {
         console.log('🔍 Verificando acesso específico ao ministry...');
         const hasSpecificAccess = await this.hasMembershipInMinistry(
           currentUser._id,
-          tenant._id.toString(),
+          tenantOid.toString(),
           ministryId,
           [MembershipRole.BranchAdmin, MembershipRole.Leader]
         );
@@ -941,23 +956,29 @@ export class UsersService {
 
     // Construir filtros
     const filters: any = {
-      'memberships.tenant': tenantId, // tenantId é UUID string
-      'memberships.ministry': new Types.ObjectId(ministryId),
-      'memberships.role': MembershipRole.Volunteer,
-      'memberships.isActive': true,
+      tenant: tenantOid, // ✅ CORREÇÃO: Usar tenantOid (ObjectId)
+      ministry: new Types.ObjectId(ministryId), // ✅ CORREÇÃO: Campo direto do modelo
+      role: MembershipRole.Volunteer, // ✅ CORREÇÃO: Campo direto do modelo
+      isActive: true, // ✅ CORREÇÃO: Voluntários ativos
     };
+
+    console.log('🔍 [listVolunteersByMinistry] Filtros construídos:', JSON.stringify(filters, null, 2));
+    console.log('🔍 [listVolunteersByMinistry] tenantId original:', tenantId);
+    console.log('🔍 [listVolunteersByMinistry] ministryId original:', ministryId);
+    console.log('🔍 [listVolunteersByMinistry] tenant ObjectId:', filters.tenant);
+    console.log('🔍 [listVolunteersByMinistry] ministry ObjectId:', filters.ministry);
 
     // Filtrar por branch se especificado
     if (options.branchId) {
       const branch = (await this.branchModel
         .findOne({ branchId: options.branchId })
         .lean()) as unknown as LeanBranch;
-      if (!branch || branch.tenant.toString() !== tenant._id.toString()) {
+      if (!branch || branch.tenant.toString() !== tenantOid.toString()) {
         throw new BadRequestException(
           'Branch não encontrada ou não pertence ao tenant',
         );
       }
-      filters['memberships.branch'] = branch._id;
+      filters.branch = branch._id; // ✅ CORREÇÃO: Campo direto do modelo
     }
 
     // Buscar voluntários via membership
@@ -980,7 +1001,16 @@ export class UsersService {
           as: 'branchData',
         },
       },
-      { $unwind: { path: '$branchData', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$branchData', preserveNullAndEmptyArrays: true }       },
+      {
+        $lookup: {
+          from: 'ministries',
+          localField: 'ministry',
+          foreignField: '_id',
+          as: 'ministryData',
+        },
+      },
+      { $unwind: { path: '$ministryData', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'memberfunctions',
@@ -1033,10 +1063,15 @@ export class UsersService {
           profileCompleted: '$userData.profileCompleted',
           skills: '$userData.skills',
           availability: '$userData.availability',
+          source: 'manual', // 🆕 CORREÇÃO: Source padrão para voluntários aprovados
           membership: {
             _id: '$_id',
             branch: '$branchData',
             isActive: '$isActive',
+          },
+          ministry: {
+            _id: '$ministry',
+            name: '$ministryData.name', // ✅ CORREÇÃO: Usar nome real do ministério
           },
           functions: '$functions',
         },
@@ -1059,12 +1094,18 @@ export class UsersService {
       { $count: 'total' },
     ]);
 
+    console.log('🔍 [listVolunteersByMinistry] Executando query de contagem...');
     const [totalResult] = await totalQuery;
     const total = totalResult?.total || 0;
+    console.log('🔍 [listVolunteersByMinistry] Total encontrado:', total);
 
     // Aplicar paginação
     const skip = (options.page - 1) * options.limit;
+    console.log('🔍 [listVolunteersByMinistry] Executando query principal...');
+    console.log('🔍 [listVolunteersByMinistry] Skip:', skip, 'Limit:', options.limit);
     const users = await query.skip(skip).limit(options.limit);
+    console.log('🔍 [listVolunteersByMinistry] Usuários encontrados:', users.length);
+    console.log('🔍 [listVolunteersByMinistry] Primeiro usuário:', users[0] ? JSON.stringify(users[0], null, 2) : 'nenhum');
 
     return {
       users,
@@ -1470,12 +1511,18 @@ export class UsersService {
       { $count: 'total' },
     ]);
 
+    console.log('🔍 [listVolunteersByMinistry] Executando query de contagem...');
     const [totalResult] = await totalQuery;
     const total = totalResult?.total || 0;
+    console.log('🔍 [listVolunteersByMinistry] Total encontrado:', total);
 
     // Aplicar paginação
     const skip = (options.page - 1) * options.limit;
+    console.log('🔍 [listVolunteersByMinistry] Executando query principal...');
+    console.log('🔍 [listVolunteersByMinistry] Skip:', skip, 'Limit:', options.limit);
     const users = await query.skip(skip).limit(options.limit);
+    console.log('🔍 [listVolunteersByMinistry] Usuários encontrados:', users.length);
+    console.log('🔍 [listVolunteersByMinistry] Primeiro usuário:', users[0] ? JSON.stringify(users[0], null, 2) : 'nenhum');
 
     return {
       users,
@@ -1499,9 +1546,12 @@ export class UsersService {
     tenantId: string,
     roles: MembershipRole[],
   ): Promise<boolean> {
+    // Converter tenantId para ObjectId
+    const tenantOid = await resolveTenantObjectId(this.tenantModel, tenantId);
+    
     const query = {
       user: new Types.ObjectId(userId),
-      tenant: tenantId, // tenantId é UUID string
+      tenant: tenantOid, // tenantId convertido para ObjectId
       role: { $in: roles },
       isActive: true,
     };
@@ -1524,9 +1574,12 @@ export class UsersService {
     branchId: string,
     roles: MembershipRole[],
   ): Promise<boolean> {
+    // Converter tenantId para ObjectId
+    const tenantOid = await resolveTenantObjectId(this.tenantModel, tenantId);
+    
     const membership = await this.memModel.findOne({
       user: new Types.ObjectId(userId),
-      tenant: tenantId, // tenantId é UUID string
+      tenant: tenantOid, // tenantId convertido para ObjectId
       branch: new Types.ObjectId(branchId),
       role: { $in: roles },
       isActive: true,
@@ -1541,9 +1594,12 @@ export class UsersService {
     ministryId: string,
     roles: MembershipRole[],
   ): Promise<boolean> {
+    // Converter tenantId para ObjectId
+    const tenantOid = await resolveTenantObjectId(this.tenantModel, tenantId);
+    
     const query = {
       user: new Types.ObjectId(userId),
-      tenant: tenantId, // tenantId é UUID string
+      tenant: tenantOid, // tenantId convertido para ObjectId
       ministry: new Types.ObjectId(ministryId),
       role: { $in: roles },
       isActive: true,
@@ -1740,19 +1796,64 @@ export class UsersService {
     filters: any,
     options?: { page?: number; limit?: number },
   ) {
+    console.log('🔍 [UsersService] ===== findWithFilters INICIADO =====');
+    console.log('   - Filters recebidos:', JSON.stringify(filters, null, 2));
+    console.log('   - Options:', options);
+    
     const page = options?.page ?? 1;
     const limit = options?.limit ?? 20;
     const skip = (page - 1) * limit;
 
+    // ✅ CORREÇÃO: Converter tenantId e branchId para ObjectId se necessário
+    let queryFilters = { ...filters };
+    
+    if (filters.tenantId && typeof filters.tenantId === 'string') {
+      queryFilters.tenantId = new Types.ObjectId(filters.tenantId);
+      console.log('🔍 [UsersService] Convertido tenantId para ObjectId:', queryFilters.tenantId);
+    }
+    
+    if (filters.branchId && typeof filters.branchId === 'string') {
+      queryFilters.branchId = new Types.ObjectId(filters.branchId);
+      console.log('🔍 [UsersService] Convertido branchId para ObjectId:', queryFilters.branchId);
+    }
+    
+    if (filters.search) {
+      const searchTerm = filters.search;
+      delete queryFilters.search; // Remover search dos filtros básicos
+      
+      // Aplicar busca por regex em nome e email
+      queryFilters = {
+        ...queryFilters,
+        $or: [
+          { name: { $regex: searchTerm, $options: 'i' } },
+          { email: { $regex: searchTerm, $options: 'i' } },
+        ],
+      };
+    }
+
+    console.log('🔍 [UsersService] Query filters finais:', JSON.stringify(queryFilters, null, 2));
+
     const [data, total] = await Promise.all([
       this.userModel
-        .find(filters)
+        .find(queryFilters)
         .select('-password')
         .sort({ name: 1 })
         .skip(skip)
         .limit(limit),
-      this.userModel.countDocuments(filters),
+      this.userModel.countDocuments(queryFilters),
     ]);
+
+    console.log('🔍 [UsersService] ===== RESULTADO =====');
+    console.log('   - Data encontrada:', data.length);
+    console.log('   - Total no banco:', total);
+    if (data.length > 0) {
+      console.log('   - Primeiro usuário:', {
+        id: data[0]._id,
+        name: data[0].name,
+        email: data[0].email,
+        isActive: data[0].isActive
+      });
+    }
 
     return {
       data,
@@ -1881,6 +1982,55 @@ export class UsersService {
         console.error(`❌ Erro ao limpar cache ${keyPattern}:`, error.message);
       }
     }
+  }
+
+  // 🔍 DEBUG: Método temporário para debug de voluntários
+  async debugVolunteersByMinistry(tenantId: string, ministryId: string) {
+    console.log('🔍 [DEBUG] Debug de voluntários por ministry...');
+    console.log('   - TenantId:', tenantId);
+    console.log('   - MinistryId:', ministryId);
+    
+    // Verificar se há memberships no banco
+    const totalMemberships = await this.memModel.countDocuments();
+    console.log('🔍 [DEBUG] Total de memberships no banco:', totalMemberships);
+    
+    // 🔧 CORREÇÃO: Usar ObjectId para tenant também
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const ministryObjectId = new Types.ObjectId(ministryId);
+    
+    const membershipsWithTenant = await this.memModel.countDocuments({
+      tenant: tenantObjectId
+    });
+    console.log('🔍 [DEBUG] Memberships com este tenant:', membershipsWithTenant);
+    
+    const membershipsWithMinistry = await this.memModel.countDocuments({
+      tenant: tenantObjectId,
+      ministry: ministryObjectId
+    });
+    console.log('🔍 [DEBUG] Memberships com este ministry:', membershipsWithMinistry);
+    
+    const membershipsWithRole = await this.memModel.countDocuments({
+      tenant: tenantObjectId,
+      ministry: ministryObjectId,
+      role: MembershipRole.Volunteer
+    });
+    console.log('🔍 [DEBUG] Memberships com role Volunteer:', membershipsWithRole);
+    
+    // Buscar alguns memberships para debug
+    const sampleMemberships = await this.memModel.find({
+      tenant: tenantObjectId,
+      ministry: ministryObjectId
+    }).limit(5).lean();
+    
+    console.log('🔍 [DEBUG] Sample memberships:', JSON.stringify(sampleMemberships, null, 2));
+    
+    return {
+      totalMemberships,
+      membershipsWithTenant,
+      membershipsWithMinistry,
+      membershipsWithRole,
+      sampleMemberships
+    };
   }
 
   // 🧹 Método para limpar cache relacionado a uma branch

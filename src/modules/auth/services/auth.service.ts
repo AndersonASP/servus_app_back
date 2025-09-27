@@ -2,7 +2,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Membership } from 'src/modules/membership/schemas/membership.schema';
 import { Tenant } from 'src/modules/tenants/schemas/tenant.schema';
-import { MembershipRole, Role } from 'src/common/enums/role.enum';
+import { MembershipRole, Role, findHighestPriorityMembership, findLeaderPrimaryMembership } from 'src/common/enums/role.enum';
 import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { UsersService } from 'src/modules/users/services/users.service';
 import { JwtService } from '@nestjs/jwt';
@@ -632,6 +632,15 @@ export class AuthService {
     console.log('👥 getUserContext - Usuário normal, processando memberships');
     console.log('🔍 getUserContext - Memberships encontrados:', allMemberships);
 
+    // 🆕 DETERMINAR MEMBERSHIP PRINCIPAL POR PRIORIDADE DE ROLE
+    // Para líderes, usar lógica específica que prioriza o membership de líder
+    const primaryMembership = findLeaderPrimaryMembership(allMemberships);
+    console.log('🎯 [RolePriority] Membership principal selecionado:', primaryMembership ? {
+      role: primaryMembership.role,
+      ministry: primaryMembership.ministry?._id?.toString(),
+      branch: primaryMembership.branch?._id?.toString()
+    } : 'nenhum');
+
     // Agrupar por tenant
     const tenantsMap = new Map();
 
@@ -664,6 +673,7 @@ export class AuthService {
         id: membership._id.toString(),
         role: membership.role,
         permissions: getCombinedPermissions(user.role, membership.role),
+        isPrimary: primaryMembership && membership._id.toString() === primaryMembership._id.toString(),
       };
 
       // Adicionar branch se existir

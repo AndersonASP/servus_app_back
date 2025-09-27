@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsNumberString } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsNumberString, IsBoolean } from 'class-validator';
 import { Role } from 'src/common/enums/role.enum';
 
 export class UserFilterDto {
@@ -15,6 +15,14 @@ export class UserFilterDto {
   @IsOptional()
   @IsString()
   branchId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @IsOptional()
   @IsNumberString({}, { message: 'page deve ser um número válido' })

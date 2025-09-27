@@ -10,6 +10,8 @@ interface UserQueryFilters {
   role?: string;
   tenantId?: string;
   branchId?: string;
+  isActive?: boolean;
+  search?: string;
 }
 
 interface BuildFiltersOptions {
@@ -36,6 +38,7 @@ export function buildUserFiltersFromScope(
     if (query.tenantId) filters.tenantId = query.tenantId;
     if (query.branchId) filters.branchId = query.branchId;
     if (query.role) filters.role = query.role;
+    if (query.isActive !== undefined) filters.isActive = query.isActive;
     return filters;
   }
 
@@ -59,6 +62,11 @@ export function buildUserFiltersFromScope(
     // Apenas SuperAdmin deveria filtrar por role arbitrária.
     // Se você quiser permitir TenantAdmin escolher role, descomente a linha abaixo:
     // filters.role = query.role;
+  }
+
+  // ✅ CORREÇÃO: Aplicar filtro isActive para todos os usuários
+  if (query.isActive !== undefined) {
+    filters.isActive = query.isActive;
   }
 
   return filters;

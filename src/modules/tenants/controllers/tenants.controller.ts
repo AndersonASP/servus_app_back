@@ -6,6 +6,7 @@ import {
   Post,
   Put,
   Delete,
+  Query,
   Req,
   Res,
   HttpStatus,
@@ -89,8 +90,18 @@ export class TenantController {
       { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } }
     ]
   })
-  async getPendingVolunteers(@Param('tenantId') tenantId: string) {
-    return this.tenantService.getPendingVolunteers(tenantId);
+  async getPendingVolunteers(
+    @Param('tenantId') tenantId: string,
+    @Query('ministryId') ministryId?: string
+  ) {
+    console.log('🔍 [TenantsController] getPendingVolunteers chamado');
+    console.log('   - tenantId:', tenantId);
+    console.log('   - ministryId:', ministryId);
+    console.log('   - ministryId type:', typeof ministryId);
+    console.log('   - ministryId is undefined:', ministryId === undefined);
+    console.log('   - ministryId is null:', ministryId === null);
+    
+    return this.tenantService.getPendingVolunteers(tenantId, ministryId);
   }
 
   // ✅ Buscar funções disponíveis de um ministério

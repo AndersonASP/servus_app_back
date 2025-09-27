@@ -6,6 +6,7 @@ import { CreateMembershipDto } from '../dto/create-membership.dto';
 import { UpdateMembershipDto } from '../dto/update-membership.dto';
 import { MembershipRole, Role } from 'src/common/enums/role.enum';
 import { Ministry } from '../../ministries/schemas/ministry.schema';
+import { User } from '../../users/schema/user.schema';
 import { MemberFunctionService } from '../../functions/services/member-function.service';
 import { FunctionsService } from '../../functions/services/functions.service';
 import { MemberFunctionStatus, MemberFunctionLevel } from '../../functions/schemas/member-function.schema';
@@ -17,6 +18,7 @@ export class MembershipService {
   constructor(
     @InjectModel(Membership.name) private membershipModel: Model<Membership>,
     @InjectModel(Ministry.name) private ministryModel: Model<Ministry>,
+    @InjectModel(User.name) private userModel: Model<User>,
     private memberFunctionService: MemberFunctionService,
     private functionsService: FunctionsService,
     private integrityService: MembershipIntegrityService,
@@ -936,6 +938,29 @@ export class MembershipService {
         tenantIdType: typeof tenantId,
         tenantIdString: tenantId.toString()
       });
+
+      // ✅ CORREÇÃO: Validar se o usuário está ativo antes de criar vínculo
+      console.log('🔍 [MembershipService] Verificando status do usuário...');
+      const user = await this.userModel.findById(userId).select('isActive');
+      
+      console.log('📊 [MembershipService] Usuário encontrado:', {
+        userId,
+        userExists: !!user,
+        isActive: user?.isActive,
+        userActiveType: typeof user?.isActive
+      });
+      
+      if (!user) {
+        console.log('❌ [MembershipService] Usuário não encontrado');
+        throw new BadRequestException('Usuário não encontrado');
+      }
+      
+      if (user.isActive !== true) {
+        console.log('❌ [MembershipService] Usuário está inativo - bloqueando vinculação');
+        throw new BadRequestException('Não é possível vincular usuário inativo a um ministério');
+      }
+      
+      console.log('✅ [MembershipService] Usuário está ativo - prosseguindo com vinculação');
 
       // Verificar se já existe vínculo ativo com este ministério específico
       console.log('🔍 [MembershipService] Verificando vínculos existentes com este ministério...');

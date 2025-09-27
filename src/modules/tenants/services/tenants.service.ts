@@ -562,23 +562,40 @@ export class TenantService {
 
   /**
    * Busca voluntários pendentes de aprovação no tenant
+   * Se ministryId for fornecido, filtra apenas voluntários desse ministério
    */
-  async getPendingVolunteers(tenantId: string) {
+  async getPendingVolunteers(tenantId: string, ministryId?: string) {
     console.log('🔍 [TenantService] Buscando voluntários pendentes...');
     console.log('   - Tenant ID:', tenantId);
+    console.log('   - Ministry ID:', ministryId);
+    console.log('   - Ministry ID type:', typeof ministryId);
+    console.log('   - Ministry ID is undefined:', ministryId === undefined);
+    console.log('   - Ministry ID is null:', ministryId === null);
 
     try {
+      // Construir query base
+      const baseQuery: any = {
+        tenant: new Types.ObjectId(tenantId),
+        $or: [
+          { isActive: false }, // Membros inativos (fluxo antigo)
+          { needsApproval: true } // Membros que precisam aprovação (fluxo novo)
+        ],
+        ministry: { $exists: true, $ne: null } // Apenas membros com ministério
+      };
+
+      // Se ministryId foi fornecido, filtrar por ministério específico
+      if (ministryId && ministryId.trim() !== '') {
+        baseQuery.ministry = new Types.ObjectId(ministryId);
+        console.log('🔍 [TenantService] Filtrando por ministério específico:', ministryId);
+        console.log('🔍 [TenantService] Query final com filtro:', JSON.stringify(baseQuery, null, 2));
+      } else {
+        console.log('🔍 [TenantService] Nenhum ministryId fornecido ou vazio, retornando todos os ministérios');
+        console.log('🔍 [TenantService] Query final sem filtro:', JSON.stringify(baseQuery, null, 2));
+      }
+
       // Buscar memberships que precisam de aprovação do líder
-      // (usuários inativos OU que têm flag needsApproval)
       const memberships = await this.membershipModel
-        .find({
-          tenant: new Types.ObjectId(tenantId),
-          $or: [
-            { isActive: false }, // Membros inativos (fluxo antigo)
-            { needsApproval: true } // Membros que precisam aprovação (fluxo novo)
-          ],
-          ministry: { $exists: true, $ne: null } // Apenas membros com ministério
-        })
+        .find(baseQuery)
         .populate('user', '_id name email phone role isActive createdAt profileCompleted')
         .populate('ministry', 'name')
         .populate('branch', 'name')

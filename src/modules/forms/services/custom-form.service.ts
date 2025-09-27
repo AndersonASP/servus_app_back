@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import * as bcrypt from 'bcrypt';
 import { CustomForm } from '../schemas/custom-form.schema';
 import { FormSubmission, FormSubmissionStatus } from '../schemas/form-submission.schema';
 import { Ministry } from '../../ministries/schemas/ministry.schema';
@@ -397,11 +398,15 @@ export class CustomFormService {
       try {
         this.logger.log(`[submitForm] Criando usuário e membership para ministério: ${submission.preferredMinistry}`);
         
-        // 1. Criar usuário
+        // 1. Criar usuário com senha temporária
+        const temporaryPassword = this.generateTemporaryPassword();
+        const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+        
         const userData = {
           name: submitDto.volunteerName,
           email: submitDto.email,
           phone: submitDto.phone,
+          password: hashedPassword,
           role: 'volunteer',
           isActive: false, // Pendente até aprovação
           profileCompleted: true,
@@ -732,15 +737,20 @@ export class CustomFormService {
 
     for (const submission of submissions) {
       try {
-        // Criar usuário temporário (sem senha - será definida no primeiro login)
+        // Gerar senha temporária
+        const temporaryPassword = this.generateTemporaryPassword();
+        const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+        // Criar usuário com senha temporária
         const userData = {
           name: submission.volunteerName,
           email: submission.email,
           phone: submission.phone,
+          password: hashedPassword,
           role: 'volunteer',
           profileCompleted: false,
           isActive: true,
-          temporaryPassword: true, // Flag para indicar que precisa definir senha
+          tenantId: new Types.ObjectId(tenantId),
           
           // 🆕 Campos essenciais do formulário (sucinto)
           birthDate: submission.customFields?.birthDate || null,
@@ -1109,5 +1119,17 @@ export class CustomFormService {
 
     // Ordenar por order
     return mergedFields.sort((a, b) => a.order - b.order);
+  }
+
+  /**
+   * Gera senha temporária para usuários criados via formulário
+   */
+  private generateTemporaryPassword(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 12; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
   }
 }

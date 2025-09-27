@@ -436,10 +436,33 @@ export class UsersController {
     ],
   })
   async filterUsers(@Query() query: UserFilterDto, @Req() req: any) {
+    console.log('🔍 [UsersController] ===== filterUsers CHAMADO =====');
+    console.log('   - Query recebido:', JSON.stringify(query, null, 2));
+    console.log('   - User:', {
+      sub: req.user.sub,
+      tenantId: req.user.tenantId,
+      role: req.user.role
+    });
+    
     const filters = buildUserFiltersFromScope(req.user, query);
+    console.log('   - Filters construídos:', JSON.stringify(filters, null, 2));
+    
     const page = parseInt(query.page || '1', 10);
     const limit = parseInt(query.limit || '20', 10);
-    return this.usersService.findWithFilters(filters, { page, limit });
+    
+    console.log('   - Paginação:', { page, limit });
+    
+    const result = await this.usersService.findWithFilters(filters, { page, limit });
+    
+    console.log('🔍 [UsersController] ===== filterUsers FINALIZADO =====');
+    console.log('   - Resultado:', {
+      total: result.total,
+      dataLength: result.data.length,
+      page: result.page,
+      limit: result.limit
+    });
+    
+    return result;
   }
 
   // 🔍 Detalhe
@@ -645,8 +668,17 @@ export class UsersController {
       tenantId,
       ministryId,
       { page, limit, search: query.search, branchId: query.branchId },
-      req.user,
+      req.user, // Usar usuário real da autenticação
     );
+  }
+
+  // 🔍 DEBUG: Endpoint temporário para debug de voluntários
+  @Get('debug/tenants/:tenantId/ministries/:ministryId/volunteers')
+  async debugVolunteersByMinistry(
+    @Param('tenantId') tenantId: string,
+    @Param('ministryId') ministryId: string,
+  ) {
+    return this.usersService.debugVolunteersByMinistry(tenantId, ministryId);
   }
 
   // 🔎 Dashboard de usuários por tenant (TenantAdmin)
