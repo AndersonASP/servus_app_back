@@ -89,10 +89,15 @@ export class PolicyGuard implements CanActivate {
       }
 
       const userPermissions = await this.getUserPermissions(userId, req);
+      console.log('🔍 PolicyGuard - Permissões do usuário:', userPermissions);
+      console.log('🔍 PolicyGuard - Permissões requeridas:', requiresPerm.permissions);
+      
       const hasPermission = this.checkPermissions(
         userPermissions,
         requiresPerm,
       );
+      
+      console.log('🔍 PolicyGuard - Tem permissão?', hasPermission);
 
       if (!hasPermission) {
         throw new ForbiddenException(
@@ -247,6 +252,29 @@ export class PolicyGuard implements CanActivate {
       .populate('tenant branch ministry')
       .lean();
 
+    console.log('🔍 PolicyGuard - userIdObjectId:', userIdObjectId);
+    console.log('🔍 PolicyGuard - Query executada:', {
+      user: userIdObjectId,
+      isActive: true,
+    });
+    console.log('🔍 PolicyGuard - Memberships encontrados:', memberships.length);
+
+    // Se não há memberships, usa o role direto do JWT
+    if (memberships.length === 0) {
+      const userRole = req.user?.role;
+      console.log('🔍 PolicyGuard - Nenhum membership encontrado, usando role do JWT:', userRole);
+      
+      if (userRole && ROLE_PERMISSIONS[userRole]) {
+        const rolePermissions = ROLE_PERMISSIONS[userRole];
+        console.log('🔍 PolicyGuard - Permissões do role:', rolePermissions);
+        return rolePermissions;
+      }
+      
+      console.log('🔍 PolicyGuard - Role não encontrado ou sem permissões');
+      return [];
+    }
+
+    // Processa permissões dos memberships
     for (const membership of memberships) {
       const rolePermissions = ROLE_PERMISSIONS[membership.role] || [];
       permissions.push(...rolePermissions);

@@ -27,6 +27,9 @@ import { MembershipsModule } from './modules/membership/memberships.module';
 import { VolunteersModule } from './modules/volunteers/volunteers.module';
 import { FunctionsModule } from './modules/functions/functions.module';
 import { FormsModule } from './modules/forms/forms.module';
+import { EventsModule } from './modules/events/events.module';
+import { ScalesModule } from './modules/scales/scales.module';
+import { TemplatesModule } from './modules/templates/templates.module';
 
 
 
@@ -103,6 +106,9 @@ import {
     VolunteersModule,
     FunctionsModule,
     FormsModule,
+    EventsModule,
+    ScalesModule,
+    TemplatesModule,
 
 
   ],
