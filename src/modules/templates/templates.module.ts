@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TemplatesController } from './templates.controller';
+import { TemplatesTenantController } from './templates-tenant.controller';
 import { TemplatesService } from './templates.service';
 import {
   ScaleTemplate,
@@ -18,7 +19,7 @@ import {
       { name: Membership.name, schema: MembershipSchema },
     ]),
   ],
-  controllers: [TemplatesController],
+  controllers: [TemplatesController, TemplatesTenantController],
   providers: [TemplatesService],
   exports: [TemplatesService],
 })
