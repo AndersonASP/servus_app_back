@@ -46,6 +46,7 @@ export const PERMS = {
   CONFIRM_OWN_ATTENDANCE: 'confirm_own_attendance',
   VIEW_EVENTS: 'view_events',
   VIEW_SCALES: 'view_scales',
+  UPDATE_OWN_AVAILABILITY: 'update_own_availability',
 
   // Permissões de relatórios
   VIEW_REPORTS: 'view_reports',
@@ -121,6 +122,7 @@ export const ROLE_PERMISSIONS = {
     PERMS.VIEW_OWN_SCHEDULE,
     PERMS.CONFIRM_OWN_ATTENDANCE,
     PERMS.VIEW_EVENTS,
+    PERMS.UPDATE_OWN_AVAILABILITY,
   ],
 
   [MembershipRole.Leader]: [
@@ -141,9 +143,9 @@ export function getRolePriority(role: string): number {
     [Role.TenantAdmin]: 4,
     [Role.BranchAdmin]: 3,
     [MembershipRole.Leader]: 2,
-    'volunteer': 1, // Unifica ambos os tipos de volunteer
+    volunteer: 1, // Unifica ambos os tipos de volunteer
   };
-  
+
   return priorityMap[role] || 0;
 }
 
@@ -152,41 +154,51 @@ export function findHighestPriorityMembership(memberships: any[]): any | null {
   if (!memberships || memberships.length === 0) {
     return null;
   }
-  
+
   if (memberships.length === 1) {
     return memberships[0];
   }
-  
+
   // Ordenar por prioridade (maior primeiro)
   const sortedMemberships = memberships.sort((a, b) => {
     const priorityA = getRolePriority(a.role);
     const priorityB = getRolePriority(b.role);
     return priorityB - priorityA; // Descendente
   });
-  
+
   console.log('🔍 [RolePriority] Memberships ordenados por prioridade:');
   sortedMemberships.forEach((membership, index) => {
-    console.log(`   ${index + 1}. Role: ${membership.role} (prioridade: ${getRolePriority(membership.role)})`);
+    console.log(
+      `   ${index + 1}. Role: ${membership.role} (prioridade: ${getRolePriority(membership.role)})`,
+    );
   });
-  
+
   return sortedMemberships[0];
 }
 
 // 🆕 Função específica para encontrar o membership principal de um líder
 export function findLeaderPrimaryMembership(memberships: any[]): any | null {
   console.log('🔍 [LeaderPrimary] ===== INICIANDO SELEÇÃO DE LÍDER =====');
-  console.log('🔍 [LeaderPrimary] Total de memberships para analisar:', memberships.length);
-  
+  console.log(
+    '🔍 [LeaderPrimary] Total de memberships para analisar:',
+    memberships.length,
+  );
+
   if (!memberships || memberships.length === 0) {
     console.log('❌ [LeaderPrimary] Nenhum membership encontrado');
     return null;
   }
-  
+
   // Primeiro, tentar encontrar um membership de líder
-  const leaderMemberships = memberships.filter(m => m.role === MembershipRole.Leader);
-  
-  console.log('🔍 [LeaderPrimary] Memberships de líder encontrados:', leaderMemberships.length);
-  
+  const leaderMemberships = memberships.filter(
+    (m) => m.role === MembershipRole.Leader,
+  );
+
+  console.log(
+    '🔍 [LeaderPrimary] Memberships de líder encontrados:',
+    leaderMemberships.length,
+  );
+
   if (leaderMemberships.length > 0) {
     // Debug: mostrar todos os memberships de líder
     leaderMemberships.forEach((membership, index) => {
@@ -195,18 +207,24 @@ export function findLeaderPrimaryMembership(memberships: any[]): any | null {
       console.log(`   - Ministry: ${membership.ministry?._id?.toString()}`);
       console.log(`   - Branch: ${membership.branch?._id?.toString()}`);
     });
-    
+
     if (leaderMemberships.length === 1) {
-      console.log('🔍 [LeaderPrimary] Apenas um membership de líder, usando ele');
+      console.log(
+        '🔍 [LeaderPrimary] Apenas um membership de líder, usando ele',
+      );
       return leaderMemberships[0];
     } else {
-      console.log('🔍 [LeaderPrimary] Múltiplos memberships de líder, usando lógica de prioridade');
+      console.log(
+        '🔍 [LeaderPrimary] Múltiplos memberships de líder, usando lógica de prioridade',
+      );
       // Se há múltiplos memberships de líder, usar a lógica de prioridade
       return findHighestPriorityMembership(leaderMemberships);
     }
   }
-  
+
   // Se não há membership de líder, usar a lógica de prioridade normal
-  console.log('🔍 [LeaderPrimary] Nenhum membership de líder encontrado, usando lógica de prioridade');
+  console.log(
+    '🔍 [LeaderPrimary] Nenhum membership de líder encontrado, usando lógica de prioridade',
+  );
   return findHighestPriorityMembership(memberships);
 }

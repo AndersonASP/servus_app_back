@@ -41,10 +41,10 @@ export class FormSubmission extends Document {
   @Prop({ type: [String], default: [] })
   selectedFunctions: string[]; // Funções selecionadas pelo voluntário
 
-  @Prop({ 
-    required: true, 
-    enum: FormSubmissionStatus, 
-    default: FormSubmissionStatus.PENDING 
+  @Prop({
+    required: true,
+    enum: FormSubmissionStatus,
+    default: FormSubmissionStatus.PENDING,
   })
   status: FormSubmissionStatus;
 
@@ -86,7 +86,8 @@ export class FormSubmission extends Document {
   updatedAt: Date;
 }
 
-export const FormSubmissionSchema = SchemaFactory.createForClass(FormSubmission);
+export const FormSubmissionSchema =
+  SchemaFactory.createForClass(FormSubmission);
 
 // Índices para performance
 FormSubmissionSchema.index({ formId: 1, status: 1 });

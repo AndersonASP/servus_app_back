@@ -1,4 +1,15 @@
-import { IsEmail, IsOptional, IsString, IsEnum, IsDateString, IsArray, ValidateNested, IsBoolean, IsNotEmpty, IsMongoId } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsDateString,
+  IsArray,
+  ValidateNested,
+  IsBoolean,
+  IsNotEmpty,
+  IsMongoId,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { MembershipRole } from '../../../common/enums/role.enum';
 

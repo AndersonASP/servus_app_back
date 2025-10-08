@@ -1,11 +1,17 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Membership, MembershipSchema } from './schemas/membership.schema';
-import { Ministry, MinistrySchema } from '../ministries/schemas/ministry.schema';
+import {
+  Ministry,
+  MinistrySchema,
+} from '../ministries/schemas/ministry.schema';
 import { User, UserSchema } from '../users/schema/user.schema';
 import { Tenant, TenantSchema } from '../tenants/schemas/tenant.schema';
 import { Branch, BranchSchema } from '../branches/schemas/branch.schema';
-import { MemberFunction, MemberFunctionSchema } from '../functions/schemas/member-function.schema';
+import {
+  MemberFunction,
+  MemberFunctionSchema,
+} from '../functions/schemas/member-function.schema';
 import { FunctionsModule } from '../functions/functions.module';
 
 import { MembershipController } from './controllers/membership.controller';

@@ -1,14 +1,20 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Scale } from './schemas/scale.schema';
-import { CreateScaleDto, UpdateScaleDto, ListScaleDto } from './dto/create-scale.dto';
+import {
+  CreateScaleDto,
+  UpdateScaleDto,
+  ListScaleDto,
+} from './dto/create-scale.dto';
 
 @Injectable()
 export class ScalesService {
-  constructor(
-    @InjectModel(Scale.name) private scaleModel: Model<Scale>,
-  ) {}
+  constructor(@InjectModel(Scale.name) private scaleModel: Model<Scale>) {}
 
   async create(
     tenantId: string,
@@ -19,8 +25,13 @@ export class ScalesService {
     userMinistryId?: string,
   ) {
     // Verificar se o usuário é líder do ministério ou admin
-    if (!this.isTenantOrBranchAdmin(userRoles) && userMinistryId !== dto.ministryId) {
-      throw new ForbiddenException('Você só pode criar escalas para o seu próprio ministério.');
+    if (
+      !this.isTenantOrBranchAdmin(userRoles) &&
+      userMinistryId !== dto.ministryId
+    ) {
+      throw new ForbiddenException(
+        'Você só pode criar escalas para o seu próprio ministério.',
+      );
     }
 
     const scale = new this.scaleModel({
@@ -31,11 +42,14 @@ export class ScalesService {
       ministryId: new Types.ObjectId(dto.ministryId),
       templateId: new Types.ObjectId(dto.templateId),
       eventDate: new Date(dto.eventDate),
-      assignments: dto.assignments?.map(assignment => ({
-        ...assignment,
-        functionId: new Types.ObjectId(assignment.functionId),
-        assignedMembers: assignment.assignedMembers?.map(id => new Types.ObjectId(id)) || [],
-      })) || [],
+      assignments:
+        dto.assignments?.map((assignment) => ({
+          ...assignment,
+          functionId: new Types.ObjectId(assignment.functionId),
+          assignedMembers:
+            assignment.assignedMembers?.map((id) => new Types.ObjectId(id)) ||
+            [],
+        })) || [],
       createdBy: new Types.ObjectId(userId),
       updatedBy: new Types.ObjectId(userId),
     });
@@ -128,7 +142,9 @@ export class ScalesService {
     // Verificar permissão
     if (userRoles && !this.isTenantOrBranchAdmin(userRoles) && userMinistryId) {
       if (scale.ministryId.toString() !== userMinistryId) {
-        throw new ForbiddenException('Você só pode visualizar escalas do seu próprio ministério.');
+        throw new ForbiddenException(
+          'Você só pode visualizar escalas do seu próprio ministério.',
+        );
       }
     }
 
@@ -157,7 +173,9 @@ export class ScalesService {
     // Verificar permissão
     if (!this.isTenantOrBranchAdmin(userRoles) && userMinistryId) {
       if (scale.ministryId.toString() !== userMinistryId) {
-        throw new ForbiddenException('Você só pode editar escalas do seu próprio ministério.');
+        throw new ForbiddenException(
+          'Você só pode editar escalas do seu próprio ministério.',
+        );
       }
     }
 
@@ -167,22 +185,23 @@ export class ScalesService {
     };
 
     if (dto.eventId) updateData.eventId = new Types.ObjectId(dto.eventId);
-    if (dto.ministryId) updateData.ministryId = new Types.ObjectId(dto.ministryId);
-    if (dto.templateId) updateData.templateId = new Types.ObjectId(dto.templateId);
+    if (dto.ministryId)
+      updateData.ministryId = new Types.ObjectId(dto.ministryId);
+    if (dto.templateId)
+      updateData.templateId = new Types.ObjectId(dto.templateId);
     if (dto.eventDate) updateData.eventDate = new Date(dto.eventDate);
     if (dto.assignments) {
-      updateData.assignments = dto.assignments.map(assignment => ({
+      updateData.assignments = dto.assignments.map((assignment) => ({
         ...assignment,
         functionId: new Types.ObjectId(assignment.functionId),
-        assignedMembers: assignment.assignedMembers?.map(id => new Types.ObjectId(id)) || [],
+        assignedMembers:
+          assignment.assignedMembers?.map((id) => new Types.ObjectId(id)) || [],
       }));
     }
 
-    const updated = await this.scaleModel.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true }
-    );
+    const updated = await this.scaleModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
 
     return updated;
   }
@@ -208,7 +227,9 @@ export class ScalesService {
     // Verificar permissão
     if (!this.isTenantOrBranchAdmin(userRoles) && userMinistryId) {
       if (scale.ministryId.toString() !== userMinistryId) {
-        throw new ForbiddenException('Você só pode excluir escalas do seu próprio ministério.');
+        throw new ForbiddenException(
+          'Você só pode excluir escalas do seu próprio ministério.',
+        );
       }
     }
 
@@ -220,6 +241,8 @@ export class ScalesService {
     if (!userRoles || !Array.isArray(userRoles)) {
       return false;
     }
-    return userRoles.includes('tenant_admin') || userRoles.includes('branch_admin');
+    return (
+      userRoles.includes('tenant_admin') || userRoles.includes('branch_admin')
+    );
   }
 }

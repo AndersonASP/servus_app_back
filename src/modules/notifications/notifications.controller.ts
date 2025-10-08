@@ -124,8 +124,8 @@ export class NotificationsController {
     const isConnected = await this.emailService.testConnection();
     return {
       success: isConnected,
-      message: isConnected 
-        ? 'Conexão com servidor de email funcionando' 
+      message: isConnected
+        ? 'Conexão com servidor de email funcionando'
         : 'Erro na conexão com servidor de email',
     };
   }
@@ -146,11 +146,11 @@ export class NotificationsController {
       'Filial Central',
       'Ministério de Louvor',
     );
-    
+
     return {
       success,
-      message: success 
-        ? `Email de teste enviado para ${testEmail}` 
+      message: success
+        ? `Email de teste enviado para ${testEmail}`
         : 'Erro ao enviar email de teste',
     };
   }

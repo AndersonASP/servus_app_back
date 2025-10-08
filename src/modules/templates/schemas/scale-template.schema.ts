@@ -60,8 +60,11 @@ export class ScaleTemplate extends Document {
 
 export const ScaleTemplateSchema = SchemaFactory.createForClass(ScaleTemplate);
 
-ScaleTemplateSchema.index({ tenantId: 1, branchId: 1, ministryId: 1, eventType: 1 });
+ScaleTemplateSchema.index({
+  tenantId: 1,
+  branchId: 1,
+  ministryId: 1,
+  eventType: 1,
+});
 ScaleTemplateSchema.index({ tenantId: 1, ministryId: 1 });
 ScaleTemplateSchema.index({ name: 'text' });
-
-

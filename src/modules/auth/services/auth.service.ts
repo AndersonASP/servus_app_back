@@ -2,8 +2,17 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Membership } from 'src/modules/membership/schemas/membership.schema';
 import { Tenant } from 'src/modules/tenants/schemas/tenant.schema';
-import { MembershipRole, Role, findHighestPriorityMembership, findLeaderPrimaryMembership } from 'src/common/enums/role.enum';
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  MembershipRole,
+  Role,
+  findHighestPriorityMembership,
+  findLeaderPrimaryMembership,
+} from 'src/common/enums/role.enum';
+import {
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+} from '@nestjs/common';
 import { UsersService } from 'src/modules/users/services/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { OAuth2Client } from 'google-auth-library';
@@ -33,7 +42,10 @@ export class AuthService {
   async login(loginDto: LoginUserDto, deviceId: string, tenantSlug?: string) {
     console.log('🔐 [AUTH] Iniciando processo de login...');
     console.log('📧 [AUTH] Email recebido:', loginDto.email);
-    console.log('🔑 [AUTH] Senha recebida:', loginDto.password ? '***' : 'VAZIA');
+    console.log(
+      '🔑 [AUTH] Senha recebida:',
+      loginDto.password ? '***' : 'VAZIA',
+    );
     console.log('🏢 [AUTH] TenantSlug:', tenantSlug || 'NENHUM');
     console.log('📱 [AUTH] DeviceId:', deviceId);
 
@@ -43,7 +55,7 @@ export class AuthService {
 
     const user = await this.usersService.findByEmail(normalizedEmail);
     console.log('👤 [AUTH] Usuário encontrado:', !!user);
-    
+
     if (user) {
       console.log('👤 [AUTH] Dados do usuário:');
       console.log('   - ID:', user._id);
@@ -61,7 +73,7 @@ export class AuthService {
       console.log('❌ [AUTH] Usuário não encontrado - lançando erro');
       throw invalid;
     }
-    
+
     if (!user.password) {
       console.log('❌ [AUTH] Usuário sem senha - conta Google');
       throw new UnauthorizedException(
@@ -80,7 +92,7 @@ export class AuthService {
     console.log('🔐 [AUTH] Comparando senhas...');
     const ok = await bcrypt.compare(loginDto.password ?? '', user.password);
     console.log('🔐 [AUTH] Senha válida:', ok);
-    
+
     if (!ok) {
       console.log('❌ [AUTH] Senha incorreta - lançando erro');
       throw invalid;
@@ -111,10 +123,12 @@ export class AuthService {
     const picture = payload.picture ?? '';
     const googleId = payload.sub ?? '';
 
-    let user = await this.usersService.findByEmail(email);
+    const user = await this.usersService.findByEmail(email);
     if (!user) {
       console.log('❌ [AUTH] Usuário não encontrado na base de dados:', email);
-      throw new NotFoundException(`Usuário com email ${email} não está cadastrado no sistema. Entre em contato com o administrador para solicitar acesso.`);
+      throw new NotFoundException(
+        `Usuário com email ${email} não está cadastrado no sistema. Entre em contato com o administrador para solicitar acesso.`,
+      );
     }
 
     // Verificar se o usuário está ativo
@@ -143,13 +157,17 @@ export class AuthService {
     const now = new Date();
     const sessionExpiry = new Date(
       now.getTime() +
-        (this.configService.get<number>('environment.jwt.refreshExpiresIn') || 604800) * 1000,
+        (this.configService.get<number>('environment.jwt.refreshExpiresIn') ||
+          604800) *
+          1000,
     );
     const absoluteExpiry =
       opts?.absoluteExpiry ||
       new Date(
         now.getTime() +
-          (this.configService.get<number>('JWT_ABSOLUTE_EXPIRES_IN') || 2592000) * 1000,
+          (this.configService.get<number>('JWT_ABSOLUTE_EXPIRES_IN') ||
+            2592000) *
+            1000,
       );
 
     // Gerar refresh token
@@ -161,7 +179,9 @@ export class AuthService {
       },
       {
         secret: this.configService.get<string>('environment.jwt.refreshSecret'),
-        expiresIn: this.configService.get<number>('environment.jwt.refreshExpiresIn'),
+        expiresIn: this.configService.get<number>(
+          'environment.jwt.refreshExpiresIn',
+        ),
       },
     );
 
@@ -193,7 +213,9 @@ export class AuthService {
       access_token: '', // Será preenchido abaixo
       refresh_token: refreshToken,
       token_type: 'Bearer',
-      expires_in: this.configService.get<number>('environment.jwt.accessExpiresIn') || 3600, // Usa configuração do ConfigService
+      expires_in:
+        this.configService.get<number>('environment.jwt.accessExpiresIn') ||
+        3600, // Usa configuração do ConfigService
       user: {
         id: user._id.toString(),
         email: user.email,
@@ -224,7 +246,7 @@ export class AuthService {
         console.log('🔍 [AUTH] Buscando memberships do usuário:');
         console.log('   - User ID:', user._id);
         console.log('   - Tenant ID:', opts.tenantSlug);
-        
+
         const memberships = await this.memModel
           .find({
             user: user._id,
@@ -243,7 +265,7 @@ export class AuthService {
           })
           .select('role branch ministry isActive')
           .lean();
-          
+
         console.log('🔍 [AUTH] Memberships encontrados:', memberships.length);
         memberships.forEach((m, index) => {
           console.log(`   - Membership ${index + 1}:`);
@@ -260,7 +282,7 @@ export class AuthService {
           console.log('   - Role do usuário:', user.role);
           console.log('   - Role do membership:', mainMembership.role);
           console.log('   - Membership ativo:', mainMembership.isActive);
-          
+
           securityClaims.tenantId = tenant._id.toString(); // ObjectId como string
           securityClaims.branchId =
             (mainMembership.branch as any)?.branchId || null;
@@ -269,7 +291,7 @@ export class AuthService {
             user.role,
             mainMembership.role,
           );
-          
+
           console.log('🔍 [AUTH] Claims de segurança definidos:');
           console.log('   - membershipRole:', securityClaims.membershipRole);
           console.log('   - permissions:', securityClaims.permissions);
@@ -373,7 +395,7 @@ export class AuthService {
           if (firstMembership.tenant) {
             // firstMembership.tenant é um ObjectId
             const tenantId = firstMembership.tenant.toString();
-            
+
             securityClaims.tenantId = tenantId;
             securityClaims.branchId =
               (firstMembership.branch as any)?.branchId || null;
@@ -385,7 +407,11 @@ export class AuthService {
 
             // 🆕 Atualizar o tenantId do usuário se estiver null
             if (!user.tenantId && tenantId) {
-              await this.usersService.update(user._id.toString(), { tenantId: tenantId }, tenantId);
+              await this.usersService.update(
+                user._id.toString(),
+                { tenantId: tenantId },
+                tenantId,
+              );
             }
           }
         }
@@ -475,7 +501,9 @@ export class AuthService {
     // 🆕 Gerar access token com claims de segurança
     const accessToken = this.jwtService.sign(securityClaims, {
       secret: this.configService.get<string>('environment.jwt.accessSecret'),
-      expiresIn: this.configService.get<number>('environment.jwt.accessExpiresIn'),
+      expiresIn: this.configService.get<number>(
+        'environment.jwt.accessExpiresIn',
+      ),
     });
 
     // 🆕 Atualizar resposta com o token gerado
@@ -635,11 +663,16 @@ export class AuthService {
     // 🆕 DETERMINAR MEMBERSHIP PRINCIPAL POR PRIORIDADE DE ROLE
     // Para líderes, usar lógica específica que prioriza o membership de líder
     const primaryMembership = findLeaderPrimaryMembership(allMemberships);
-    console.log('🎯 [RolePriority] Membership principal selecionado:', primaryMembership ? {
-      role: primaryMembership.role,
-      ministry: primaryMembership.ministry?._id?.toString(),
-      branch: primaryMembership.branch?._id?.toString()
-    } : 'nenhum');
+    console.log(
+      '🎯 [RolePriority] Membership principal selecionado:',
+      primaryMembership
+        ? {
+            role: primaryMembership.role,
+            ministry: primaryMembership.ministry?._id?.toString(),
+            branch: primaryMembership.branch?._id?.toString(),
+          }
+        : 'nenhum',
+    );
 
     // Agrupar por tenant
     const tenantsMap = new Map();
@@ -673,7 +706,9 @@ export class AuthService {
         id: membership._id.toString(),
         role: membership.role,
         permissions: getCombinedPermissions(user.role, membership.role),
-        isPrimary: primaryMembership && membership._id.toString() === primaryMembership._id.toString(),
+        isPrimary:
+          primaryMembership &&
+          membership._id.toString() === primaryMembership._id.toString(),
       };
 
       // Adicionar branch se existir

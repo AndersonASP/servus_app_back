@@ -1,4 +1,10 @@
-import { IsArray, IsEnum, IsMongoId, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsMongoId,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { MemberFunctionStatus } from '../schemas/member-function.schema';
 
 export class LinkMemberToFunctionsDto {

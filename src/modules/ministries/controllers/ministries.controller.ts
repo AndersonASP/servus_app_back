@@ -94,7 +94,7 @@ export class MinistriesMatrixController {
         .lean();
 
       // Calcula permissões baseadas nos roles dos memberships
-      
+
       for (const membership of memberships) {
         const rolePermissions = ROLE_PERMISSIONS[membership.role] || [];
         permissions.push(...rolePermissions);
@@ -102,7 +102,7 @@ export class MinistriesMatrixController {
 
       // Remove duplicatas
       const uniquePermissions = [...new Set(permissions)];
-      
+
       return {
         user: {
           id: userId,
@@ -111,7 +111,7 @@ export class MinistriesMatrixController {
           branchId: user.branchId,
           membershipRole: user.membershipRole,
         },
-        memberships: memberships.map(m => ({
+        memberships: memberships.map((m) => ({
           id: m._id,
           role: m.role,
           tenant: m.tenant,
@@ -154,7 +154,6 @@ export class MinistriesMatrixController {
       type: 'matrix',
     };
   }
-
 
   @Post()
   @RequiresPerm(
@@ -228,14 +227,40 @@ export class MinistriesMatrixController {
     console.log('🔍 Controller - findOneMatrix chamado');
     console.log('   - tenantId:', tenantId);
     console.log('   - id:', id);
-    
-    const result = await this.ministriesService.findOne(tenantId.trim(), '', id);
-    
+
+    const result = await this.ministriesService.findOne(
+      tenantId.trim(),
+      '',
+      id,
+    );
+
     console.log('✅ Controller - Resultado retornado:');
     console.log('   - result:', JSON.stringify(result, null, 2));
     console.log('   - result._id:', result._id);
     console.log('   - result._id type:', typeof result._id);
-    
+
+    return result;
+  }
+
+  @Get(':id/block-config')
+  @Public()
+  async getBlockConfigMatrix(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    console.log('🔍 Controller - getBlockConfigMatrix chamado');
+    console.log('   - tenantId:', tenantId);
+    console.log('   - id:', id);
+
+    const result = await this.ministriesService.getBlockConfig(
+      tenantId.trim(),
+      '',
+      id,
+    );
+
+    console.log('✅ Controller - Block config retornado:');
+    console.log('   - result:', JSON.stringify(result, null, 2));
+
     return result;
   }
 
@@ -334,7 +359,6 @@ export class MinistriesController {
     };
   }
 
-
   @Post()
   @RequiresPerm(
     [PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCH_MINISTRIES],
@@ -400,6 +424,30 @@ export class MinistriesController {
     @Param('id') id: string,
   ) {
     return this.ministriesService.findOne(tenantId, branchId, id);
+  }
+
+  @Get(':id/block-config')
+  @Public()
+  async getBlockConfig(
+    @Param('tenantId') tenantId: string,
+    @Param('branchId') branchId: string,
+    @Param('id') id: string,
+  ) {
+    console.log('🔍 Controller - getBlockConfig chamado');
+    console.log('   - tenantId:', tenantId);
+    console.log('   - branchId:', branchId);
+    console.log('   - id:', id);
+
+    const result = await this.ministriesService.getBlockConfig(
+      tenantId.trim(),
+      branchId.trim(),
+      id,
+    );
+
+    console.log('✅ Controller - Block config retornado:');
+    console.log('   - result:', JSON.stringify(result, null, 2));
+
+    return result;
   }
 
   @Patch(':id')

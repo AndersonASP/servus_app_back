@@ -15,7 +15,10 @@ import { CreateBranchDto } from '../dto/create-branches.dto';
 import { CreateBranchWithAdminDto } from '../dto/create-branch-with-admin.dto';
 import { UpdateBranchDto } from '../dto/update-branch.dto';
 import { BranchFilterDto } from '../dto/branch-filter.dto';
-import { BranchResponseDto, BranchListResponseDto } from '../dto/branch-response.dto';
+import {
+  BranchResponseDto,
+  BranchListResponseDto,
+} from '../dto/branch-response.dto';
 import { AssignAdminDto } from '../dto/assign-admin.dto';
 import { Role, MembershipRole } from 'src/common/enums/role.enum';
 import { EmailService } from '../../notifications/services/email.service';
@@ -159,7 +162,8 @@ export class BranchService {
       // Criar admin da branch se fornecido
       if (data.adminData) {
         // Gerar senha provisória se não fornecida
-        provisionalPassword = data.adminData.password || this.generateProvisionalPassword();
+        provisionalPassword =
+          data.adminData.password || this.generateProvisionalPassword();
         const hashedPassword = await bcrypt.hash(provisionalPassword, 10);
 
         const admin = new this.userModel({
@@ -229,9 +233,10 @@ export class BranchService {
       .lean();
   }
 
-
-
-  async findAll(tenantId: string, filters?: BranchFilterDto): Promise<BranchListResponseDto> {
+  async findAll(
+    tenantId: string,
+    filters?: BranchFilterDto,
+  ): Promise<BranchListResponseDto> {
     const tenant = await this.tenantModel.findById(tenantId);
     if (!tenant) {
       throw new NotFoundException('Tenant não encontrado');
@@ -239,7 +244,7 @@ export class BranchService {
 
     // Construir query de filtros
     const query: any = { tenant: tenant._id };
-    
+
     if (filters?.isActive !== undefined) {
       query.isActive = filters.isActive;
     }
@@ -281,7 +286,7 @@ export class BranchService {
     const total = await this.branchModel.countDocuments(query);
 
     return {
-      branches: branches.map(branch => this.mapBranchToResponse(branch)),
+      branches: branches.map((branch) => this.mapBranchToResponse(branch)),
       total,
       page,
       limit,
@@ -289,9 +294,12 @@ export class BranchService {
     };
   }
 
-  async findById(branchId: string, tenantId?: string): Promise<BranchResponseDto> {
+  async findById(
+    branchId: string,
+    tenantId?: string,
+  ): Promise<BranchResponseDto> {
     const query: any = { branchId };
-    
+
     if (tenantId) {
       const tenant = await this.tenantModel.findById(tenantId);
       if (!tenant) {
@@ -304,11 +312,15 @@ export class BranchService {
     if (!branch) {
       throw new NotFoundException('Filial não encontrada.');
     }
-    
+
     return this.mapBranchToResponse(branch);
   }
 
-  async update(branchId: string, updateBranchDto: UpdateBranchDto, updatedBy: string): Promise<BranchResponseDto> {
+  async update(
+    branchId: string,
+    updateBranchDto: UpdateBranchDto,
+    updatedBy: string,
+  ): Promise<BranchResponseDto> {
     const branch = await this.branchModel.findOne({ branchId });
     if (!branch) {
       throw new NotFoundException('Filial não encontrada.');
@@ -332,11 +344,15 @@ export class BranchService {
     // Atualizar branch
     Object.assign(branch, updateBranchDto);
     const updatedBranch = await branch.save();
-    
+
     return this.mapBranchToResponse(updatedBranch);
   }
 
-  async assignAdmin(branchId: string, assignAdminDto: AssignAdminDto, assignedBy: string): Promise<any> {
+  async assignAdmin(
+    branchId: string,
+    assignAdminDto: AssignAdminDto,
+    assignedBy: string,
+  ): Promise<any> {
     const branch = await this.branchModel.findOne({ branchId });
     if (!branch) {
       throw new NotFoundException('Filial não encontrada.');
@@ -361,21 +377,24 @@ export class BranchService {
           throw new NotFoundException('Usuário não encontrado.');
         }
       } else if (assignAdminDto.userEmail) {
-        user = await this.userModel.findOne({ email: assignAdminDto.userEmail.toLowerCase().trim() });
+        user = await this.userModel.findOne({
+          email: assignAdminDto.userEmail.toLowerCase().trim(),
+        });
         if (!user) {
           throw new NotFoundException('Usuário não encontrado com este email.');
         }
       } else if (assignAdminDto.email) {
         // Criar novo usuário
-        const existingUser = await this.userModel.findOne({ 
-          email: assignAdminDto.email.toLowerCase().trim() 
+        const existingUser = await this.userModel.findOne({
+          email: assignAdminDto.email.toLowerCase().trim(),
         });
-        
+
         if (existingUser) {
           throw new ConflictException('Já existe um usuário com este email.');
         }
 
-        provisionalPassword = assignAdminDto.password || this.generateProvisionalPassword();
+        provisionalPassword =
+          assignAdminDto.password || this.generateProvisionalPassword();
         const hashedPassword = await bcrypt.hash(provisionalPassword, 10);
 
         user = new this.userModel({
@@ -389,7 +408,9 @@ export class BranchService {
 
         await user.save({ session });
       } else {
-        throw new BadRequestException('É necessário fornecer userId, userEmail ou email para vincular o administrador.');
+        throw new BadRequestException(
+          'É necessário fornecer userId, userEmail ou email para vincular o administrador.',
+        );
       }
 
       // Verificar se já existe membership para este usuário nesta filial
@@ -399,7 +420,9 @@ export class BranchService {
       });
 
       if (existingMembership) {
-        throw new ConflictException('Este usuário já é administrador desta filial.');
+        throw new ConflictException(
+          'Este usuário já é administrador desta filial.',
+        );
       }
 
       // Criar membership como BranchAdmin
@@ -457,7 +480,10 @@ export class BranchService {
     }
   }
 
-  async deactivate(branchId: string, deactivatedBy: string): Promise<BranchResponseDto> {
+  async deactivate(
+    branchId: string,
+    deactivatedBy: string,
+  ): Promise<BranchResponseDto> {
     const updated = await this.branchModel.findOneAndUpdate(
       { branchId },
       { isActive: false },
@@ -467,7 +493,7 @@ export class BranchService {
     if (!updated) {
       throw new NotFoundException('Filial não encontrada para desativar.');
     }
-    
+
     return this.mapBranchToResponse(updated);
   }
 
@@ -518,34 +544,38 @@ export class BranchService {
    */
   private generateProvisionalPassword(): string {
     const crypto = require('crypto');
-    
+
     // Caracteres seguros para senha
     const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lowercase = 'abcdefghijklmnopqrstuvwxyz';
     const numbers = '0123456789';
     const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
     const allChars = uppercase + lowercase + numbers + symbols;
-    
+
     let password = '';
-    
+
     // Garantir pelo menos um de cada tipo
     password += uppercase[crypto.randomInt(0, uppercase.length)];
     password += lowercase[crypto.randomInt(0, lowercase.length)];
     password += numbers[crypto.randomInt(0, numbers.length)];
     password += symbols[crypto.randomInt(0, symbols.length)];
-    
+
     // Preencher o resto com caracteres aleatórios criptograficamente seguros
-    for (let i = 4; i < 16; i++) { // Senha de 16 caracteres
+    for (let i = 4; i < 16; i++) {
+      // Senha de 16 caracteres
       password += allChars[crypto.randomInt(0, allChars.length)];
     }
-    
+
     // Embaralhar a senha
     const passwordArray = password.split('');
     for (let i = passwordArray.length - 1; i > 0; i--) {
       const j = crypto.randomInt(0, i + 1);
-      [passwordArray[i], passwordArray[j]] = [passwordArray[j], passwordArray[i]];
+      [passwordArray[i], passwordArray[j]] = [
+        passwordArray[j],
+        passwordArray[i],
+      ];
     }
-    
+
     return passwordArray.join('');
   }
 

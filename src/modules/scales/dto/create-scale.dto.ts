@@ -1,4 +1,14 @@
-import { IsString, IsDateString, IsOptional, IsArray, ValidateNested, IsBoolean, IsInt, Min, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsDateString,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsBoolean,
+  IsInt,
+  Min,
+  IsEnum,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateScaleAssignmentDto {

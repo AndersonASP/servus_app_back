@@ -2,8 +2,14 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TemplatesController } from './templates.controller';
 import { TemplatesService } from './templates.service';
-import { ScaleTemplate, ScaleTemplateSchema } from './schemas/scale-template.schema';
-import { Membership, MembershipSchema } from '../membership/schemas/membership.schema';
+import {
+  ScaleTemplate,
+  ScaleTemplateSchema,
+} from './schemas/scale-template.schema';
+import {
+  Membership,
+  MembershipSchema,
+} from '../membership/schemas/membership.schema';
 
 @Module({
   imports: [

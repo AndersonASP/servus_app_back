@@ -1,9 +1,12 @@
 import {
   IsArray,
   IsBoolean,
+  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
+  Max,
 } from 'class-validator';
 
 export class UpdateMinistryDto {
@@ -25,4 +28,10 @@ export class UpdateMinistryDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  maxBlockedDays?: number;
 }

@@ -24,7 +24,11 @@ export async function resolveScope(
   tenantOid: Types.ObjectId,
   memModel: Model<Membership>,
 ): Promise<RbacScope> {
-  console.log('🔍 resolveScope - user:', { _id: user._id, role: user.role, email: user.email });
+  console.log('🔍 resolveScope - user:', {
+    _id: user._id,
+    role: user.role,
+    email: user.email,
+  });
   console.log('🔍 resolveScope - tenantOid:', tenantOid);
 
   // 1) Servus admin: pode tudo (acima de qualquer tenant/branch)
@@ -64,7 +68,12 @@ export async function resolveScope(
       ministry: m.ministry as Types.ObjectId,
     }));
 
-  const scope = { isServusAdmin: false, isTenantAdmin, branchAdminIds, leaderPairs };
+  const scope = {
+    isServusAdmin: false,
+    isTenantAdmin,
+    branchAdminIds,
+    leaderPairs,
+  };
   console.log('🔍 resolveScope - scope final:', scope);
 
   return scope;
@@ -96,7 +105,7 @@ export function buildRbacMatch(scope: RbacScope) {
       }
       return condition;
     });
-    
+
     blocks.push({ $or: leaderConditions });
   }
 

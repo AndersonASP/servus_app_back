@@ -85,13 +85,17 @@ export class CustomFormController {
   ) {
     try {
       this.logger.log(`[getTenantForms] Iniciando listagem de formulários`);
-      this.logger.log(`[getTenantForms] Parâmetros - page: ${page}, limit: ${limit}`);
-      
+      this.logger.log(
+        `[getTenantForms] Parâmetros - page: ${page}, limit: ${limit}`,
+      );
+
       const tenantId = req.user?.tenantId;
       const branchId = req.user?.branchId;
       const userId = req.user?.sub;
 
-      this.logger.log(`[getTenantForms] Dados do usuário - tenantId: ${tenantId}, branchId: ${branchId}, userId: ${userId}`);
+      this.logger.log(
+        `[getTenantForms] Dados do usuário - tenantId: ${tenantId}, branchId: ${branchId}, userId: ${userId}`,
+      );
 
       if (!tenantId) {
         this.logger.warn(`[getTenantForms] Tenant não encontrado no token`);
@@ -100,7 +104,9 @@ export class CustomFormController {
         });
       }
 
-      this.logger.log(`[getTenantForms] Buscando formulários para tenant ${tenantId}, branch ${branchId || 'null'}`);
+      this.logger.log(
+        `[getTenantForms] Buscando formulários para tenant ${tenantId}, branch ${branchId || 'null'}`,
+      );
       const result = await this.customFormService.getTenantForms(
         tenantId,
         branchId,
@@ -108,15 +114,20 @@ export class CustomFormController {
         parseInt(limit),
       );
 
-      this.logger.log(`[getTenantForms] Resultado encontrado - ${result.forms.length} formulários, total: ${result.pagination.total}`);
-      
+      this.logger.log(
+        `[getTenantForms] Resultado encontrado - ${result.forms.length} formulários, total: ${result.pagination.total}`,
+      );
+
       return res.status(HttpStatus.OK).json({
         message: 'Formulários encontrados',
         data: result.forms,
         pagination: result.pagination,
       });
     } catch (error) {
-      this.logger.error(`[getTenantForms] Erro ao listar formulários: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getTenantForms] Erro ao listar formulários: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });
@@ -137,8 +148,10 @@ export class CustomFormController {
     @Res() res: Response,
   ) {
     try {
-      this.logger.log(`[getAllSubmissions] Buscando submissões - status: ${status}, tenantId: ${tenantIdParam}`);
-      
+      this.logger.log(
+        `[getAllSubmissions] Buscando submissões - status: ${status}, tenantId: ${tenantIdParam}`,
+      );
+
       const tenantId = tenantIdParam || req.user?.tenantId;
 
       if (!tenantId) {
@@ -148,7 +161,9 @@ export class CustomFormController {
         });
       }
 
-      this.logger.log(`[getAllSubmissions] Buscando submissões para tenant ${tenantId}`);
+      this.logger.log(
+        `[getAllSubmissions] Buscando submissões para tenant ${tenantId}`,
+      );
       const result = await this.customFormService.getAllSubmissions(
         tenantId,
         status as any,
@@ -156,15 +171,20 @@ export class CustomFormController {
         parseInt(limit),
       );
 
-      this.logger.log(`[getAllSubmissions] Resultado - ${result.submissions.length} submissões encontradas`);
-      
+      this.logger.log(
+        `[getAllSubmissions] Resultado - ${result.submissions.length} submissões encontradas`,
+      );
+
       return res.status(HttpStatus.OK).json({
         message: 'Submissões encontradas',
         data: result.submissions,
         pagination: result.pagination,
       });
     } catch (error) {
-      this.logger.error(`[getAllSubmissions] Erro ao buscar submissões: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getAllSubmissions] Erro ao buscar submissões: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });
@@ -183,30 +203,41 @@ export class CustomFormController {
   ) {
     try {
       this.logger.log(`[getFormById] Iniciando busca do formulário: ${formId}`);
-      
+
       const tenantId = req.user?.tenantId;
       const userId = req.user?.sub;
-      
-      this.logger.log(`[getFormById] Dados do usuário - tenantId: ${tenantId}, userId: ${userId}`);
+
+      this.logger.log(
+        `[getFormById] Dados do usuário - tenantId: ${tenantId}, userId: ${userId}`,
+      );
 
       if (!tenantId) {
-        this.logger.warn(`[getFormById] Tenant não encontrado para formId: ${formId}`);
+        this.logger.warn(
+          `[getFormById] Tenant não encontrado para formId: ${formId}`,
+        );
         return res.status(HttpStatus.UNAUTHORIZED).json({
           message: 'Tenant não encontrado',
         });
       }
 
-      this.logger.log(`[getFormById] Buscando formulário ${formId} para tenant ${tenantId}`);
+      this.logger.log(
+        `[getFormById] Buscando formulário ${formId} para tenant ${tenantId}`,
+      );
       const result = await this.customFormService.getFormById(formId, tenantId);
-      
-      this.logger.log(`[getFormById] Formulário encontrado: ${result._id}, título: ${result.title}`);
+
+      this.logger.log(
+        `[getFormById] Formulário encontrado: ${result._id}, título: ${result.title}`,
+      );
 
       return res.status(HttpStatus.OK).json({
         message: 'Formulário encontrado',
         data: result,
       });
     } catch (error) {
-      this.logger.error(`[getFormById] Erro ao buscar formulário ${formId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getFormById] Erro ao buscar formulário ${formId}: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });
@@ -219,25 +250,31 @@ export class CustomFormController {
    */
   @Public()
   @Get('public/:formId')
-  async getPublicForm(
-    @Param('formId') formId: string,
-    @Res() res: Response,
-  ) {
+  async getPublicForm(@Param('formId') formId: string, @Res() res: Response) {
     try {
-      this.logger.log(`[getPublicForm] Acessando formulário público: ${formId}`);
-      
+      this.logger.log(
+        `[getPublicForm] Acessando formulário público: ${formId}`,
+      );
+
       // Verificar se o formulário existe
       const form = await this.customFormService.getPublicForm(formId);
-      this.logger.log(`[getPublicForm] Formulário encontrado: ${form._id}, título: ${form.title}, isPublic: ${form.isPublic}`);
-      
+      this.logger.log(
+        `[getPublicForm] Formulário encontrado: ${form._id}, título: ${form.title}, isPublic: ${form.isPublic}`,
+      );
+
       // Servir a página Flutter Web com roteamento correto
       const html = this.generateFlutterWebHTML(formId);
-      
-      this.logger.log(`[getPublicForm] Servindo página HTML para formulário ${formId}`);
+
+      this.logger.log(
+        `[getPublicForm] Servindo página HTML para formulário ${formId}`,
+      );
       res.setHeader('Content-Type', 'text/html');
       return res.send(html);
     } catch (error) {
-      this.logger.error(`[getPublicForm] Erro ao acessar formulário público ${formId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getPublicForm] Erro ao acessar formulário público ${formId}: ${error.message}`,
+        error.stack,
+      );
       const errorHtml = this.generateErrorHTML(error.message);
       res.setHeader('Content-Type', 'text/html');
       return res.status(HttpStatus.NOT_FOUND).send(errorHtml);
@@ -254,23 +291,29 @@ export class CustomFormController {
     @Res() res: Response,
   ) {
     try {
-      this.logger.log(`[getPublicFormApi] API request para formulário: ${formId}`);
-      
+      this.logger.log(
+        `[getPublicFormApi] API request para formulário: ${formId}`,
+      );
+
       const result = await this.customFormService.getPublicForm(formId);
-      this.logger.log(`[getPublicFormApi] Formulário encontrado via API: ${result._id}, título: ${result.title}`);
+      this.logger.log(
+        `[getPublicFormApi] Formulário encontrado via API: ${result._id}, título: ${result.title}`,
+      );
 
       return res.status(HttpStatus.OK).json({
         message: 'Formulário encontrado',
         data: result,
       });
     } catch (error) {
-      this.logger.error(`[getPublicFormApi] Erro na API do formulário ${formId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getPublicFormApi] Erro na API do formulário ${formId}: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });
     }
   }
-
 
   /**
    * Serve página Flutter Web para formulário público
@@ -284,10 +327,10 @@ export class CustomFormController {
     try {
       // Verificar se o formulário existe
       await this.customFormService.getPublicForm(formId);
-      
+
       // Servir a página Flutter Web
       const html = this.generateFlutterWebHTML(formId);
-      
+
       res.setHeader('Content-Type', 'text/html');
       return res.send(html);
     } catch (error) {
@@ -310,10 +353,10 @@ export class CustomFormController {
     try {
       // Verificar se o formulário existe
       await this.customFormService.getPublicForm(formId);
-      
+
       // Servir a página Flutter Web
       const html = this.generateFlutterWebHTML(formId);
-      
+
       res.setHeader('Content-Type', 'text/html');
       return res.send(html);
     } catch (error) {
@@ -374,17 +417,24 @@ export class CustomFormController {
   ) {
     try {
       this.logger.log(`[submitForm] Submissão de formulário: ${formId}`);
-      this.logger.log(`[submitForm] Dados da submissão - email: ${submitDto.email}, nome: ${submitDto.volunteerName}`);
-      
+      this.logger.log(
+        `[submitForm] Dados da submissão - email: ${submitDto.email}, nome: ${submitDto.volunteerName}`,
+      );
+
       const result = await this.customFormService.submitForm(formId, submitDto);
-      this.logger.log(`[submitForm] Submissão criada com sucesso: ${result._id}, status: ${result.status}`);
+      this.logger.log(
+        `[submitForm] Submissão criada com sucesso: ${result._id}, status: ${result.status}`,
+      );
 
       return res.status(HttpStatus.CREATED).json({
         message: 'Formulário submetido com sucesso',
         data: result,
       });
     } catch (error) {
-      this.logger.error(`[submitForm] Erro ao submeter formulário ${formId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `[submitForm] Erro ao submeter formulário ${formId}: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });
@@ -664,8 +714,10 @@ export class CustomFormController {
    * Gera HTML da página do formulário (versão HTML estática - mantida para compatibilidade)
    */
   private generateFormHTML(form: any): string {
-    const fieldsHTML = form.fields.map((field: any) => this.generateFieldHTML(field)).join('\n');
-    
+    const fieldsHTML = form.fields
+      .map((field: any) => this.generateFieldHTML(field))
+      .join('\n');
+
     return `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -969,9 +1021,13 @@ export class CustomFormController {
    */
   private generateFieldHTML(field: any): string {
     const required = field.required ? 'required' : '';
-    const requiredStar = field.required ? '<span class="required">*</span>' : '';
-    const helpText = field.helpText ? `<div class="help-text">${field.helpText}</div>` : '';
-    
+    const requiredStar = field.required
+      ? '<span class="required">*</span>'
+      : '';
+    const helpText = field.helpText
+      ? `<div class="help-text">${field.helpText}</div>`
+      : '';
+
     switch (field.type) {
       case 'text':
       case 'email':
@@ -983,7 +1039,7 @@ export class CustomFormController {
                    placeholder="${field.placeholder}" ${required}>
             ${helpText}
           </div>`;
-      
+
       case 'textarea':
         return `
           <div class="form-group">
@@ -992,11 +1048,13 @@ export class CustomFormController {
                       placeholder="${field.placeholder}" ${required}>${field.defaultValue || ''}</textarea>
             ${helpText}
           </div>`;
-      
+
       case 'select':
-        const selectOptions = field.options.map((option: string) => 
-          `<option value="${option}">${option}</option>`
-        ).join('');
+        const selectOptions = field.options
+          .map(
+            (option: string) => `<option value="${option}">${option}</option>`,
+          )
+          .join('');
         return `
           <div class="form-group">
             <label for="${field.id}">${field.label} ${requiredStar}</label>
@@ -1006,14 +1064,17 @@ export class CustomFormController {
             </select>
             ${helpText}
           </div>`;
-      
+
       case 'multiselect':
-        const checkboxOptions = field.options.map((option: string) => 
-          `<div class="checkbox-item">
+        const checkboxOptions = field.options
+          .map(
+            (option: string) =>
+              `<div class="checkbox-item">
             <input type="checkbox" id="${field.id}_${option}" name="${field.id}" value="${option}">
             <label for="${field.id}_${option}">${option}</label>
-          </div>`
-        ).join('');
+          </div>`,
+          )
+          .join('');
         return `
           <div class="form-group">
             <label>${field.label} ${requiredStar}</label>
@@ -1022,7 +1083,7 @@ export class CustomFormController {
             </div>
             ${helpText}
           </div>`;
-      
+
       case 'number':
         return `
           <div class="form-group">
@@ -1031,7 +1092,7 @@ export class CustomFormController {
                    placeholder="${field.placeholder}" ${required}>
             ${helpText}
           </div>`;
-      
+
       case 'date':
         return `
           <div class="form-group">
@@ -1039,7 +1100,7 @@ export class CustomFormController {
             <input type="date" id="${field.id}" name="${field.id}" ${required}>
             ${helpText}
           </div>`;
-      
+
       default:
         return `
           <div class="form-group">

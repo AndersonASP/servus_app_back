@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Membership } from '../schemas/membership.schema';
@@ -9,17 +13,22 @@ import { MembershipRole } from '../../../common/enums/role.enum';
 export class MembershipIntegrityService {
   constructor(
     @InjectModel(Membership.name) private membershipModel: Model<Membership>,
-    @InjectModel(MemberFunction.name) private memberFunctionModel: Model<MemberFunction>,
+    @InjectModel(MemberFunction.name)
+    private memberFunctionModel: Model<MemberFunction>,
   ) {}
 
   /**
    * Valida se a remoção de um membership não deixará o usuário órfão
    */
   async validateMembershipRemoval(
-    userId: string, 
-    membershipId: string, 
-    tenantId: string
-  ): Promise<{ valid: boolean; reason?: string; remainingMemberships: number }> {
+    userId: string,
+    membershipId: string,
+    tenantId: string,
+  ): Promise<{
+    valid: boolean;
+    reason?: string;
+    remainingMemberships: number;
+  }> {
     console.log('🔍 [MembershipIntegrity] Validando remoção de membership...');
     console.log('   - User ID:', userId);
     console.log('   - Membership ID:', membershipId);
@@ -33,7 +42,9 @@ export class MembershipIntegrityService {
 
     // Verificar se o membership pertence ao usuário
     if (membership.user.toString() !== userId) {
-      throw new BadRequestException('Membership não pertence ao usuário especificado');
+      throw new BadRequestException(
+        'Membership não pertence ao usuário especificado',
+      );
     }
 
     // Contar memberships ativos restantes do usuário no tenant
@@ -41,21 +52,26 @@ export class MembershipIntegrityService {
       user: new Types.ObjectId(userId),
       tenant: new Types.ObjectId(tenantId),
       isActive: true,
-      _id: { $ne: new Types.ObjectId(membershipId) } // Excluir o membership que será removido
+      _id: { $ne: new Types.ObjectId(membershipId) }, // Excluir o membership que será removido
     });
 
-    console.log('📊 [MembershipIntegrity] Memberships restantes:', remainingMemberships);
+    console.log(
+      '📊 [MembershipIntegrity] Memberships restantes:',
+      remainingMemberships,
+    );
 
     // CORREÇÃO: Permitir que usuários fiquem sem vínculos ativos
     // Um usuário pode não ter nenhum vínculo de ministério ativo
     if (remainingMemberships === 0) {
-      console.log('⚠️ [MembershipIntegrity] Usuário ficará sem vínculos ativos após remoção - PERMITIDO');
+      console.log(
+        '⚠️ [MembershipIntegrity] Usuário ficará sem vínculos ativos após remoção - PERMITIDO',
+      );
       // Não bloquear a remoção, apenas avisar
     }
 
     return {
       valid: true,
-      remainingMemberships
+      remainingMemberships,
     };
   }
 
@@ -63,9 +79,9 @@ export class MembershipIntegrityService {
    * Cria um membership padrão para usuários sem vínculos ativos
    */
   async ensureDefaultMembership(
-    userId: string, 
-    tenantId: string, 
-    createdBy?: string
+    userId: string,
+    tenantId: string,
+    createdBy?: string,
   ): Promise<Membership> {
     console.log('🔧 [MembershipIntegrity] Verificando membership padrão...');
     console.log('   - User ID:', userId);
@@ -74,54 +90,65 @@ export class MembershipIntegrityService {
     const hasActiveMembership = await this.membershipModel.exists({
       user: new Types.ObjectId(userId),
       tenant: new Types.ObjectId(tenantId),
-      isActive: true
+      isActive: true,
     });
 
     if (!hasActiveMembership) {
-      console.log('⚠️ [MembershipIntegrity] Usuário sem membership ativo, verificando se já existe membership padrão...');
-      
+      console.log(
+        '⚠️ [MembershipIntegrity] Usuário sem membership ativo, verificando se já existe membership padrão...',
+      );
+
       // Verificar se já existe um membership padrão (mesmo inativo)
       const existingDefaultMembership = await this.membershipModel.findOne({
         user: new Types.ObjectId(userId),
         tenant: new Types.ObjectId(tenantId),
         branch: null,
-        ministry: null
+        ministry: null,
       });
 
       if (existingDefaultMembership) {
-        console.log('✅ [MembershipIntegrity] Membership padrão já existe:', existingDefaultMembership._id);
-        
+        console.log(
+          '✅ [MembershipIntegrity] Membership padrão já existe:',
+          existingDefaultMembership._id,
+        );
+
         // Se o membership padrão está inativo, reativá-lo para permitir novos vínculos
         if (!existingDefaultMembership.isActive) {
-          console.log('🔄 [MembershipIntegrity] Reativando membership padrão inativo...');
-          
+          console.log(
+            '🔄 [MembershipIntegrity] Reativando membership padrão inativo...',
+          );
+
           const updateData: any = {
             isActive: true,
           };
-          
+
           if (createdBy) {
             updateData.updatedBy = new Types.ObjectId(createdBy);
           }
-          
-          const reactivatedMembership = await this.membershipModel.findByIdAndUpdate(
-            existingDefaultMembership._id,
-            updateData,
-            { new: true }
-          );
-          
+
+          const reactivatedMembership =
+            await this.membershipModel.findByIdAndUpdate(
+              existingDefaultMembership._id,
+              updateData,
+              { new: true },
+            );
+
           if (!reactivatedMembership) {
             throw new Error('Falha ao reativar membership padrão');
           }
-          
-          console.log('✅ [MembershipIntegrity] Membership padrão reativado:', reactivatedMembership._id);
+
+          console.log(
+            '✅ [MembershipIntegrity] Membership padrão reativado:',
+            reactivatedMembership._id,
+          );
           return reactivatedMembership;
         }
-        
+
         return existingDefaultMembership;
       }
 
       console.log('⚠️ [MembershipIntegrity] Criando novo membership padrão...');
-      
+
       const defaultMembership = new this.membershipModel({
         user: new Types.ObjectId(userId),
         tenant: new Types.ObjectId(tenantId),
@@ -133,8 +160,11 @@ export class MembershipIntegrityService {
       });
 
       const savedMembership = await defaultMembership.save();
-      console.log('✅ [MembershipIntegrity] Membership padrão criado:', savedMembership._id);
-      
+      console.log(
+        '✅ [MembershipIntegrity] Membership padrão criado:',
+        savedMembership._id,
+      );
+
       return savedMembership;
     }
 
@@ -146,10 +176,10 @@ export class MembershipIntegrityService {
    * Remove todas as MemberFunctions de um usuário em um ministério específico
    */
   async removeMemberFunctionsFromMinistry(
-    userId: string, 
-    ministryId: string, 
-    tenantId: string, 
-    branchId?: string
+    userId: string,
+    ministryId: string,
+    tenantId: string,
+    branchId?: string,
   ): Promise<number> {
     console.log('🗑️ [MembershipIntegrity] Removendo MemberFunctions...');
     console.log('   - User ID:', userId);
@@ -160,7 +190,7 @@ export class MembershipIntegrityService {
     const query: any = {
       memberId: new Types.ObjectId(userId),
       ministryId: new Types.ObjectId(ministryId),
-      tenantId: new Types.ObjectId(tenantId)
+      tenantId: new Types.ObjectId(tenantId),
     };
 
     if (branchId) {
@@ -170,8 +200,10 @@ export class MembershipIntegrityService {
     }
 
     const result = await this.memberFunctionModel.deleteMany(query);
-    console.log(`✅ [MembershipIntegrity] ${result.deletedCount} MemberFunctions removidas`);
-    
+    console.log(
+      `✅ [MembershipIntegrity] ${result.deletedCount} MemberFunctions removidas`,
+    );
+
     return result.deletedCount;
   }
 
@@ -179,9 +211,9 @@ export class MembershipIntegrityService {
    * Valida se um usuário pode ser removido de um ministério
    */
   async validateMinistryRemoval(
-    userId: string, 
-    ministryId: string, 
-    tenantId: string
+    userId: string,
+    ministryId: string,
+    tenantId: string,
   ): Promise<{ valid: boolean; reason?: string; affectedMemberships: number }> {
     console.log('🔍 [MembershipIntegrity] Validando remoção de ministério...');
     console.log('   - User ID:', userId);
@@ -193,16 +225,19 @@ export class MembershipIntegrityService {
       user: new Types.ObjectId(userId),
       tenant: new Types.ObjectId(tenantId),
       ministry: new Types.ObjectId(ministryId),
-      isActive: true
+      isActive: true,
     });
 
-    console.log('📊 [MembershipIntegrity] Memberships afetados:', affectedMemberships);
+    console.log(
+      '📊 [MembershipIntegrity] Memberships afetados:',
+      affectedMemberships,
+    );
 
     if (affectedMemberships === 0) {
       return {
         valid: false,
         reason: 'Usuário não está vinculado a este ministério',
-        affectedMemberships: 0
+        affectedMemberships: 0,
       };
     }
 
@@ -210,28 +245,36 @@ export class MembershipIntegrityService {
     const totalActiveMemberships = await this.membershipModel.countDocuments({
       user: new Types.ObjectId(userId),
       tenant: new Types.ObjectId(tenantId),
-      isActive: true
+      isActive: true,
     });
 
-    console.log('📊 [MembershipIntegrity] Total de memberships ativos:', totalActiveMemberships);
+    console.log(
+      '📊 [MembershipIntegrity] Total de memberships ativos:',
+      totalActiveMemberships,
+    );
 
     // CORREÇÃO: Permitir que usuários fiquem sem vínculos ativos
     // Um usuário pode não ter nenhum vínculo de ministério ativo
     if (totalActiveMemberships <= affectedMemberships) {
-      console.log('⚠️ [MembershipIntegrity] Usuário ficará sem vínculos ativos após remoção - PERMITIDO');
+      console.log(
+        '⚠️ [MembershipIntegrity] Usuário ficará sem vínculos ativos após remoção - PERMITIDO',
+      );
       // Não bloquear a remoção, apenas avisar
     }
 
     return {
       valid: true,
-      affectedMemberships
+      affectedMemberships,
     };
   }
 
   /**
    * Obtém estatísticas de integridade de um usuário
    */
-  async getUserIntegrityStats(userId: string, tenantId: string): Promise<{
+  async getUserIntegrityStats(
+    userId: string,
+    tenantId: string,
+  ): Promise<{
     totalMemberships: number;
     activeMemberships: number;
     inactiveMemberships: number;
@@ -239,38 +282,55 @@ export class MembershipIntegrityService {
     ministries: string[];
     branches: string[];
   }> {
-    console.log('📊 [MembershipIntegrity] Obtendo estatísticas de integridade...');
+    console.log(
+      '📊 [MembershipIntegrity] Obtendo estatísticas de integridade...',
+    );
     console.log('   - User ID:', userId);
     console.log('   - Tenant ID:', tenantId);
 
-    const [totalMemberships, activeMemberships, inactiveMemberships, memberFunctions, memberships] = await Promise.all([
+    const [
+      totalMemberships,
+      activeMemberships,
+      inactiveMemberships,
+      memberFunctions,
+      memberships,
+    ] = await Promise.all([
       this.membershipModel.countDocuments({
         user: new Types.ObjectId(userId),
-        tenant: new Types.ObjectId(tenantId)
+        tenant: new Types.ObjectId(tenantId),
       }),
       this.membershipModel.countDocuments({
         user: new Types.ObjectId(userId),
         tenant: new Types.ObjectId(tenantId),
-        isActive: true
+        isActive: true,
       }),
       this.membershipModel.countDocuments({
         user: new Types.ObjectId(userId),
         tenant: new Types.ObjectId(tenantId),
-        isActive: false
+        isActive: false,
       }),
       this.memberFunctionModel.countDocuments({
         memberId: new Types.ObjectId(userId),
-        tenantId: new Types.ObjectId(tenantId)
+        tenantId: new Types.ObjectId(tenantId),
       }),
-      this.membershipModel.find({
-        user: new Types.ObjectId(userId),
-        tenant: new Types.ObjectId(tenantId),
-        isActive: true
-      }).select('ministry branch').lean()
+      this.membershipModel
+        .find({
+          user: new Types.ObjectId(userId),
+          tenant: new Types.ObjectId(tenantId),
+          isActive: true,
+        })
+        .select('ministry branch')
+        .lean(),
     ]);
 
-    const ministries = [...new Set(memberships.map(m => m.ministry?.toString()).filter(Boolean))] as string[];
-    const branches = [...new Set(memberships.map(m => m.branch?.toString()).filter(Boolean))] as string[];
+    const ministries = [
+      ...new Set(
+        memberships.map((m) => m.ministry?.toString()).filter(Boolean),
+      ),
+    ] as string[];
+    const branches = [
+      ...new Set(memberships.map((m) => m.branch?.toString()).filter(Boolean)),
+    ] as string[];
 
     return {
       totalMemberships,
@@ -278,7 +338,7 @@ export class MembershipIntegrityService {
       inactiveMemberships,
       totalMemberFunctions: memberFunctions,
       ministries,
-      branches
+      branches,
     };
   }
 }

@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsEnum, IsNumberString, IsBoolean } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsNumberString,
+  IsBoolean,
+} from 'class-validator';
 import { Role } from 'src/common/enums/role.enum';
 
 export class UserFilterDto {

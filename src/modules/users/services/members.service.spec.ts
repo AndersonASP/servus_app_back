@@ -1,8 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { MembersService } from './members.service';
-import { CreateMemberDto, MembershipAssignmentDto } from '../dto/create-member.dto';
+import {
+  CreateMemberDto,
+  MembershipAssignmentDto,
+} from '../dto/create-member.dto';
 import { MembershipRole } from 'src/common/enums/role.enum';
 
 describe('MembersService', () => {
@@ -105,12 +112,19 @@ describe('MembersService', () => {
       mockTenantModel.findOne.mockResolvedValue({ _id: 'tenant123' });
       mockMinistryModel.findOne.mockResolvedValue({ _id: 'ministry123' });
       mockUserModel.save.mockResolvedValue({ _id: 'user123' });
-      mockMembershipModel.findOneAndUpdate.mockResolvedValue({ _id: 'membership123' });
+      mockMembershipModel.findOneAndUpdate.mockResolvedValue({
+        _id: 'membership123',
+      });
     });
 
     it('should create a member successfully', async () => {
-      const result = await service.createMember(validCreateMemberDto, tenantId, userRole, createdBy);
-      
+      const result = await service.createMember(
+        validCreateMemberDto,
+        tenantId,
+        userRole,
+        createdBy,
+      );
+
       expect(result).toBeDefined();
       expect(mockUserModel.save).toHaveBeenCalled();
       expect(mockMembershipModel.findOneAndUpdate).toHaveBeenCalled();
@@ -118,33 +132,42 @@ describe('MembersService', () => {
 
     it('should throw BadRequestException when name is empty', async () => {
       const invalidDto = { ...validCreateMemberDto, name: '' };
-      
+
       await expect(
-        service.createMember(invalidDto, tenantId, userRole, createdBy)
+        service.createMember(invalidDto, tenantId, userRole, createdBy),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when no email or phone provided', async () => {
-      const invalidDto = { ...validCreateMemberDto, email: undefined, phone: undefined };
-      
+      const invalidDto = {
+        ...validCreateMemberDto,
+        email: undefined,
+        phone: undefined,
+      };
+
       await expect(
-        service.createMember(invalidDto, tenantId, userRole, createdBy)
+        service.createMember(invalidDto, tenantId, userRole, createdBy),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when no memberships provided', async () => {
       const invalidDto = { ...validCreateMemberDto, memberships: [] };
-      
+
       await expect(
-        service.createMember(invalidDto, tenantId, userRole, createdBy)
+        service.createMember(invalidDto, tenantId, userRole, createdBy),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw ConflictException when email already exists', async () => {
       mockUserModel.findOne.mockResolvedValue({ _id: 'existingUser' });
-      
+
       await expect(
-        service.createMember(validCreateMemberDto, tenantId, userRole, createdBy)
+        service.createMember(
+          validCreateMemberDto,
+          tenantId,
+          userRole,
+          createdBy,
+        ),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -153,9 +176,9 @@ describe('MembersService', () => {
         ...validCreateMemberDto,
         memberships: [{ role: MembershipRole.TenantAdmin, isActive: true }],
       };
-      
+
       await expect(
-        service.createMember(invalidDto, tenantId, 'leader', createdBy)
+        service.createMember(invalidDto, tenantId, 'leader', createdBy),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -164,9 +187,14 @@ describe('MembersService', () => {
         ...validCreateMemberDto,
         memberships: [{ role: MembershipRole.Volunteer, isActive: true }],
       };
-      
-      const result = await service.createMember(validDtoWithoutMinistry, tenantId, userRole, createdBy);
-      
+
+      const result = await service.createMember(
+        validDtoWithoutMinistry,
+        tenantId,
+        userRole,
+        createdBy,
+      );
+
       expect(result).toBeDefined();
       expect(mockUserModel.save).toHaveBeenCalled();
       expect(mockMembershipModel.findOneAndUpdate).toHaveBeenCalled();

@@ -26,7 +26,11 @@ import { FunctionsModule } from '../functions/functions.module';
     ]),
     FunctionsModule, // Importar o módulo de funções
   ],
-  controllers: [MinistriesController, MinistriesMatrixController, InviteCodeController],
+  controllers: [
+    MinistriesController,
+    MinistriesMatrixController,
+    InviteCodeController,
+  ],
   providers: [MinistriesService, InviteCodeService],
   exports: [MinistriesService, InviteCodeService],
 })

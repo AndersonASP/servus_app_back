@@ -198,8 +198,12 @@ export class EmailService {
     ministryName?: string,
   ): string {
     const roleTranslation = this.translateRole(role);
-    const branchInfo = branchName ? `<p><strong>Filial:</strong> ${branchName}</p>` : '';
-    const ministryInfo = ministryName ? `<p><strong>Ministério:</strong> ${ministryName}</p>` : '';
+    const branchInfo = branchName
+      ? `<p><strong>Filial:</strong> ${branchName}</p>`
+      : '';
+    const ministryInfo = ministryName
+      ? `<p><strong>Ministério:</strong> ${ministryName}</p>`
+      : '';
 
     return `
       <!DOCTYPE html>

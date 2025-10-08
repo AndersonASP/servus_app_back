@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
 import { ScaleTemplate } from './schemas/scale-template.schema';
@@ -11,8 +16,10 @@ import { MembershipRole } from 'src/common/enums/role.enum';
 @Injectable()
 export class TemplatesService {
   constructor(
-    @InjectModel(ScaleTemplate.name) private readonly templateModel: Model<ScaleTemplate>,
-    @InjectModel(Membership.name) private readonly membershipModel: Model<Membership>,
+    @InjectModel(ScaleTemplate.name)
+    private readonly templateModel: Model<ScaleTemplate>,
+    @InjectModel(Membership.name)
+    private readonly membershipModel: Model<Membership>,
   ) {}
 
   async create(
@@ -22,10 +29,16 @@ export class TemplatesService {
     dto: CreateScaleTemplateDto,
   ) {
     // Se usuário for líder, restringir que o ministryId pertença aos seus ministérios
-    const leaderMinistries = await this.getLeaderMinistryIds(userId, tenantId, branchId);
+    const leaderMinistries = await this.getLeaderMinistryIds(
+      userId,
+      tenantId,
+      branchId,
+    );
     if (leaderMinistries.length > 0) {
       if (!leaderMinistries.includes(dto.ministryId)) {
-        throw new ForbiddenException('Líder só pode criar templates para seu próprio ministério.');
+        throw new ForbiddenException(
+          'Líder só pode criar templates para seu próprio ministério.',
+        );
       }
     }
     // Validação de duplicidade por (tenantId, branchId, eventType, name)
@@ -36,7 +49,9 @@ export class TemplatesService {
       name: dto.name.trim(),
     } as any);
     if (exists) {
-      throw new BadRequestException('Já existe um template com este nome para este tipo de evento.');
+      throw new BadRequestException(
+        'Já existe um template com este nome para este tipo de evento.',
+      );
     }
 
     const created = await this.templateModel.create({
@@ -123,18 +138,29 @@ export class TemplatesService {
     userId: string,
     dto: UpdateScaleTemplateDto,
   ) {
-    const current = await this.templateModel.findOne({ _id: id, tenantId, branchId: branchId ?? null } as any);
+    const current = await this.templateModel.findOne({
+      _id: id,
+      tenantId,
+      branchId: branchId ?? null,
+    } as any);
     if (!current) throw new NotFoundException('Template não encontrado');
 
     // Restringir líder ao próprio ministério
-    const leaderMinistries = await this.getLeaderMinistryIds(userId, tenantId, branchId);
+    const leaderMinistries = await this.getLeaderMinistryIds(
+      userId,
+      tenantId,
+      branchId,
+    );
     if (leaderMinistries.length > 0) {
       const canEdit = leaderMinistries.includes(current.ministryId.toString());
-      if (!canEdit) throw new ForbiddenException('Você não pode alterar este template.');
+      if (!canEdit)
+        throw new ForbiddenException('Você não pode alterar este template.');
       // Se atualizar ministry, validar também
       if (dto.ministryId) {
         if (!leaderMinistries.includes(dto.ministryId)) {
-          throw new ForbiddenException('Você não pode mover o template para outro ministério.');
+          throw new ForbiddenException(
+            'Você não pode mover o template para outro ministério.',
+          );
         }
       }
     }
@@ -148,14 +174,30 @@ export class TemplatesService {
     return updated.toObject();
   }
 
-  async remove(tenantId: string, branchId: string | null, id: string, userId?: string) {
+  async remove(
+    tenantId: string,
+    branchId: string | null,
+    id: string,
+    userId?: string,
+  ) {
     if (userId) {
-      const current = await this.templateModel.findOne({ _id: id, tenantId, branchId: branchId ?? null } as any);
+      const current = await this.templateModel.findOne({
+        _id: id,
+        tenantId,
+        branchId: branchId ?? null,
+      } as any);
       if (!current) throw new NotFoundException('Template não encontrado');
-      const leaderMinistries = await this.getLeaderMinistryIds(userId, tenantId, branchId);
+      const leaderMinistries = await this.getLeaderMinistryIds(
+        userId,
+        tenantId,
+        branchId,
+      );
       if (leaderMinistries.length > 0) {
-        const canDelete = leaderMinistries.includes(current.ministryId.toString());
-        if (!canDelete) throw new ForbiddenException('Você não pode excluir este template.');
+        const canDelete = leaderMinistries.includes(
+          current.ministryId.toString(),
+        );
+        if (!canDelete)
+          throw new ForbiddenException('Você não pode excluir este template.');
       }
     }
 
@@ -164,7 +206,8 @@ export class TemplatesService {
       tenantId,
       branchId: branchId ?? null,
     } as any);
-    if (res.deletedCount === 0) throw new NotFoundException('Template não encontrado');
+    if (res.deletedCount === 0)
+      throw new NotFoundException('Template não encontrado');
     return { success: true };
   }
 
@@ -179,9 +222,13 @@ export class TemplatesService {
       role: MembershipRole.Leader,
       isActive: true,
     };
-    if (branchId !== null) query.branch = branchId as any; else query.branch = null;
+    if (branchId !== null) query.branch = branchId as any;
+    else query.branch = null;
 
-    const memberships = await this.membershipModel.find(query).select('ministry').lean();
+    const memberships = await this.membershipModel
+      .find(query)
+      .select('ministry')
+      .lean();
     return memberships
       .map((m: any) => m.ministry?.toString())
       .filter((id: any) => !!id);

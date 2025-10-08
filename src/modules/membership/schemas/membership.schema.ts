@@ -26,11 +26,11 @@ export class Membership extends Document {
   @Prop({ default: false })
   needsApproval: boolean; // Para usuários criados via invite que precisam de aprovação do líder
 
-  @Prop({ 
-    type: String, 
-    enum: ['invite', 'form', 'manual'], 
+  @Prop({
+    type: String,
+    enum: ['invite', 'form', 'manual'],
     default: 'manual',
-    required: true 
+    required: true,
   })
   source: string; // Origem do voluntário: invite, form, manual
 

@@ -344,13 +344,17 @@ export class NotificationService {
     tenantId: string,
   ): Promise<void> {
     try {
-      console.log(`🔔 [NotificationService] Notificando líderes sobre submissão de voluntário`);
+      console.log(
+        `🔔 [NotificationService] Notificando líderes sobre submissão de voluntário`,
+      );
 
       // Buscar líderes do ministério
       const leaders = await this.getMinistryLeaders(tenantId, ministryId);
-      
+
       if (leaders.length === 0) {
-        console.log(`⚠️ [NotificationService] Nenhum líder encontrado para ministério ${ministryId}`);
+        console.log(
+          `⚠️ [NotificationService] Nenhum líder encontrado para ministério ${ministryId}`,
+        );
         return;
       }
 
@@ -366,7 +370,7 @@ export class NotificationService {
           ministryId,
           selectedFunctions: submission.selectedFunctions || [],
         },
-        recipients: leaders.map(leader => leader._id.toString()),
+        recipients: leaders.map((leader) => leader._id.toString()),
         tenantId,
         ministryId,
         createdAt: new Date(),
@@ -375,10 +379,15 @@ export class NotificationService {
       };
 
       await this.sendNotificationToUsers(notification, leaders);
-      
-      console.log(`✅ [NotificationService] Notificação enviada para ${leaders.length} líderes`);
+
+      console.log(
+        `✅ [NotificationService] Notificação enviada para ${leaders.length} líderes`,
+      );
     } catch (error) {
-      console.error('❌ [NotificationService] Erro ao notificar líderes:', error);
+      console.error(
+        '❌ [NotificationService] Erro ao notificar líderes:',
+        error,
+      );
     }
   }
 
@@ -390,15 +399,24 @@ export class NotificationService {
     notes?: string,
   ): Promise<void> {
     try {
-      console.log(`🔔 [NotificationService] Notificando voluntário sobre decisão: ${decision}`);
+      console.log(
+        `🔔 [NotificationService] Notificando voluntário sobre decisão: ${decision}`,
+      );
 
       const notification: NotificationData = {
         id: `decision_${submission._id}`,
-        type: decision === 'approved' ? 'volunteer_submission_approved' : 'volunteer_submission_rejected',
-        title: decision === 'approved' ? 'Candidatura Aprovada!' : 'Candidatura Não Aprovada',
-        message: decision === 'approved' 
-          ? `Sua candidatura foi aprovada por ${leaderName}. Bem-vindo ao ministério!`
-          : `Sua candidatura não foi aprovada por ${leaderName}. ${notes || ''}`,
+        type:
+          decision === 'approved'
+            ? 'volunteer_submission_approved'
+            : 'volunteer_submission_rejected',
+        title:
+          decision === 'approved'
+            ? 'Candidatura Aprovada!'
+            : 'Candidatura Não Aprovada',
+        message:
+          decision === 'approved'
+            ? `Sua candidatura foi aprovada por ${leaderName}. Bem-vindo ao ministério!`
+            : `Sua candidatura não foi aprovada por ${leaderName}. ${notes || ''}`,
         data: {
           submissionId: submission._id,
           volunteerName: submission.volunteerName,
@@ -418,15 +436,22 @@ export class NotificationService {
 
       // Para notificações de voluntários, enviar por email
       await this.sendVolunteerEmailNotification(notification);
-      
-      console.log(`✅ [NotificationService] Notificação de ${decision} enviada para ${submission.email}`);
+
+      console.log(
+        `✅ [NotificationService] Notificação de ${decision} enviada para ${submission.email}`,
+      );
     } catch (error) {
-      console.error('❌ [NotificationService] Erro ao notificar voluntário:', error);
+      console.error(
+        '❌ [NotificationService] Erro ao notificar voluntário:',
+        error,
+      );
     }
   }
 
   // 🆕 Enviar notificação por email para voluntários
-  private async sendVolunteerEmailNotification(notification: NotificationData): Promise<void> {
+  private async sendVolunteerEmailNotification(
+    notification: NotificationData,
+  ): Promise<void> {
     // TODO: Implementar envio de email específico para voluntários
     console.log('📧 Email de notificação para voluntário:', {
       type: notification.type,

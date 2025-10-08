@@ -24,6 +24,9 @@ export class Ministry extends Document {
   @Prop({ default: true })
   isActive: boolean;
 
+  @Prop({ type: Number, default: 10 })
+  maxBlockedDays?: number;
+
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
 

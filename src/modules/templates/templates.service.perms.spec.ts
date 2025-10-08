@@ -45,11 +45,12 @@ describe('TemplatesService permissions (leader)', () => {
         name: 'TMP',
         eventType: 'culto',
         ministryRequirements: [
-          { ministryId: 'BBB', functions: [{ functionId: 'F1', requiredSlots: 1 }] },
+          {
+            ministryId: 'BBB',
+            functions: [{ functionId: 'F1', requiredSlots: 1 }],
+          },
         ],
       } as any),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
-
-

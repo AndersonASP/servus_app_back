@@ -26,8 +26,10 @@ import { Tenant, TenantSchema } from '../tenants/schemas/tenant.schema';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('environment.jwt.accessSecret'),
-        signOptions: { 
-          expiresIn: configService.get<number>('environment.jwt.accessExpiresIn') || 3600
+        signOptions: {
+          expiresIn:
+            configService.get<number>('environment.jwt.accessExpiresIn') ||
+            3600,
         },
       }),
       inject: [ConfigService],

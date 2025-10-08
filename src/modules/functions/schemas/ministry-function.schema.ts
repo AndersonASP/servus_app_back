@@ -25,9 +25,13 @@ export class MinistryFunction extends Document {
   createdBy?: string; // ID do usuário que habilitou
 }
 
-export const MinistryFunctionSchema = SchemaFactory.createForClass(MinistryFunction);
+export const MinistryFunctionSchema =
+  SchemaFactory.createForClass(MinistryFunction);
 
 // Índices para performance e unicidade
-MinistryFunctionSchema.index({ tenantId: 1, ministryId: 1, functionId: 1 }, { unique: true });
+MinistryFunctionSchema.index(
+  { tenantId: 1, ministryId: 1, functionId: 1 },
+  { unique: true },
+);
 MinistryFunctionSchema.index({ tenantId: 1, ministryId: 1, isActive: 1 });
 MinistryFunctionSchema.index({ functionId: 1, isActive: 1 });

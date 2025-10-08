@@ -48,9 +48,7 @@ describe('EventsService permissions (leader)', () => {
   });
 
   it('leader cannot create event for another ministry', async () => {
-    membershipModel.lean.mockResolvedValueOnce([
-      { ministry: 'AAA' },
-    ]);
+    membershipModel.lean.mockResolvedValueOnce([{ ministry: 'AAA' }]);
 
     await expect(
       service.create('TEN', 'BR', 'USER', {
@@ -89,12 +87,12 @@ describe('EventsService permissions (leader)', () => {
       ministryId: 'BBB',
       isOrdinary: false,
       createdBy: 'OTHER',
-      toObject: function () { return this; },
+      toObject: function () {
+        return this;
+      },
     });
     await expect(
       service.findOne('TEN', 'BR', 'E2', 'USER'),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
-
-

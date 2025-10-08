@@ -85,14 +85,24 @@ export class TenantController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+    ],
   })
   async getPendingVolunteers(
     @Param('tenantId') tenantId: string,
-    @Query('ministryId') ministryId?: string
+    @Query('ministryId') ministryId?: string,
   ) {
     console.log('🔍 [TenantsController] getPendingVolunteers chamado');
     console.log('   - tenantId:', tenantId);
@@ -100,7 +110,7 @@ export class TenantController {
     console.log('   - ministryId type:', typeof ministryId);
     console.log('   - ministryId is undefined:', ministryId === undefined);
     console.log('   - ministryId is null:', ministryId === null);
-    
+
     return this.tenantService.getPendingVolunteers(tenantId, ministryId);
   }
 
@@ -110,14 +120,24 @@ export class TenantController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+    ],
   })
   async getMinistryFunctions(
     @Param('tenantId') tenantId: string,
-    @Param('ministryId') ministryId: string
+    @Param('ministryId') ministryId: string,
   ) {
     return this.tenantService.getMinistryFunctions(tenantId, ministryId);
   }
@@ -128,26 +148,37 @@ export class TenantController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+    ],
   })
   async approveVolunteer(
     @Param('tenantId') tenantId: string,
     @Param('userId') userId: string,
-    @Body() body: { functionId?: string; functionIds?: string[]; notes?: string },
+    @Body()
+    body: { functionId?: string; functionIds?: string[]; notes?: string },
     @Req() req: any,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     try {
       const result = await this.tenantService.approveVolunteer(
-        tenantId, 
-        userId, 
+        tenantId,
+        userId,
         req.user.sub,
         body.functionId,
         body.functionIds,
-        body.notes
+        body.notes,
       );
       return res.status(HttpStatus.OK).json({
         message: 'Voluntário aprovado com sucesso',
@@ -166,24 +197,34 @@ export class TenantController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+    ],
   })
   async rejectVolunteer(
     @Param('tenantId') tenantId: string,
     @Param('userId') userId: string,
     @Body() body: { notes?: string },
     @Req() req: any,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     try {
       const result = await this.tenantService.rejectVolunteer(
-        tenantId, 
-        userId, 
+        tenantId,
+        userId,
         req.user.sub,
-        body.notes
+        body.notes,
       );
       return res.status(HttpStatus.OK).json({
         message: 'Voluntário rejeitado com sucesso',
@@ -202,10 +243,20 @@ export class TenantController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+    ],
   })
   async debugVolunteers(@Param('tenantId') tenantId: string) {
     return this.tenantService.debugVolunteers(tenantId);
@@ -217,14 +268,24 @@ export class TenantController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+    ],
   })
   async debugMinistryFunctions(
     @Param('tenantId') tenantId: string,
-    @Param('ministryId') ministryId: string
+    @Param('ministryId') ministryId: string,
   ) {
     return this.tenantService.debugMinistryFunctions(tenantId, ministryId);
   }
@@ -235,14 +296,24 @@ export class TenantController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'param' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'param',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'param' } },
+    ],
   })
   async debugMemberFunctions(
     @Param('tenantId') tenantId: string,
-    @Param('userId') userId: string
+    @Param('userId') userId: string,
   ) {
     return this.tenantService.debugMemberFunctions(tenantId, userId);
   }

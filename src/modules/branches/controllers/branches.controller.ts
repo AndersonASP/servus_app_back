@@ -12,7 +12,13 @@ import {
   Query,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { BranchService } from '../services/branches.service';
 import { CreateBranchDto } from '../dto/create-branches.dto';
 import { CreateBranchWithAdminDto } from '../dto/create-branch-with-admin.dto';
@@ -32,21 +38,22 @@ export class BranchController {
 
   // Criar branch – ServusAdmin OU TenantAdmin do tenant
   @Post()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Criar nova filial',
-    description: 'Cria uma nova filial para o tenant. Apenas tenant_admin pode criar filiais.'
+    description:
+      'Cria uma nova filial para o tenant. Apenas tenant_admin pode criar filiais.',
   })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'Filial criada com sucesso' 
+  @ApiResponse({
+    status: 201,
+    description: 'Filial criada com sucesso',
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Dados inválidos ou limite de filiais atingido' 
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou limite de filiais atingido',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Usuário não tem permissão para criar filiais' 
+  @ApiResponse({
+    status: 403,
+    description: 'Usuário não tem permissão para criar filiais',
   })
   @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCHES])
   @Authorize({ anyOf: [] })
@@ -58,19 +65,18 @@ export class BranchController {
   ) {
     // Para servus_admin, permitir acesso a qualquer tenant
     if (req.user.role !== 'servus_admin') {
-      const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(req.user, { dtoTenantId: tenantId });
+      const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(
+        req.user,
+        { dtoTenantId: tenantId },
+      );
       if (resolvedTenantId && resolvedTenantId !== tenantId) {
         return res.status(HttpStatus.FORBIDDEN).json({
-          message: 'Acesso negado ao tenant especificado'
+          message: 'Acesso negado ao tenant especificado',
         });
       }
     }
 
-    const result = await this.branchService.create(
-      dto,
-      req.user.sub,
-      tenantId,
-    );
+    const result = await this.branchService.create(dto, req.user.sub, tenantId);
 
     return res
       .status(HttpStatus.CREATED)
@@ -80,13 +86,14 @@ export class BranchController {
 
   // 🏪 TenantAdmin/ServusAdmin: Criar Branch + BranchAdmin (opcional)
   @Post('with-admin')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Criar filial com administrador',
-    description: 'Cria uma nova filial e opcionalmente um administrador para ela.'
+    description:
+      'Cria uma nova filial e opcionalmente um administrador para ela.',
   })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'Filial e administrador criados com sucesso' 
+  @ApiResponse({
+    status: 201,
+    description: 'Filial e administrador criados com sucesso',
   })
   @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCHES])
   @Authorize({ anyOf: [] })
@@ -98,10 +105,13 @@ export class BranchController {
   ) {
     // Para servus_admin, permitir acesso a qualquer tenant
     if (req.user.role !== 'servus_admin') {
-      const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(req.user, { dtoTenantId: tenantId });
+      const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(
+        req.user,
+        { dtoTenantId: tenantId },
+      );
       if (resolvedTenantId && resolvedTenantId !== tenantId) {
         return res.status(HttpStatus.FORBIDDEN).json({
-          message: 'Acesso negado ao tenant especificado'
+          message: 'Acesso negado ao tenant especificado',
         });
       }
     }
@@ -134,13 +144,14 @@ export class BranchController {
 
   // Listar branches do tenant – ServusAdmin OU TenantAdmin do tenant
   @Get()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Listar filiais do tenant',
-    description: 'Lista todas as filiais ativas do tenant com filtros opcionais.'
+    description:
+      'Lista todas as filiais ativas do tenant com filtros opcionais.',
   })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Lista de filiais retornada com sucesso' 
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de filiais retornada com sucesso',
   })
   @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCHES])
   @Authorize({ anyOf: [] })
@@ -149,7 +160,9 @@ export class BranchController {
     @Query() filters: BranchFilterDto,
     @Req() req: any,
   ) {
-    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(req.user);
+    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(
+      req.user,
+    );
     if (resolvedTenantId !== tenantId) {
       throw new Error('Acesso negado ao tenant especificado');
     }
@@ -159,17 +172,17 @@ export class BranchController {
 
   // Detalhe da branch – ServusAdmin OU TenantAdmin do tenant OU BranchAdmin da própria branch
   @Get(':branchId')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Obter detalhes da filial',
-    description: 'Retorna os detalhes completos de uma filial específica.'
+    description: 'Retorna os detalhes completos de uma filial específica.',
   })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Detalhes da filial retornados com sucesso' 
+  @ApiResponse({
+    status: 200,
+    description: 'Detalhes da filial retornados com sucesso',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Filial não encontrada' 
+  @ApiResponse({
+    status: 404,
+    description: 'Filial não encontrada',
   })
   @RequiresPerm([
     PERMS.MANAGE_ALL_TENANTS,
@@ -182,7 +195,9 @@ export class BranchController {
     @Param('branchId') branchId: string,
     @Req() req: any,
   ) {
-    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(req.user);
+    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(
+      req.user,
+    );
     if (resolvedTenantId !== tenantId) {
       throw new Error('Acesso negado ao tenant especificado');
     }
@@ -192,17 +207,17 @@ export class BranchController {
 
   // Atualizar branch – ServusAdmin OU TenantAdmin do tenant
   @Put(':branchId')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Atualizar filial',
-    description: 'Atualiza os dados de uma filial existente.'
+    description: 'Atualiza os dados de uma filial existente.',
   })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Filial atualizada com sucesso' 
+  @ApiResponse({
+    status: 200,
+    description: 'Filial atualizada com sucesso',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Filial não encontrada' 
+  @ApiResponse({
+    status: 404,
+    description: 'Filial não encontrada',
   })
   @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCHES])
   @Authorize({ anyOf: [] })
@@ -212,7 +227,9 @@ export class BranchController {
     @Body() updateBranchDto: UpdateBranchDto,
     @Req() req: any,
   ) {
-    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(req.user);
+    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(
+      req.user,
+    );
     if (resolvedTenantId !== tenantId) {
       throw new Error('Acesso negado ao tenant especificado');
     }
@@ -222,17 +239,18 @@ export class BranchController {
 
   // Vincular administrador à filial
   @Post(':branchId/assign-admin')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Vincular administrador à filial',
-    description: 'Vincula um usuário existente ou cria um novo administrador para a filial.'
+    description:
+      'Vincula um usuário existente ou cria um novo administrador para a filial.',
   })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Administrador vinculado com sucesso' 
+  @ApiResponse({
+    status: 200,
+    description: 'Administrador vinculado com sucesso',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Filial ou usuário não encontrado' 
+  @ApiResponse({
+    status: 404,
+    description: 'Filial ou usuário não encontrado',
   })
   @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCHES])
   @Authorize({ anyOf: [] })
@@ -242,27 +260,34 @@ export class BranchController {
     @Body() assignAdminDto: AssignAdminDto,
     @Req() req: any,
   ) {
-    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(req.user);
+    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(
+      req.user,
+    );
     if (resolvedTenantId !== tenantId) {
       throw new Error('Acesso negado ao tenant especificado');
     }
 
-    return this.branchService.assignAdmin(branchId, assignAdminDto, req.user.sub);
+    return this.branchService.assignAdmin(
+      branchId,
+      assignAdminDto,
+      req.user.sub,
+    );
   }
 
   // Desativar branch – ServusAdmin OU TenantAdmin do tenant
   @Delete(':branchId')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Desativar filial',
-    description: 'Desativa uma filial (soft delete). Apenas tenant_admin pode desativar filiais.'
+    description:
+      'Desativa uma filial (soft delete). Apenas tenant_admin pode desativar filiais.',
   })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Filial desativada com sucesso' 
+  @ApiResponse({
+    status: 200,
+    description: 'Filial desativada com sucesso',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Filial não encontrada' 
+  @ApiResponse({
+    status: 404,
+    description: 'Filial não encontrada',
   })
   @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCHES])
   @Authorize({ anyOf: [] })
@@ -271,7 +296,9 @@ export class BranchController {
     @Param('branchId') branchId: string,
     @Req() req: any,
   ) {
-    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(req.user);
+    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(
+      req.user,
+    );
     if (resolvedTenantId !== tenantId) {
       throw new Error('Acesso negado ao tenant especificado');
     }
@@ -281,17 +308,18 @@ export class BranchController {
 
   // Remover branch permanentemente – ServusAdmin OU TenantAdmin do tenant
   @Delete(':branchId/permanent')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Remover filial permanentemente',
-    description: 'Remove uma filial permanentemente do sistema. Apenas tenant_admin pode remover filiais.'
+    description:
+      'Remove uma filial permanentemente do sistema. Apenas tenant_admin pode remover filiais.',
   })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Filial removida permanentemente' 
+  @ApiResponse({
+    status: 200,
+    description: 'Filial removida permanentemente',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Filial não encontrada' 
+  @ApiResponse({
+    status: 404,
+    description: 'Filial não encontrada',
   })
   @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_BRANCHES])
   @Authorize({ anyOf: [] })
@@ -300,7 +328,9 @@ export class BranchController {
     @Param('branchId') branchId: string,
     @Req() req: any,
   ) {
-    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(req.user);
+    const { tenantId: resolvedTenantId } = resolveTenantAndBranchScope(
+      req.user,
+    );
     if (resolvedTenantId !== tenantId) {
       throw new Error('Acesso negado ao tenant especificado');
     }

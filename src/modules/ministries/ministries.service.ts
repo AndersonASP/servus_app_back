@@ -36,8 +36,9 @@ export class MinistriesService {
       dto: {
         name: dto.name,
         description: dto.description,
-        isActive: dto.isActive
-      }
+        isActive: dto.isActive,
+        maxBlockedDays: dto.maxBlockedDays,
+      },
     });
 
     const slug = makeSlug(dto.name);
@@ -66,14 +67,17 @@ export class MinistriesService {
       description: dto.description,
       ministryFunctions: dto.ministryFunctions ?? [],
       isActive: dto.isActive ?? true,
+      maxBlockedDays: dto.maxBlockedDays ?? 10,
       createdBy: new Types.ObjectId(userId),
     });
 
     // Se há funções para processar, criar/vinculá-las ao ministério
     if (dto.ministryFunctions && dto.ministryFunctions.length > 0) {
       try {
-        console.log(`🔄 Processando ${dto.ministryFunctions.length} funções para ministério ${doc._id}`);
-        
+        console.log(
+          `🔄 Processando ${dto.ministryFunctions.length} funções para ministério ${doc._id}`,
+        );
+
         const bulkUpsertDto = {
           names: dto.ministryFunctions,
           category: 'Geral', // Categoria padrão
@@ -83,10 +87,12 @@ export class MinistriesService {
           tenantId,
           (doc._id as any).toString(),
           bulkUpsertDto,
-          userId
+          userId,
         );
 
-        console.log(`✅ Funções processadas: ${result.created.length} criadas, ${result.linked.length} vinculadas`);
+        console.log(
+          `✅ Funções processadas: ${result.created.length} criadas, ${result.linked.length} vinculadas`,
+        );
       } catch (error) {
         console.error('❌ Erro ao processar funções:', error);
         // Não falhar a criação do ministério se as funções derem erro
@@ -99,7 +105,8 @@ export class MinistriesService {
       tenantId: doc.tenantId,
       branchId: doc.branchId,
       isActive: doc.isActive,
-      createdAt: doc.createdAt
+      maxBlockedDays: doc.maxBlockedDays,
+      createdAt: doc.createdAt,
     });
 
     return doc.toObject();
@@ -119,15 +126,15 @@ export class MinistriesService {
         page: query.page,
         limit: query.limit,
         search: query.search,
-        isActive: query.isActive
-      }
+        isActive: query.isActive,
+      },
     });
 
     try {
       const { page = 1, limit = 10, search, isActive } = query;
-      const filter: FilterQuery<Ministry> = { 
-        tenantId: new Types.ObjectId(tenantId), 
-        branchId: branchId ? new Types.ObjectId(branchId) : null 
+      const filter: FilterQuery<Ministry> = {
+        tenantId: new Types.ObjectId(tenantId),
+        branchId: branchId ? new Types.ObjectId(branchId) : null,
       };
 
       if (typeof isActive !== 'undefined') {
@@ -139,7 +146,10 @@ export class MinistriesService {
         filter.$or = [{ name: rx }, { slug: rx }, { description: rx }];
       }
 
-      console.log('🔍 [MinistriesService] Filtro aplicado:', JSON.stringify(filter, null, 2));
+      console.log(
+        '🔍 [MinistriesService] Filtro aplicado:',
+        JSON.stringify(filter, null, 2),
+      );
 
       const skip = (page - 1) * limit;
 
@@ -149,9 +159,9 @@ export class MinistriesService {
       const [items, total] = await Promise.all([
         this.ministryModel
           .find(filter)
-          .sort({ 
+          .sort({
             isActive: -1, // Ativos primeiro (true = 1, false = 0, então -1 coloca true primeiro)
-            createdAt: -1 // Dentro de cada grupo, mais recentes primeiro
+            createdAt: -1, // Dentro de cada grupo, mais recentes primeiro
           })
           .skip(skip)
           .limit(limit)
@@ -160,26 +170,50 @@ export class MinistriesService {
       ]);
 
       const queryEndTime = Date.now();
-      console.log(`⏱️ [MinistriesService] Consulta ao banco concluída em ${queryEndTime - queryStartTime}ms`);
+      console.log(
+        `⏱️ [MinistriesService] Consulta ao banco concluída em ${queryEndTime - queryStartTime}ms`,
+      );
 
       console.log('🔍 [MinistriesService] Resultado da consulta:');
-    console.log('   - total encontrados:', total);
-    console.log('   - items count:', items.length);
-    console.log('   - items:', items.map(item => ({ id: item._id, name: item.name, isActive: item.isActive, createdAt: item.createdAt })));
-    
-    // Vamos garantir que os _id sejam serializados corretamente
-    const serializedItems = items.map(item => {
-      console.log('   - item._id original:', item._id, '(type:', typeof item._id, ')');
-      const serialized = {
-        ...item,
-        _id: item._id?.toString(),
-      };
-      console.log('   - item._id serializado:', serialized._id, '(type:', typeof serialized._id, ')');
-      return serialized;
-    });
+      console.log('   - total encontrados:', total);
+      console.log('   - items count:', items.length);
+      console.log(
+        '   - items:',
+        items.map((item) => ({
+          id: item._id,
+          name: item.name,
+          isActive: item.isActive,
+          createdAt: item.createdAt,
+        })),
+      );
+
+      // Vamos garantir que os _id sejam serializados corretamente
+      const serializedItems = items.map((item) => {
+        console.log(
+          '   - item._id original:',
+          item._id,
+          '(type:',
+          typeof item._id,
+          ')',
+        );
+        const serialized = {
+          ...item,
+          _id: item._id?.toString(),
+        };
+        console.log(
+          '   - item._id serializado:',
+          serialized._id,
+          '(type:',
+          typeof serialized._id,
+          ')',
+        );
+        return serialized;
+      });
 
       const endTime = Date.now();
-      console.log(`✅ [MinistriesService] Listagem concluída em ${endTime - startTime}ms`);
+      console.log(
+        `✅ [MinistriesService] Listagem concluída em ${endTime - startTime}ms`,
+      );
 
       return {
         items: serializedItems,
@@ -190,7 +224,10 @@ export class MinistriesService {
       };
     } catch (error) {
       const endTime = Date.now();
-      console.error(`❌ [MinistriesService] Erro na listagem após ${endTime - startTime}ms:`, error);
+      console.error(
+        `❌ [MinistriesService] Erro na listagem após ${endTime - startTime}ms:`,
+        error,
+      );
       throw error;
     }
   }
@@ -200,22 +237,22 @@ export class MinistriesService {
     console.log('   - tenantId:', tenantId);
     console.log('   - branchId:', branchId);
     console.log('   - id:', id);
-    
+
     // Primeiro, vamos verificar se o ID é válido
     if (!Types.ObjectId.isValid(id)) {
       console.log('❌ ID inválido:', id);
       throw new BadRequestException('ID do ministério inválido');
     }
-    
+
     // Buscar o ministério
     const doc = await this.ministryModel
-      .findOne({ 
-        _id: id, 
-        tenantId: new Types.ObjectId(tenantId), 
-        branchId: branchId ? new Types.ObjectId(branchId) : null 
+      .findOne({
+        _id: id,
+        tenantId: new Types.ObjectId(tenantId),
+        branchId: branchId ? new Types.ObjectId(branchId) : null,
       })
       .lean();
-    
+
     if (!doc) {
       console.log('❌ Ministério não encontrado');
       // Vamos verificar se existe algum ministério com esse ID (sem filtros)
@@ -231,24 +268,24 @@ export class MinistriesService {
       }
       throw new NotFoundException('Ministério não encontrado.');
     }
-    
+
     console.log('✅ Ministério encontrado:');
     console.log('   - _id:', doc._id);
     console.log('   - name:', doc.name);
     console.log('   - _id type:', typeof doc._id);
     console.log('   - _id toString:', doc._id?.toString());
     console.log('   - _id JSON:', JSON.stringify(doc._id));
-    
+
     // Vamos garantir que o _id seja serializado corretamente
     const result = {
       ...doc,
       _id: doc._id?.toString(),
     };
-    
+
     console.log('✅ Resultado serializado:');
     console.log('   - result._id:', result._id);
     console.log('   - result._id type:', typeof result._id);
-    
+
     return result;
   }
 
@@ -282,17 +319,58 @@ export class MinistriesService {
     }
 
     const doc = await this.ministryModel
-      .findOneAndUpdate({ 
-        _id: id, 
-        tenantId: new Types.ObjectId(tenantId), 
-        branchId: branchId ? new Types.ObjectId(branchId) : null 
-      }, updateData, {
-        new: true,
-      })
+      .findOneAndUpdate(
+        {
+          _id: id,
+          tenantId: new Types.ObjectId(tenantId),
+          branchId: branchId ? new Types.ObjectId(branchId) : null,
+        },
+        updateData,
+        {
+          new: true,
+        },
+      )
       .lean();
 
     if (!doc) throw new NotFoundException('Ministério não encontrado.');
     return doc;
+  }
+
+  // Obtém apenas a configuração de bloqueio do ministério (endpoint público)
+  async getBlockConfig(
+    tenantId: string,
+    branchId: string,
+    id: string,
+  ): Promise<{ maxBlockedDays: number }> {
+    console.log('🔍 [MinistriesService] getBlockConfig chamado');
+    console.log('   - tenantId:', tenantId);
+    console.log('   - branchId:', branchId);
+    console.log('   - id:', id);
+
+    const query: any = {
+      _id: new Types.ObjectId(id),
+      tenantId: new Types.ObjectId(tenantId),
+    };
+
+    if (branchId) {
+      query.branchId = new Types.ObjectId(branchId);
+    } else {
+      query.branchId = null;
+    }
+
+    const ministry = await this.ministryModel.findOne(query).lean();
+
+    if (!ministry) {
+      console.log('❌ [MinistriesService] Ministério não encontrado');
+      throw new NotFoundException('Ministério não encontrado');
+    }
+
+    const result = {
+      maxBlockedDays: ministry.maxBlockedDays || 10,
+    };
+
+    console.log('✅ [MinistriesService] Block config retornado:', result);
+    return result;
   }
 
   // Exclusão física: remove completamente da base de dados
@@ -316,8 +394,8 @@ export class MinistriesService {
         tenant: new Types.ObjectId(tenantId),
       },
       {
-        $unset: { ministry: 1 }
-      }
+        $unset: { ministry: 1 },
+      },
     );
 
     // Remove todas as funções vinculadas ao ministério (cascade delete)
@@ -350,5 +428,4 @@ export class MinistriesService {
 
     return doc.toObject();
   }
-
 }

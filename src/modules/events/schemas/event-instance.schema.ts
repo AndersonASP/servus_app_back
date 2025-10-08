@@ -42,7 +42,11 @@ export class EventInstance extends Document {
   @Prop({ type: [MinistryScale], default: [] })
   ministryScales: MinistryScale[];
 
-  @Prop({ enum: ['scheduled', 'in_progress', 'completed', 'cancelled'], default: 'scheduled', index: true })
+  @Prop({
+    enum: ['scheduled', 'in_progress', 'completed', 'cancelled'],
+    default: 'scheduled',
+    index: true,
+  })
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 
   @Prop()
@@ -53,5 +57,3 @@ export const EventInstanceSchema = SchemaFactory.createForClass(EventInstance);
 
 EventInstanceSchema.index({ tenantId: 1, branchId: 1, instanceDate: 1 });
 EventInstanceSchema.index({ eventId: 1, instanceDate: 1 });
-
-

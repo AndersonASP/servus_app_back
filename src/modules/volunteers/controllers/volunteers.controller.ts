@@ -1,4 +1,12 @@
-import { Controller, Get, Delete, Param, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Delete,
+  Param,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { VolunteersService } from '../services/volunteers.service';
 import { GetVolunteersDto } from '../dto/get-volunteers.dto';
 import { PolicyGuard } from 'src/common/guards/policy.guard';
@@ -14,7 +22,16 @@ export class VolunteersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin, MembershipRole.Leader], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [
+            MembershipRole.TenantAdmin,
+            MembershipRole.BranchAdmin,
+            MembershipRole.Leader,
+          ],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async list(
@@ -29,7 +46,16 @@ export class VolunteersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin, MembershipRole.Leader], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [
+            MembershipRole.TenantAdmin,
+            MembershipRole.BranchAdmin,
+            MembershipRole.Leader,
+          ],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async facets(
@@ -44,7 +70,16 @@ export class VolunteersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin, MembershipRole.Leader], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [
+            MembershipRole.TenantAdmin,
+            MembershipRole.BranchAdmin,
+            MembershipRole.Leader,
+          ],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async getPendingSubmissions(
@@ -59,7 +94,16 @@ export class VolunteersController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin, MembershipRole.BranchAdmin, MembershipRole.Leader], tenantFrom: 'param' } },
+      {
+        membership: {
+          roles: [
+            MembershipRole.TenantAdmin,
+            MembershipRole.BranchAdmin,
+            MembershipRole.Leader,
+          ],
+          tenantFrom: 'param',
+        },
+      },
     ],
   })
   async deleteVolunteer(

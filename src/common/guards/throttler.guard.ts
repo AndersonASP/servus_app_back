@@ -18,11 +18,11 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
       SKIP_THROTTLE_KEY,
       [context.getHandler(), context.getClass()],
     );
-    
+
     if (skipThrottle) {
       return true;
     }
-    
+
     return super.shouldSkip(context);
   }
 }

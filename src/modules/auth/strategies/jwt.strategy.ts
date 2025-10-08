@@ -18,7 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     console.log('🔍 [JwtStrategy] Validando token:');
     console.log('   - payload.role:', payload.role);
     console.log('   - payload.membershipRole:', payload.membershipRole);
-    
+
     // Criar array de roles baseado no payload
     const roles: string[] = [];
     if (payload.role) {
@@ -27,9 +27,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (payload.membershipRole && payload.membershipRole !== payload.role) {
       roles.push(payload.membershipRole);
     }
-    
+
     console.log('   - roles array:', roles);
-    
+
     return {
       sub: payload.sub, // ID do usuário (MongoDB ObjectId como string)
       _id: payload.sub, // Mapear sub para _id para compatibilidade com o PolicyGuard

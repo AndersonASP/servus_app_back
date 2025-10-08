@@ -33,18 +33,25 @@ export class FormDynamicController {
   @Get('ministries')
   async getAllMinistries(@Res() res: Response) {
     try {
-      this.logger.log('[getAllMinistries] Buscando todos os ministérios disponíveis');
-      
+      this.logger.log(
+        '[getAllMinistries] Buscando todos os ministérios disponíveis',
+      );
+
       const ministries = await this.customFormService.getAllMinistries();
-      
-      this.logger.log(`[getAllMinistries] ${ministries.length} ministérios encontrados`);
-      
+
+      this.logger.log(
+        `[getAllMinistries] ${ministries.length} ministérios encontrados`,
+      );
+
       return res.status(HttpStatus.OK).json({
         message: 'Ministérios encontrados',
         data: ministries,
       });
     } catch (error) {
-      this.logger.error(`[getAllMinistries] Erro ao buscar ministérios: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getAllMinistries] Erro ao buscar ministérios: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         message: 'Erro interno do servidor',
         error: error.message,
@@ -62,22 +69,31 @@ export class FormDynamicController {
     @Res() res: Response,
   ) {
     try {
-      this.logger.log(`[getFormMinistries] Buscando ministérios para formulário: ${formId}`);
-      
+      this.logger.log(
+        `[getFormMinistries] Buscando ministérios para formulário: ${formId}`,
+      );
+
       // Primeiro verificar se o formulário existe e é público
       const form = await this.customFormService.getPublicForm(formId);
-      this.logger.log(`[getFormMinistries] Formulário encontrado: ${form._id}, título: ${form.title}`);
-      
+      this.logger.log(
+        `[getFormMinistries] Formulário encontrado: ${form._id}, título: ${form.title}`,
+      );
+
       // Buscar todos os ministérios ativos (mesma lógica do enrichMinistryFields)
       const ministries = await this.customFormService.getAllMinistries();
-      this.logger.log(`[getFormMinistries] ${ministries.length} ministérios encontrados para formulário ${formId}`);
-      
+      this.logger.log(
+        `[getFormMinistries] ${ministries.length} ministérios encontrados para formulário ${formId}`,
+      );
+
       return res.status(HttpStatus.OK).json({
         message: 'Ministérios encontrados',
         data: ministries,
       });
     } catch (error) {
-      this.logger.error(`[getFormMinistries] Erro ao buscar ministérios para formulário ${formId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getFormMinistries] Erro ao buscar ministérios para formulário ${formId}: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         message: 'Erro interno do servidor',
         error: error.message,
@@ -96,27 +112,43 @@ export class FormDynamicController {
     @Res() res: Response,
   ) {
     try {
-      this.logger.log(`[getFormFunctions] Buscando funções para formulário: ${formId}, ministries: ${ministries}`);
-      
+      this.logger.log(
+        `[getFormFunctions] Buscando funções para formulário: ${formId}, ministries: ${ministries}`,
+      );
+
       if (!ministries) {
-        this.logger.warn(`[getFormFunctions] Parâmetro ministries não fornecido para formulário ${formId}`);
+        this.logger.warn(
+          `[getFormFunctions] Parâmetro ministries não fornecido para formulário ${formId}`,
+        );
         return res.status(HttpStatus.BAD_REQUEST).json({
           message: 'Parâmetro ministries é obrigatório',
         });
       }
 
-      const ministryIds = ministries.split(',').filter(id => id.trim() !== '');
-      this.logger.log(`[getFormFunctions] Ministry IDs processados: ${JSON.stringify(ministryIds)}`);
-      
-      const functionsData = await this.customFormService.getFormFunctions(formId, ministryIds);
-      this.logger.log(`[getFormFunctions] Funções encontradas: ${(functionsData as any).totalFunctions} funções de ${(functionsData as any).totalMinistries} ministérios para formulário ${formId}`);
-      
+      const ministryIds = ministries
+        .split(',')
+        .filter((id) => id.trim() !== '');
+      this.logger.log(
+        `[getFormFunctions] Ministry IDs processados: ${JSON.stringify(ministryIds)}`,
+      );
+
+      const functionsData = await this.customFormService.getFormFunctions(
+        formId,
+        ministryIds,
+      );
+      this.logger.log(
+        `[getFormFunctions] Funções encontradas: ${(functionsData as any).totalFunctions} funções de ${(functionsData as any).totalMinistries} ministérios para formulário ${formId}`,
+      );
+
       return res.status(HttpStatus.OK).json({
         message: 'Funções encontradas',
         data: functionsData,
       });
     } catch (error) {
-      this.logger.error(`[getFormFunctions] Erro ao buscar funções do formulário ${formId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getFormFunctions] Erro ao buscar funções do formulário ${formId}: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });

@@ -65,7 +65,9 @@ export class MembershipController {
   }
 
   // 👥 Adicionar voluntário ao ministério de filial específica
-  @Post('tenants/:tenantId/branches/:branchId/ministries/:ministryId/volunteers')
+  @Post(
+    'tenants/:tenantId/branches/:branchId/ministries/:ministryId/volunteers',
+  )
   // @RequiresPerm([
   //   PERMS.MANAGE_ALL_TENANTS,
   //   PERMS.MANAGE_TENANT_MINISTRIES,
@@ -163,7 +165,8 @@ export class MembershipController {
   async getMinistryMembers(
     @Param('tenantId') tenantId: string,
     @Param('ministryId') ministryId: string,
-    @Query() query: { page?: string; limit?: string; role?: string; search?: string },
+    @Query()
+    query: { page?: string; limit?: string; role?: string; search?: string },
     @Req() req: any,
   ) {
     const page = parseInt(query.page || '1', 10);
@@ -189,7 +192,8 @@ export class MembershipController {
     @Param('tenantId') tenantId: string,
     @Param('branchId') branchId: string,
     @Param('ministryId') ministryId: string,
-    @Query() query: { page?: string; limit?: string; role?: string; search?: string },
+    @Query()
+    query: { page?: string; limit?: string; role?: string; search?: string },
     @Req() req: any,
   ) {
     const page = parseInt(query.page || '1', 10);
@@ -198,7 +202,13 @@ export class MembershipController {
     return this.membershipService.getMinistryMembers(
       tenantId.trim(),
       ministryId.trim(),
-      { page, limit, role: query.role, search: query.search, branchId: branchId.trim() },
+      {
+        page,
+        limit,
+        role: query.role,
+        search: query.search,
+        branchId: branchId.trim(),
+      },
       req.user,
     );
   }
@@ -236,7 +246,9 @@ export class MembershipController {
   }
 
   // ❌ Remover membro do ministério de filial específica
-  @Delete('tenants/:tenantId/branches/:branchId/ministries/:ministryId/members/:membershipId')
+  @Delete(
+    'tenants/:tenantId/branches/:branchId/ministries/:ministryId/members/:membershipId',
+  )
   // @RequiresPerm([
   //   PERMS.MANAGE_ALL_TENANTS,
   //   PERMS.MANAGE_TENANT_MINISTRIES,
@@ -270,7 +282,9 @@ export class MembershipController {
   // ========================================
 
   // ✏️ Atualizar role de membro (apenas Admin)
-  @Post('tenants/:tenantId/ministries/:ministryId/members/:membershipId/update-role')
+  @Post(
+    'tenants/:tenantId/ministries/:ministryId/members/:membershipId/update-role',
+  )
   // @RequiresPerm([
   //   PERMS.MANAGE_ALL_TENANTS,
   //   PERMS.MANAGE_TENANT_MINISTRIES,
@@ -299,7 +313,9 @@ export class MembershipController {
   }
 
   // ✏️ Atualizar role de membro em filial específica
-  @Post('tenants/:tenantId/branches/:branchId/ministries/:ministryId/members/:membershipId/update-role')
+  @Post(
+    'tenants/:tenantId/branches/:branchId/ministries/:ministryId/members/:membershipId/update-role',
+  )
   // @RequiresPerm([
   //   PERMS.MANAGE_ALL_TENANTS,
   //   PERMS.MANAGE_TENANT_MINISTRIES,

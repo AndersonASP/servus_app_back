@@ -133,12 +133,17 @@ export class UsersController {
   @Get('find-by-email/:email')
   async findByEmail(@Param('email') email: string) {
     console.log('🔍 [CONTROLLER] Iniciando busca de usuário por email...');
-    
+
     const user = await this.usersService.findByEmail(email);
-    
+
     if (!user) {
-      console.log('❌ [CONTROLLER] Usuário não encontrado na base de dados:', email);
-      throw new NotFoundException(`Usuário com email ${email} não está cadastrado no sistema.`);
+      console.log(
+        '❌ [CONTROLLER] Usuário não encontrado na base de dados:',
+        email,
+      );
+      throw new NotFoundException(
+        `Usuário com email ${email} não está cadastrado no sistema.`,
+      );
     }
 
     console.log('✅ [CONTROLLER] Usuário encontrado:', user.email);
@@ -150,8 +155,10 @@ export class UsersController {
 
     // Buscar memberships do usuário para incluir informações de tenant
     console.log('🔍 [CONTROLLER] Buscando memberships do usuário...');
-    const memberships = await this.usersService.getUserMemberships(user._id.toString());
-    
+    const memberships = await this.usersService.getUserMemberships(
+      user._id.toString(),
+    );
+
     console.log('📋 [CONTROLLER] Memberships encontrados:', memberships.length);
     memberships.forEach((m, index) => {
       console.log(`   ${index + 1}. Membership:`);
@@ -162,39 +169,49 @@ export class UsersController {
       console.log(`      - Ministry: ${m.ministry}`);
       console.log(`      - Ativo: ${m.isActive}`);
     });
-    
+
     const response = {
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
-      memberships: memberships.map(m => ({
+      memberships: memberships.map((m) => ({
         id: m._id,
         role: m.role,
-        tenant: m.tenant ? {
-          id: m.tenant._id || m.tenant,
-          tenantId: m.tenant._id || m.tenant
-        } : null,
-        branch: m.branch && typeof m.branch === 'object' ? {
-          id: (m.branch as any)._id,
-          branchId: (m.branch as any).branchId,
-          name: (m.branch as any).name
-        } : null,
-        ministry: m.ministry && typeof m.ministry === 'object' ? {
-          id: (m.ministry as any)._id,
-          name: (m.ministry as any).name
-        } : null
-      }))
+        tenant: m.tenant
+          ? {
+              id: m.tenant._id || m.tenant,
+              tenantId: m.tenant._id || m.tenant,
+            }
+          : null,
+        branch:
+          m.branch && typeof m.branch === 'object'
+            ? {
+                id: (m.branch as any)._id,
+                branchId: (m.branch as any).branchId,
+                name: (m.branch as any).name,
+              }
+            : null,
+        ministry:
+          m.ministry && typeof m.ministry === 'object'
+            ? {
+                id: (m.ministry as any)._id,
+                name: (m.ministry as any).name,
+              }
+            : null,
+      })),
     };
-    
+
     console.log('📤 [CONTROLLER] Resposta final:');
     console.log('   - Usuário:', response.name);
     console.log('   - Role:', response.role);
     console.log('   - Memberships:', response.memberships.length);
     response.memberships.forEach((m, index) => {
-      console.log(`   ${index + 1}. Membership: ${m.role} - Tenant: ${m.tenant?.id || 'NENHUM'}`);
+      console.log(
+        `   ${index + 1}. Membership: ${m.role} - Tenant: ${m.tenant?.id || 'NENHUM'}`,
+      );
     });
-    
+
     return response;
   }
 
@@ -203,34 +220,39 @@ export class UsersController {
   @Get('debug-tenant/:email')
   async debugTenant(@Param('email') email: string) {
     console.log('🧪 [DEBUG] Iniciando debug de tenant...');
-    
+
     try {
       const user = await this.usersService.findByEmail(email);
       if (!user) {
         return { success: false, message: 'Usuário não encontrado' };
       }
-      
+
       console.log('👤 [DEBUG] Usuário encontrado:', user.name);
-      
+
       // Busca memberships sem populate para ver os dados brutos
-      const memberships = await this.usersService.getUserMembershipsRaw(user._id.toString());
-      
-      console.log('📋 [DEBUG] Memberships brutos:', JSON.stringify(memberships, null, 2));
-      
+      const memberships = await this.usersService.getUserMembershipsRaw(
+        user._id.toString(),
+      );
+
+      console.log(
+        '📋 [DEBUG] Memberships brutos:',
+        JSON.stringify(memberships, null, 2),
+      );
+
       return {
         success: true,
         user: {
           id: user._id,
           name: user.name,
-          email: user.email
+          email: user.email,
         },
-        memberships: memberships
+        memberships: memberships,
       };
     } catch (error) {
       console.log('❌ [DEBUG] Erro:', error);
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -240,37 +262,37 @@ export class UsersController {
   @Get('test/:email')
   async testEndpoint(@Param('email') email: string) {
     console.log('🧪 [TEST] Endpoint de teste chamado');
-    
+
     try {
       const user = await this.usersService.findByEmail(email);
       console.log('👤 [TEST] Usuário encontrado:', !!user);
-      
+
       if (user) {
         console.log('👤 [TEST] Dados do usuário:');
         console.log('   - ID:', user._id);
         console.log('   - Nome:', user.name);
         console.log('   - Role:', user.role);
-        
+
         return {
           success: true,
           user: {
             id: user._id,
             name: user.name,
             email: user.email,
-            role: user.role
-          }
+            role: user.role,
+          },
         };
       } else {
         return {
           success: false,
-          message: 'Usuário não encontrado'
+          message: 'Usuário não encontrado',
         };
       }
     } catch (error) {
       console.log('❌ [TEST] Erro:', error);
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -280,37 +302,54 @@ export class UsersController {
   @Get(':email/tenant')
   async getUserTenant(@Param('email') email: string) {
     console.log('🔍 [CONTROLLER] Iniciando busca de tenant por email...');
-    
+
     const user = await this.usersService.findByEmail(email);
     if (!user) {
-      console.log('❌ [CONTROLLER] Usuário não encontrado na base de dados:', email);
-      throw new NotFoundException(`Usuário com email ${email} não está cadastrado no sistema.`);
+      console.log(
+        '❌ [CONTROLLER] Usuário não encontrado na base de dados:',
+        email,
+      );
+      throw new NotFoundException(
+        `Usuário com email ${email} não está cadastrado no sistema.`,
+      );
     }
 
-    console.log('✅ [CONTROLLER] Usuário encontrado para busca de tenant:', user.email);
+    console.log(
+      '✅ [CONTROLLER] Usuário encontrado para busca de tenant:',
+      user.email,
+    );
 
     // Buscar memberships do usuário para encontrar o tenant
-    console.log('🔍 [CONTROLLER] Buscando memberships para encontrar tenant...');
-    const memberships = await this.usersService.getUserMemberships(user._id.toString());
-    
-    console.log('📋 [CONTROLLER] Memberships encontrados para tenant:', memberships.length);
-    
+    console.log(
+      '🔍 [CONTROLLER] Buscando memberships para encontrar tenant...',
+    );
+    const memberships = await this.usersService.getUserMemberships(
+      user._id.toString(),
+    );
+
+    console.log(
+      '📋 [CONTROLLER] Memberships encontrados para tenant:',
+      memberships.length,
+    );
+
     if (memberships.length > 0 && memberships[0].tenant) {
       const tenant = memberships[0].tenant;
       console.log('✅ [CONTROLLER] Tenant encontrado:', tenant);
-      
+
       // Extrai o _id corretamente (agora tenant deve ser um objeto com _id)
       const tenantId = tenant._id;
       console.log('✅ [CONTROLLER] Tenant ID extraído:', tenantId);
-      
+
       return {
         id: tenantId,
-        tenantId: tenantId
+        tenantId: tenantId,
       };
     }
-    
+
     console.log('❌ [CONTROLLER] Nenhum tenant encontrado nos memberships');
-    throw new NotFoundException(`Usuário ${email} não possui acesso a nenhum tenant.`);
+    throw new NotFoundException(
+      `Usuário ${email} não possui acesso a nenhum tenant.`,
+    );
   }
 
   // 👤 Auto-registro via link de convite - VOLUNTÁRIO
@@ -441,27 +480,30 @@ export class UsersController {
     console.log('   - User:', {
       sub: req.user.sub,
       tenantId: req.user.tenantId,
-      role: req.user.role
+      role: req.user.role,
     });
-    
+
     const filters = buildUserFiltersFromScope(req.user, query);
     console.log('   - Filters construídos:', JSON.stringify(filters, null, 2));
-    
+
     const page = parseInt(query.page || '1', 10);
     const limit = parseInt(query.limit || '20', 10);
-    
+
     console.log('   - Paginação:', { page, limit });
-    
-    const result = await this.usersService.findWithFilters(filters, { page, limit });
-    
+
+    const result = await this.usersService.findWithFilters(filters, {
+      page,
+      limit,
+    });
+
     console.log('🔍 [UsersController] ===== filterUsers FINALIZADO =====');
     console.log('   - Resultado:', {
       total: result.total,
       dataLength: result.data.length,
       page: result.page,
-      limit: result.limit
+      limit: result.limit,
     });
-    
+
     return result;
   }
 

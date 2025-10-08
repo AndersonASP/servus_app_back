@@ -1,12 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { JwtService } from '@nestjs/jwt';
+import { getModelToken } from '@nestjs/mongoose';
+import { Tenant } from 'src/modules/tenants/schemas/tenant.schema';
 
 describe('Members (e2e)', () => {
   let app: INestApplication;
   let jwtService: JwtService;
+  const tenantId = '64b6f8b1f1f1f1f1f1f1f1f1';
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -16,6 +19,13 @@ describe('Members (e2e)', () => {
     app = moduleFixture.createNestApplication();
     jwtService = moduleFixture.get<JwtService>(JwtService);
     await app.init();
+
+    const tenantModel = app.get(getModelToken(Tenant.name));
+    await tenantModel.create({
+      _id: tenantId,
+      name: 'Tenant E2E',
+      code: `tenant-e2e-${Date.now()}`,
+    });
   });
 
   afterAll(async () => {
@@ -44,7 +54,8 @@ describe('Members (e2e)', () => {
       });
 
       return request(app.getHttpServer())
-        .post('/members')
+        .post(`/tenants/${tenantId}/members`)
+        .set('x-tenant-id', tenantId)
         .set('Authorization', `Bearer ${mockToken}`)
         .send(createMemberDto)
         .expect(201)
@@ -67,7 +78,8 @@ describe('Members (e2e)', () => {
       });
 
       return request(app.getHttpServer())
-        .post('/members')
+        .post(`/tenants/${tenantId}/members`)
+        .set('x-tenant-id', tenantId)
         .set('Authorization', `Bearer ${mockToken}`)
         .send(invalidDto)
         .expect(400);
@@ -87,7 +99,8 @@ describe('Members (e2e)', () => {
       };
 
       return request(app.getHttpServer())
-        .post('/members')
+        .post(`/tenants/${tenantId}/members`)
+        .set('x-tenant-id', tenantId)
         .send(createMemberDto)
         .expect(401);
     });
@@ -101,7 +114,8 @@ describe('Members (e2e)', () => {
       });
 
       return request(app.getHttpServer())
-        .get('/members')
+        .get(`/tenants/${tenantId}/members`)
+        .set('x-tenant-id', tenantId)
         .set('Authorization', `Bearer ${mockToken}`)
         .expect(200)
         .expect((res) => {

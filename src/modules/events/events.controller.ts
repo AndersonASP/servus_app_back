@@ -26,10 +26,7 @@ export class EventsController {
 
   // Rota para Tenant Admin (sem branch)
   @Post('tenants/:tenantId/events')
-  @RequiresPerm([
-    PERMS.MANAGE_ALL_TENANTS,
-    PERMS.MANAGE_TENANT,
-  ])
+  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_TENANT])
   async createForTenant(
     @Param('tenantId') tenantId: string,
     @Req() req: any,
@@ -51,10 +48,7 @@ export class EventsController {
 
     return res
       .status(HttpStatus.CREATED)
-      .header(
-        'Location',
-        `/tenants/${tenantId}/events/${result._id}`,
-      )
+      .header('Location', `/tenants/${tenantId}/events/${result._id}`)
       .json(result);
   }
 
@@ -109,7 +103,14 @@ export class EventsController {
     @Req() req: any,
   ) {
     const userId: string | undefined = req.user?._id || req.user?.sub;
-    return this.eventsService.list(tenantId, null, query, userId, req.user.roles, req.user.ministryId);
+    return this.eventsService.list(
+      tenantId,
+      null,
+      query,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
   }
 
   // Listar eventos para Branch Admin
@@ -128,7 +129,14 @@ export class EventsController {
   ) {
     const userId: string | undefined = req.user?._id || req.user?.sub;
     const normalizedBranchId = this.normalizeBranchId(branchId);
-    return this.eventsService.list(tenantId, normalizedBranchId, query, userId, req.user.roles, req.user.ministryId);
+    return this.eventsService.list(
+      tenantId,
+      normalizedBranchId,
+      query,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
   }
 
   // Buscar recorrências para Tenant Admin
@@ -144,7 +152,14 @@ export class EventsController {
     @Req() req: any,
   ) {
     const userId: string | undefined = req.user?._id || req.user?.sub;
-    return this.eventsService.getRecurrences(tenantId, null, query, userId, req.user.roles, req.user.ministryId);
+    return this.eventsService.getRecurrences(
+      tenantId,
+      null,
+      query,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
   }
 
   // Buscar recorrências para Branch Admin
@@ -163,7 +178,14 @@ export class EventsController {
   ) {
     const userId: string | undefined = req.user?._id || req.user?.sub;
     const normalizedBranchId = this.normalizeBranchId(branchId);
-    return this.eventsService.getRecurrences(tenantId, normalizedBranchId, query, userId, req.user.roles, req.user.ministryId);
+    return this.eventsService.getRecurrences(
+      tenantId,
+      normalizedBranchId,
+      query,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
   }
 
   // Buscar evento específico para Tenant Admin
@@ -179,7 +201,14 @@ export class EventsController {
     @Req() req: any,
   ) {
     const userId: string | undefined = req.user?._id || req.user?.sub;
-    return this.eventsService.findOne(tenantId, null, id, userId, req.user.roles, req.user.ministryId);
+    return this.eventsService.findOne(
+      tenantId,
+      null,
+      id,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
   }
 
   // Buscar evento específico para Branch Admin
@@ -198,15 +227,19 @@ export class EventsController {
   ) {
     const userId: string | undefined = req.user?._id || req.user?.sub;
     const normalizedBranchId = this.normalizeBranchId(branchId);
-    return this.eventsService.findOne(tenantId, normalizedBranchId, id, userId, req.user.roles, req.user.ministryId);
+    return this.eventsService.findOne(
+      tenantId,
+      normalizedBranchId,
+      id,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
   }
 
   // Atualizar evento para Tenant Admin
   @Patch('tenants/:tenantId/events/:id')
-  @RequiresPerm([
-    PERMS.MANAGE_ALL_TENANTS,
-    PERMS.MANAGE_TENANT,
-  ])
+  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_TENANT])
   async updateForTenant(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -216,7 +249,15 @@ export class EventsController {
     const userId = req.user?.sub;
     if (!userId) throw new Error('userId ausente');
 
-    return this.eventsService.update(tenantId, null, id, userId, dto, req.user.roles, req.user.ministryId);
+    return this.eventsService.update(
+      tenantId,
+      null,
+      id,
+      userId,
+      dto,
+      req.user.roles,
+      req.user.ministryId,
+    );
   }
 
   // Atualizar evento para Branch Admin
@@ -237,15 +278,20 @@ export class EventsController {
     if (!userId) throw new Error('userId ausente');
 
     const normalizedBranchId = this.normalizeBranchId(branchId);
-    return this.eventsService.update(tenantId, normalizedBranchId, id, userId, dto, req.user.roles, req.user.ministryId);
+    return this.eventsService.update(
+      tenantId,
+      normalizedBranchId,
+      id,
+      userId,
+      dto,
+      req.user.roles,
+      req.user.ministryId,
+    );
   }
 
   // Deletar evento para Tenant Admin
   @Delete('tenants/:tenantId/events/:id')
-  @RequiresPerm([
-    PERMS.MANAGE_ALL_TENANTS,
-    PERMS.MANAGE_TENANT,
-  ])
+  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_TENANT])
   async removeForTenant(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -253,8 +299,16 @@ export class EventsController {
   ) {
     const userId = req.user?.sub;
     if (!userId) throw new Error('userId ausente');
-
-    return this.eventsService.remove(tenantId, null, id, userId, req.user.roles, req.user.ministryId);
+    const cleanedId =
+      typeof id === 'string' && id.includes('_') ? id.split('_')[0] : id;
+    return this.eventsService.remove(
+      tenantId,
+      null,
+      cleanedId,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
   }
 
   // Deletar evento para Branch Admin
@@ -274,6 +328,121 @@ export class EventsController {
     if (!userId) throw new Error('userId ausente');
 
     const normalizedBranchId = this.normalizeBranchId(branchId);
-    return this.eventsService.remove(tenantId, normalizedBranchId, id, userId, req.user.roles, req.user.ministryId);
+    const cleanedId =
+      typeof id === 'string' && id.includes('_') ? id.split('_')[0] : id;
+    return this.eventsService.remove(
+      tenantId,
+      normalizedBranchId,
+      cleanedId,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
+  }
+
+  // Exceção: pular ocorrência específica
+  @Delete('tenants/:tenantId/events/:id/instances')
+  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_TENANT])
+  async skipInstanceForTenant(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Query('date') dateIso: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.sub;
+    if (!userId) throw new Error('userId ausente');
+    const cleanedId =
+      typeof id === 'string' && id.includes('_') ? id.split('_')[0] : id;
+    return this.eventsService.skipInstance(
+      tenantId,
+      null,
+      cleanedId,
+      dateIso,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
+  }
+
+  @Delete('tenants/:tenantId/branches/:branchId/events/:id/instances')
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_BRANCH_EVENTS,
+    PERMS.MANAGE_MINISTRY_EVENTS,
+  ])
+  async skipInstanceForBranch(
+    @Param('tenantId') tenantId: string,
+    @Param('branchId') branchId: string,
+    @Param('id') id: string,
+    @Query('date') dateIso: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.sub;
+    if (!userId) throw new Error('userId ausente');
+    const normalizedBranchId = this.normalizeBranchId(branchId);
+    const cleanedId =
+      typeof id === 'string' && id.includes('_') ? id.split('_')[0] : id;
+    return this.eventsService.skipInstance(
+      tenantId,
+      normalizedBranchId,
+      cleanedId,
+      dateIso,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
+  }
+
+  // Exceção: encerrar série após uma data
+  @Patch('tenants/:tenantId/events/:id/cancel-after')
+  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_TENANT])
+  async cancelSeriesAfterForTenant(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Query('from') fromIso: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.sub;
+    if (!userId) throw new Error('userId ausente');
+    const cleanedId =
+      typeof id === 'string' && id.includes('_') ? id.split('_')[0] : id;
+    return this.eventsService.cancelSeriesAfter(
+      tenantId,
+      null,
+      cleanedId,
+      fromIso,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
+  }
+
+  @Patch('tenants/:tenantId/branches/:branchId/events/:id/cancel-after')
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_BRANCH_EVENTS,
+    PERMS.MANAGE_MINISTRY_EVENTS,
+  ])
+  async cancelSeriesAfterForBranch(
+    @Param('tenantId') tenantId: string,
+    @Param('branchId') branchId: string,
+    @Param('id') id: string,
+    @Query('from') fromIso: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.sub;
+    if (!userId) throw new Error('userId ausente');
+    const normalizedBranchId = this.normalizeBranchId(branchId);
+    const cleanedId =
+      typeof id === 'string' && id.includes('_') ? id.split('_')[0] : id;
+    return this.eventsService.cancelSeriesAfter(
+      tenantId,
+      normalizedBranchId,
+      cleanedId,
+      fromIso,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
   }
 }

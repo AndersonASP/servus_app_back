@@ -58,10 +58,10 @@ export class FeedbackService {
     };
 
     this.feedbacks.push(feedback);
-    
+
     // Enviar notificação em tempo real se possível
     await this.sendRealtimeNotification(feedback);
-    
+
     console.log(`✅ [FeedbackService] Feedback de sucesso criado: ${title}`);
     return feedback;
   }
@@ -94,10 +94,10 @@ export class FeedbackService {
     };
 
     this.feedbacks.push(feedback);
-    
+
     // Enviar notificação em tempo real se possível
     await this.sendRealtimeNotification(feedback);
-    
+
     console.log(`❌ [FeedbackService] Feedback de erro criado: ${title}`);
     return feedback;
   }
@@ -130,10 +130,10 @@ export class FeedbackService {
     };
 
     this.feedbacks.push(feedback);
-    
+
     // Enviar notificação em tempo real se possível
     await this.sendRealtimeNotification(feedback);
-    
+
     console.log(`⚠️ [FeedbackService] Feedback de aviso criado: ${title}`);
     return feedback;
   }
@@ -166,10 +166,10 @@ export class FeedbackService {
     };
 
     this.feedbacks.push(feedback);
-    
+
     // Enviar notificação em tempo real se possível
     await this.sendRealtimeNotification(feedback);
-    
+
     console.log(`ℹ️ [FeedbackService] Feedback informativo criado: ${title}`);
     return feedback;
   }
@@ -184,10 +184,10 @@ export class FeedbackService {
     adminCreated?: boolean,
   ): Promise<FeedbackData> {
     const title = 'Tenant Criado com Sucesso!';
-    const message = adminCreated 
+    const message = adminCreated
       ? `A igreja "${tenantName}" foi criada com sucesso e o administrador foi configurado.`
       : `A igreja "${tenantName}" foi criada com sucesso.`;
-    
+
     return this.createSuccessFeedback(
       userId,
       title,
@@ -196,7 +196,7 @@ export class FeedbackService {
       undefined,
       undefined,
       `/tenants/${tenantId}`,
-      { tenantName, adminCreated }
+      { tenantName, adminCreated },
     );
   }
 
@@ -207,7 +207,7 @@ export class FeedbackService {
   ): Promise<FeedbackData> {
     const title = 'Erro ao Criar Tenant';
     const message = `Não foi possível criar a igreja "${tenantName}". ${error}`;
-    
+
     return this.createErrorFeedback(
       userId,
       title,
@@ -216,7 +216,7 @@ export class FeedbackService {
       undefined,
       undefined,
       undefined,
-      { tenantName, error }
+      { tenantName, error },
     );
   }
 
@@ -228,7 +228,7 @@ export class FeedbackService {
   ): Promise<FeedbackData> {
     const title = 'Usuário Criado com Sucesso!';
     const message = `O usuário "${userName}" foi criado com sucesso como ${this.translateRole(role)}.`;
-    
+
     return this.createSuccessFeedback(
       userId,
       title,
@@ -237,7 +237,7 @@ export class FeedbackService {
       undefined,
       undefined,
       `/users`,
-      { userName, role }
+      { userName, role },
     );
   }
 
@@ -248,7 +248,7 @@ export class FeedbackService {
   ): Promise<FeedbackData> {
     const title = 'Erro ao Criar Usuário';
     const message = `Não foi possível criar o usuário "${userName}". ${error}`;
-    
+
     return this.createErrorFeedback(
       userId,
       title,
@@ -257,7 +257,7 @@ export class FeedbackService {
       undefined,
       undefined,
       undefined,
-      { userName, error }
+      { userName, error },
     );
   }
 
@@ -269,12 +269,14 @@ export class FeedbackService {
     tenantId?: string,
     limit: number = 50,
   ): Promise<FeedbackData[]> {
-    let filteredFeedbacks = this.feedbacks.filter(f => f.userId === userId);
-    
+    let filteredFeedbacks = this.feedbacks.filter((f) => f.userId === userId);
+
     if (tenantId) {
-      filteredFeedbacks = filteredFeedbacks.filter(f => f.tenantId === tenantId);
+      filteredFeedbacks = filteredFeedbacks.filter(
+        (f) => f.tenantId === tenantId,
+      );
     }
-    
+
     return filteredFeedbacks
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit);
@@ -284,7 +286,9 @@ export class FeedbackService {
    * Marcar feedback como lido
    */
   async markAsRead(feedbackId: string, userId: string): Promise<boolean> {
-    const feedback = this.feedbacks.find(f => f.id === feedbackId && f.userId === userId);
+    const feedback = this.feedbacks.find(
+      (f) => f.id === feedbackId && f.userId === userId,
+    );
     if (feedback) {
       feedback.readAt = new Date();
       return true;
@@ -298,27 +302,32 @@ export class FeedbackService {
   async cleanupOldFeedbacks(daysOld: number = 30): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
-    
+
     const initialLength = this.feedbacks.length;
-    this.feedbacks = this.feedbacks.filter(f => f.createdAt > cutoffDate);
-    
+    this.feedbacks = this.feedbacks.filter((f) => f.createdAt > cutoffDate);
+
     const removedCount = initialLength - this.feedbacks.length;
-    console.log(`🧹 [FeedbackService] Removidos ${removedCount} feedbacks antigos`);
-    
+    console.log(
+      `🧹 [FeedbackService] Removidos ${removedCount} feedbacks antigos`,
+    );
+
     return removedCount;
   }
 
   /**
    * Enviar notificação em tempo real
    */
-  private async sendRealtimeNotification(feedback: FeedbackData): Promise<void> {
+  private async sendRealtimeNotification(
+    feedback: FeedbackData,
+  ): Promise<void> {
     try {
       // Em produção, implementar WebSocket ou Server-Sent Events
-      console.log(`📡 [FeedbackService] Enviando notificação em tempo real para usuário ${feedback.userId}: ${feedback.title}`);
-      
+      console.log(
+        `📡 [FeedbackService] Enviando notificação em tempo real para usuário ${feedback.userId}: ${feedback.title}`,
+      );
+
       // Simular envio de notificação em tempo real
       // TODO: Implementar WebSocket ou Server-Sent Events
-      
     } catch (error) {
       console.error('Erro ao enviar notificação em tempo real:', error);
     }
@@ -342,7 +351,7 @@ export class FeedbackService {
       leader: 'Líder de Ministério',
       volunteer: 'Voluntário',
     };
-    
+
     return translations[role] || role;
   }
 }

@@ -11,7 +11,10 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { CustomThrottlerGuard } from './common/guards/throttler.guard';
 
 import { DatabaseConfig } from './config/database.config';
-import { environmentConfig, validateEnvironment } from './config/environment.config';
+import {
+  environmentConfig,
+  validateEnvironment,
+} from './config/environment.config';
 import { TenantMiddleware } from './common/middlewares/tenant.middleware';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -31,8 +34,6 @@ import { EventsModule } from './modules/events/events.module';
 import { ScalesModule } from './modules/scales/scales.module';
 import { TemplatesModule } from './modules/templates/templates.module';
 
-
-
 // ⬇️ Models usados pelo PolicyGuard
 import { Tenant, TenantSchema } from './modules/tenants/schemas/tenant.schema';
 import { Branch, BranchSchema } from './modules/branches/schemas/branch.schema';
@@ -43,13 +44,13 @@ import {
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ 
+    ConfigModule.forRoot({
       isGlobal: true,
       load: [environmentConfig],
       validate: (config) => {
         // Validação adicional se necessário
         return config;
-      }
+      },
     }),
     ...DatabaseConfig,
 
@@ -58,7 +59,7 @@ import {
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const nodeEnv = configService.get<string>('environment.nodeEnv');
-        
+
         // Configurações diferentes por ambiente
         if (nodeEnv === 'prod') {
           return [
@@ -109,8 +110,6 @@ import {
     EventsModule,
     ScalesModule,
     TemplatesModule,
-
-
   ],
   providers: [
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },

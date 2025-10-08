@@ -17,15 +17,19 @@ import { Type } from 'class-transformer';
 
 export class RecurrencePatternDto {
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   interval?: number;
 
   @IsOptional()
   @IsArray()
+  @Type(() => Number)
+  @IsNumber({}, { each: true })
   daysOfWeek?: number[]; // 0-6
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   dayOfMonth?: number; // 1-31
@@ -35,6 +39,7 @@ export class RecurrencePatternDto {
   endDate?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   occurrences?: number;
@@ -82,5 +87,3 @@ export class CreateEventDto {
   @MaxLength(1000)
   specialNotes?: string;
 }
-
-

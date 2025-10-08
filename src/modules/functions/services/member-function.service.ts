@@ -1,7 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { MemberFunction, MemberFunctionStatus, MemberFunctionLevel } from '../schemas/member-function.schema';
+import {
+  MemberFunction,
+  MemberFunctionStatus,
+  MemberFunctionLevel,
+} from '../schemas/member-function.schema';
 import { MinistryFunction } from '../schemas/ministry-function.schema';
 import { Tenant } from '../../tenants/schemas/tenant.schema';
 import { Membership } from '../../membership/schemas/membership.schema';
@@ -63,8 +71,10 @@ export interface MemberFunctionResponseDto {
 @Injectable()
 export class MemberFunctionService {
   constructor(
-    @InjectModel(MemberFunction.name) private memberFunctionModel: Model<MemberFunction>,
-    @InjectModel(MinistryFunction.name) private ministryFunctionModel: Model<MinistryFunction>,
+    @InjectModel(MemberFunction.name)
+    private memberFunctionModel: Model<MemberFunction>,
+    @InjectModel(MinistryFunction.name)
+    private ministryFunctionModel: Model<MinistryFunction>,
     @InjectModel(Tenant.name) private tenantModel: Model<Tenant>,
     @InjectModel(Membership.name) private membershipModel: Model<Membership>,
     @InjectModel(User.name) private userModel: Model<User>,
@@ -74,16 +84,34 @@ export class MemberFunctionService {
     tenantId: string,
     branchId: string | null,
     dto: CreateMemberFunctionDto,
-    currentUserId: string
+    currentUserId: string,
   ): Promise<MemberFunctionResponseDto> {
     // Validar se os IDs são ObjectIds válidos
     console.log('🔍 Validando IDs para MemberFunction:');
-    console.log('   - dto.userId:', dto.userId, '(length:', dto.userId?.length, ')');
-    console.log('   - dto.ministryId:', dto.ministryId, '(length:', dto.ministryId?.length, ')');
-    console.log('   - dto.functionId:', dto.functionId, '(length:', dto.functionId?.length, ')');
+    console.log(
+      '   - dto.userId:',
+      dto.userId,
+      '(length:',
+      dto.userId?.length,
+      ')',
+    );
+    console.log(
+      '   - dto.ministryId:',
+      dto.ministryId,
+      '(length:',
+      dto.ministryId?.length,
+      ')',
+    );
+    console.log(
+      '   - dto.functionId:',
+      dto.functionId,
+      '(length:',
+      dto.functionId?.length,
+      ')',
+    );
     console.log('   - tenantId:', tenantId, '(length:', tenantId?.length, ')');
     console.log('   - branchId:', branchId, '(length:', branchId?.length, ')');
-    
+
     try {
       new Types.ObjectId(dto.userId);
       console.log('✅ userId válido');
@@ -102,7 +130,9 @@ export class MemberFunctionService {
       }
     } catch (error) {
       console.log('❌ Erro na validação de ID:', error);
-      throw new BadRequestException('ID inválido fornecido. Verifique se os IDs são válidos.');
+      throw new BadRequestException(
+        'ID inválido fornecido. Verifique se os IDs são válidos.',
+      );
     }
 
     // Buscar o tenant pelo ObjectId
@@ -128,7 +158,10 @@ export class MemberFunctionService {
       memberId: new Types.ObjectId(dto.userId),
       ministryId: new Types.ObjectId(dto.ministryId),
       functionId: new Types.ObjectId(dto.functionId),
-      tenantId: tenant._id === 'servus-system' ? 'servus-system' : new Types.ObjectId(tenantId),
+      tenantId:
+        tenant._id === 'servus-system'
+          ? 'servus-system'
+          : new Types.ObjectId(tenantId),
       branchId: branchId ? new Types.ObjectId(branchId) : null,
     });
 
@@ -139,22 +172,30 @@ export class MemberFunctionService {
         {
           status: dto.status || MemberFunctionStatus.PENDING,
           notes: dto.notes,
-          approvedBy: currentUserId
-        }
+          approvedBy: currentUserId,
+        },
       );
     }
 
     // Determinar status baseado no role do usuário que está criando
     let finalStatus = dto.status || MemberFunctionStatus.PENDING;
     let finalNotes = dto.notes;
-    
-    if (dto.createdByRole === 'tenant_admin' || dto.createdByRole === 'leader') {
+
+    if (
+      dto.createdByRole === 'tenant_admin' ||
+      dto.createdByRole === 'leader'
+    ) {
       // Aprovação automática quando criado por tenant_admin ou leader
       finalStatus = MemberFunctionStatus.APROVADO;
-      finalNotes = finalNotes || `Aprovado automaticamente pelo ${dto.createdByRole}`;
-      console.log(`✅ [MemberFunctionService] Aprovação automática pelo ${dto.createdByRole}`);
+      finalNotes =
+        finalNotes || `Aprovado automaticamente pelo ${dto.createdByRole}`;
+      console.log(
+        `✅ [MemberFunctionService] Aprovação automática pelo ${dto.createdByRole}`,
+      );
     } else {
-      console.log(`⏳ [MemberFunctionService] Status pendente - aguardando aprovação`);
+      console.log(
+        `⏳ [MemberFunctionService] Status pendente - aguardando aprovação`,
+      );
     }
 
     // Criar nova MemberFunction
@@ -167,11 +208,18 @@ export class MemberFunctionService {
       priority: dto.priority || 1,
       notes: finalNotes,
       isActive: dto.isActive !== undefined ? dto.isActive : true,
-      tenantId: tenant._id === 'servus-system' ? 'servus-system' : tenant._id as Types.ObjectId,
+      tenantId:
+        tenant._id === 'servus-system'
+          ? 'servus-system'
+          : (tenant._id as Types.ObjectId),
       branchId: branchId ? new Types.ObjectId(branchId) : null,
       createdBy: currentUserId,
-      approvedBy: finalStatus === MemberFunctionStatus.APROVADO ? currentUserId : undefined,
-      approvedAt: finalStatus === MemberFunctionStatus.APROVADO ? new Date() : undefined,
+      approvedBy:
+        finalStatus === MemberFunctionStatus.APROVADO
+          ? currentUserId
+          : undefined,
+      approvedAt:
+        finalStatus === MemberFunctionStatus.APROVADO ? new Date() : undefined,
     };
 
     console.log('🔧 Criando MemberFunction com dados:', memberFunctionData);
@@ -179,7 +227,10 @@ export class MemberFunctionService {
     const memberFunction = new this.memberFunctionModel(memberFunctionData);
     const savedMemberFunction = await memberFunction.save();
 
-    console.log('✅ MemberFunction criada com sucesso:', savedMemberFunction._id);
+    console.log(
+      '✅ MemberFunction criada com sucesso:',
+      savedMemberFunction._id,
+    );
 
     return this.mapToResponseDto(savedMemberFunction);
   }
@@ -190,45 +241,57 @@ export class MemberFunctionService {
   async findFunctionByNameInMinistry(
     functionName: string,
     ministryId: string,
-    tenantId: string
+    tenantId: string,
   ): Promise<any> {
-    console.log(`🔍 Buscando função "${functionName}" no ministério ${ministryId}`);
-    
+    console.log(
+      `🔍 Buscando função "${functionName}" no ministério ${ministryId}`,
+    );
+
     // Buscar na tabela MinistryFunction
-    const ministryFunction = await this.ministryFunctionModel.findOne({
-      ministryId: new Types.ObjectId(ministryId),
-      tenantId: tenantId === 'servus-system' ? 'servus-system' : new Types.ObjectId(tenantId),
-      isActive: true
-    }).populate('functionId', 'name');
-    
+    const ministryFunction = await this.ministryFunctionModel
+      .findOne({
+        ministryId: new Types.ObjectId(ministryId),
+        tenantId:
+          tenantId === 'servus-system'
+            ? 'servus-system'
+            : new Types.ObjectId(tenantId),
+        isActive: true,
+      })
+      .populate('functionId', 'name');
+
     if (!ministryFunction) {
       console.log(`❌ Nenhuma função encontrada no ministério ${ministryId}`);
       return null;
     }
-    
+
     // Verificar se o nome da função corresponde
     const functionData = ministryFunction.functionId as any;
     if (functionData.name === functionName) {
-      console.log(`✅ Função "${functionName}" encontrada com ID: ${functionData._id}`);
+      console.log(
+        `✅ Função "${functionName}" encontrada com ID: ${functionData._id}`,
+      );
       return {
         functionId: functionData._id,
-        functionName: functionData.name
+        functionName: functionData.name,
       };
     }
-    
-    console.log(`❌ Função "${functionName}" não encontrada. Função disponível: "${functionData.name}"`);
+
+    console.log(
+      `❌ Função "${functionName}" não encontrada. Função disponível: "${functionData.name}"`,
+    );
     return null;
   }
 
   async updateMemberFunctionStatus(
     memberFunctionId: string,
-    dto: UpdateMemberFunctionStatusDto
+    dto: UpdateMemberFunctionStatusDto,
   ): Promise<MemberFunctionResponseDto> {
     console.log('🔄 [MemberFunctionService] Atualizando status da função...');
     console.log('   - MemberFunction ID:', memberFunctionId);
     console.log('   - Novo status:', dto.status);
 
-    const memberFunction = await this.memberFunctionModel.findById(memberFunctionId);
+    const memberFunction =
+      await this.memberFunctionModel.findById(memberFunctionId);
     if (!memberFunction) {
       throw new NotFoundException('MemberFunction não encontrada');
     }
@@ -238,7 +301,7 @@ export class MemberFunctionService {
       userId: memberFunction.memberId,
       ministryId: memberFunction.ministryId,
       currentStatus: memberFunction.status,
-      newStatus: dto.status
+      newStatus: dto.status,
     });
 
     memberFunction.status = dto.status;
@@ -256,20 +319,20 @@ export class MemberFunctionService {
     // Se a função foi APROVADA, ativar o membership e usuário
     if (dto.status === MemberFunctionStatus.APROVADO) {
       console.log('🎉 Função aprovada! Ativando membership e usuário...');
-      
+
       try {
         // Ativar o membership e remover flag de aprovação pendente
         await this.membershipModel.findOneAndUpdate(
           {
             user: memberFunction.memberId,
             ministry: memberFunction.ministryId,
-            tenantId: memberFunction.tenantId
+            tenantId: memberFunction.tenantId,
           },
-          { 
+          {
             isActive: true,
-            needsApproval: false // Remover flag de aprovação pendente
+            needsApproval: false, // Remover flag de aprovação pendente
           },
-          { new: true }
+          { new: true },
         );
         console.log('✅ Membership ativado e flag de aprovação removida');
 
@@ -277,7 +340,7 @@ export class MemberFunctionService {
         await this.userModel.findByIdAndUpdate(
           memberFunction.memberId,
           { isActive: true },
-          { new: true }
+          { new: true },
         );
         console.log('✅ Usuário ativado');
 
@@ -293,7 +356,7 @@ export class MemberFunctionService {
 
   async getMemberFunctionsByUser(
     userId: string,
-    tenantId?: string
+    tenantId?: string,
   ): Promise<MemberFunctionResponseDto[]> {
     console.log('🔍 [MemberFunctionService] Buscando funções do usuário...');
     console.log('   - User ID:', userId);
@@ -304,20 +367,29 @@ export class MemberFunctionService {
     };
 
     if (tenantId === 'servus-system') {
-      console.log('🔓 [MemberFunctionService] ServusAdmin detectado - pulando filtro de tenantId');
+      console.log(
+        '🔓 [MemberFunctionService] ServusAdmin detectado - pulando filtro de tenantId',
+      );
       // Não adicionar filtro de tenantId para servus_admin
     } else {
       if (tenantId && tenantId !== 'undefined' && tenantId !== 'null') {
         try {
           query.tenantId = new Types.ObjectId(tenantId);
         } catch (error) {
-          console.error('❌ [MemberFunctionService] Erro ao converter tenantId para ObjectId:', tenantId, error);
+          console.error(
+            '❌ [MemberFunctionService] Erro ao converter tenantId para ObjectId:',
+            tenantId,
+            error,
+          );
           throw new BadRequestException('tenantId inválido');
         }
       }
     }
 
-    console.log('🔍 [MemberFunctionService] Query:', JSON.stringify(query, null, 2));
+    console.log(
+      '🔍 [MemberFunctionService] Query:',
+      JSON.stringify(query, null, 2),
+    );
 
     const memberFunctions = await this.memberFunctionModel
       .find(query)
@@ -326,18 +398,23 @@ export class MemberFunctionService {
       .populate('memberId', 'name email')
       .sort({ createdAt: -1 });
 
-    console.log('📋 [MemberFunctionService] MemberFunctions encontradas:', memberFunctions.length);
+    console.log(
+      '📋 [MemberFunctionService] MemberFunctions encontradas:',
+      memberFunctions.length,
+    );
 
-    return memberFunctions.map(mf => this.mapToResponseDto(mf));
+    return memberFunctions.map((mf) => this.mapToResponseDto(mf));
   }
 
   async getMemberFunctionsByUserAndMinistry(
     userId: string,
     ministryId: string,
     status?: MemberFunctionStatus,
-    tenantId?: string
+    tenantId?: string,
   ): Promise<MemberFunctionResponseDto[]> {
-    console.log('🔍 [MemberFunctionService] Buscando funções do usuário no ministério...');
+    console.log(
+      '🔍 [MemberFunctionService] Buscando funções do usuário no ministério...',
+    );
     console.log('   - User ID:', userId);
     console.log('   - Ministry ID:', ministryId);
     console.log('   - Status:', status);
@@ -347,8 +424,8 @@ export class MemberFunctionService {
       memberId: new Types.ObjectId(userId),
       $or: [
         { ministryId: new Types.ObjectId(ministryId) },
-        { ministryId: ministryId }
-      ]
+        { ministryId: ministryId },
+      ],
     };
 
     if (status) {
@@ -356,20 +433,29 @@ export class MemberFunctionService {
     }
 
     if (tenantId === 'servus-system') {
-      console.log('🔓 [MemberFunctionService] ServusAdmin detectado - pulando filtro de tenantId');
+      console.log(
+        '🔓 [MemberFunctionService] ServusAdmin detectado - pulando filtro de tenantId',
+      );
       // Não adicionar filtro de tenantId para servus_admin
     } else {
       if (tenantId && tenantId !== 'undefined' && tenantId !== 'null') {
         try {
           query.tenantId = new Types.ObjectId(tenantId);
         } catch (error) {
-          console.error('❌ [MemberFunctionService] Erro ao converter tenantId para ObjectId:', tenantId, error);
+          console.error(
+            '❌ [MemberFunctionService] Erro ao converter tenantId para ObjectId:',
+            tenantId,
+            error,
+          );
           throw new BadRequestException('tenantId inválido');
         }
       }
     }
 
-    console.log('🔍 [MemberFunctionService] Query:', JSON.stringify(query, null, 2));
+    console.log(
+      '🔍 [MemberFunctionService] Query:',
+      JSON.stringify(query, null, 2),
+    );
 
     const memberFunctions = await this.memberFunctionModel
       .find(query)
@@ -378,16 +464,21 @@ export class MemberFunctionService {
       .populate('memberId', 'name email')
       .sort({ createdAt: -1 });
 
-    console.log('📋 [MemberFunctionService] MemberFunctions encontradas:', memberFunctions.length);
+    console.log(
+      '📋 [MemberFunctionService] MemberFunctions encontradas:',
+      memberFunctions.length,
+    );
 
-    return memberFunctions.map(mf => this.mapToResponseDto(mf));
+    return memberFunctions.map((mf) => this.mapToResponseDto(mf));
   }
 
   async getApprovedFunctionsForUser(
     userId: string,
-    tenantId?: string
+    tenantId?: string,
   ): Promise<MemberFunctionResponseDto[]> {
-    console.log('🔍 [MemberFunctionService] Buscando funções aprovadas do usuário...');
+    console.log(
+      '🔍 [MemberFunctionService] Buscando funções aprovadas do usuário...',
+    );
     console.log('   - User ID:', userId);
     console.log('   - Tenant ID:', tenantId);
 
@@ -397,20 +488,29 @@ export class MemberFunctionService {
     };
 
     if (tenantId === 'servus-system') {
-      console.log('🔓 [MemberFunctionService] ServusAdmin detectado - pulando filtro de tenantId');
+      console.log(
+        '🔓 [MemberFunctionService] ServusAdmin detectado - pulando filtro de tenantId',
+      );
       // Não adicionar filtro de tenantId para servus_admin
     } else {
       if (tenantId && tenantId !== 'undefined' && tenantId !== 'null') {
         try {
           query.tenantId = new Types.ObjectId(tenantId);
         } catch (error) {
-          console.error('❌ [MemberFunctionService] Erro ao converter tenantId para ObjectId:', tenantId, error);
+          console.error(
+            '❌ [MemberFunctionService] Erro ao converter tenantId para ObjectId:',
+            tenantId,
+            error,
+          );
           throw new BadRequestException('tenantId inválido');
         }
       }
     }
 
-    console.log('🔍 [MemberFunctionService] Query:', JSON.stringify(query, null, 2));
+    console.log(
+      '🔍 [MemberFunctionService] Query:',
+      JSON.stringify(query, null, 2),
+    );
 
     const memberFunctions = await this.memberFunctionModel
       .find(query)
@@ -419,13 +519,17 @@ export class MemberFunctionService {
       .populate('memberId', 'name email')
       .sort({ createdAt: -1 });
 
-    console.log('📋 [MemberFunctionService] MemberFunctions aprovadas encontradas:', memberFunctions.length);
+    console.log(
+      '📋 [MemberFunctionService] MemberFunctions aprovadas encontradas:',
+      memberFunctions.length,
+    );
 
-    return memberFunctions.map(mf => this.mapToResponseDto(mf));
+    return memberFunctions.map((mf) => this.mapToResponseDto(mf));
   }
 
   async deleteMemberFunction(memberFunctionId: string): Promise<void> {
-    const result = await this.memberFunctionModel.findByIdAndDelete(memberFunctionId);
+    const result =
+      await this.memberFunctionModel.findByIdAndDelete(memberFunctionId);
     if (!result) {
       throw new NotFoundException('MemberFunction não encontrada');
     }
@@ -435,8 +539,10 @@ export class MemberFunctionService {
     return {
       id: memberFunction._id.toString(),
       userId: memberFunction.memberId?.toString() || memberFunction.memberId,
-      ministryId: memberFunction.ministryId?.toString() || memberFunction.ministryId,
-      functionId: memberFunction.functionId?.toString() || memberFunction.functionId,
+      ministryId:
+        memberFunction.ministryId?.toString() || memberFunction.ministryId,
+      functionId:
+        memberFunction.functionId?.toString() || memberFunction.functionId,
       status: memberFunction.status,
       level: memberFunction.level,
       priority: memberFunction.priority,
@@ -450,21 +556,33 @@ export class MemberFunctionService {
       createdAt: memberFunction.createdAt,
       updatedAt: memberFunction.updatedAt,
       // Dados populados
-      function: memberFunction.functionId && typeof memberFunction.functionId === 'object' && memberFunction.functionId.name ? {
-        id: memberFunction.functionId._id.toString(),
-        name: memberFunction.functionId.name,
-        description: memberFunction.functionId.description,
-        slug: memberFunction.functionId.slug,
-      } : undefined,
-      ministry: memberFunction.ministryId && typeof memberFunction.ministryId === 'object' ? {
-        id: memberFunction.ministryId._id.toString(),
-        name: memberFunction.ministryId.name,
-      } : undefined,
-      user: memberFunction.memberId && typeof memberFunction.memberId === 'object' ? {
-        id: memberFunction.memberId._id.toString(),
-        name: memberFunction.memberId.name,
-        email: memberFunction.memberId.email,
-      } : undefined,
+      function:
+        memberFunction.functionId &&
+        typeof memberFunction.functionId === 'object' &&
+        memberFunction.functionId.name
+          ? {
+              id: memberFunction.functionId._id.toString(),
+              name: memberFunction.functionId.name,
+              description: memberFunction.functionId.description,
+              slug: memberFunction.functionId.slug,
+            }
+          : undefined,
+      ministry:
+        memberFunction.ministryId &&
+        typeof memberFunction.ministryId === 'object'
+          ? {
+              id: memberFunction.ministryId._id.toString(),
+              name: memberFunction.ministryId.name,
+            }
+          : undefined,
+      user:
+        memberFunction.memberId && typeof memberFunction.memberId === 'object'
+          ? {
+              id: memberFunction.memberId._id.toString(),
+              name: memberFunction.memberId.name,
+              email: memberFunction.memberId.email,
+            }
+          : undefined,
     };
   }
 }

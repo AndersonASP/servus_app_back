@@ -1,9 +1,12 @@
 import {
   IsArray,
   IsBoolean,
+  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
+  Max,
 } from 'class-validator';
 import { ContextValidationDto } from 'src/common/dto/context-validation.dto';
 
@@ -25,4 +28,10 @@ export class CreateMinistryDto extends ContextValidationDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  maxBlockedDays?: number;
 }

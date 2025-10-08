@@ -56,13 +56,21 @@ export class Event extends Document {
   @Prop({ required: true })
   eventTime: string; // HH:mm (armazenado como string para simplicidade)
 
-  @Prop({ enum: ['none', 'daily', 'weekly', 'monthly'], default: 'none', index: true })
+  @Prop({
+    enum: ['none', 'daily', 'weekly', 'monthly'],
+    default: 'none',
+    index: true,
+  })
   recurrenceType: RecurrenceType;
 
   @Prop({ type: RecurrencePattern })
   recurrencePattern?: RecurrencePattern;
 
-  @Prop({ enum: ['global', 'ministry_specific'], default: 'global', index: true })
+  @Prop({
+    enum: ['global', 'ministry_specific'],
+    default: 'global',
+    index: true,
+  })
   eventType: 'global' | 'ministry_specific';
 
   @Prop({ default: true, index: true })
@@ -71,7 +79,11 @@ export class Event extends Document {
   @Prop({ type: String })
   specialNotes?: string; // anotações como "chegar mais cedo para passagem de som"
 
-  @Prop({ enum: ['draft', 'published', 'completed', 'cancelled'], default: 'draft', index: true })
+  @Prop({
+    enum: ['draft', 'published', 'completed', 'cancelled'],
+    default: 'draft',
+    index: true,
+  })
   status: 'draft' | 'published' | 'completed' | 'cancelled';
 }
 
@@ -81,5 +93,3 @@ EventSchema.index({ tenantId: 1, branchId: 1, eventDate: 1 });
 EventSchema.index({ tenantId: 1, isGlobal: 1, eventType: 1 });
 EventSchema.index({ tenantId: 1, status: 1, eventDate: 1 });
 EventSchema.index({ name: 'text' });
-
-

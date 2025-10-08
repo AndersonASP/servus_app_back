@@ -1,6 +1,21 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ScalesService } from './scales.service';
-import { CreateScaleDto, UpdateScaleDto, ListScaleDto } from './dto/create-scale.dto';
+import {
+  CreateScaleDto,
+  UpdateScaleDto,
+  ListScaleDto,
+} from './dto/create-scale.dto';
 import { RequiresPerm } from '../../common/decorators/requires-perm.decorator';
 import { PERMS } from '../../common/enums/role.enum';
 

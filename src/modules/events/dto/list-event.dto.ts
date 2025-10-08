@@ -1,4 +1,11 @@
-import { IsEnum, IsMongoId, IsOptional, IsString, IsDateString, IsBoolean } from 'class-validator';
+import {
+  IsEnum,
+  IsMongoId,
+  IsOptional,
+  IsString,
+  IsDateString,
+  IsBoolean,
+} from 'class-validator';
 
 export class ListEventDto {
   @IsOptional()
@@ -47,5 +54,3 @@ export class ListEventDto {
   @IsOptional()
   limit?: number;
 }
-
-

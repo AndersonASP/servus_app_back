@@ -1,13 +1,13 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Param, 
-  Query, 
-  Body, 
-  Req, 
-  Res, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Param,
+  Query,
+  Body,
+  Req,
+  Res,
   HttpStatus,
   Logger,
 } from '@nestjs/common';
@@ -35,13 +35,15 @@ export class MinistryApprovalController {
    */
   @Get('ministries/:ministryId/pending')
   @Authorize({
-    anyOf: [{
-      membership: {
-        roles: [MembershipRole.Leader],
-        ministryParam: 'ministryId',
-        tenantFrom: 'user',
-      }
-    }]
+    anyOf: [
+      {
+        membership: {
+          roles: [MembershipRole.Leader],
+          ministryParam: 'ministryId',
+          tenantFrom: 'user',
+        },
+      },
+    ],
   })
   async getMinistryPendingSubmissions(
     @Param('ministryId') ministryId: string,
@@ -51,7 +53,9 @@ export class MinistryApprovalController {
     @Res() res: Response,
   ) {
     try {
-      this.logger.log(`[getMinistryPendingSubmissions] Buscando submissões pendentes para ministério ${ministryId}`);
+      this.logger.log(
+        `[getMinistryPendingSubmissions] Buscando submissões pendentes para ministério ${ministryId}`,
+      );
 
       const tenantId = req.user?.tenantId;
       if (!tenantId) {
@@ -60,13 +64,14 @@ export class MinistryApprovalController {
         });
       }
 
-      const result = await this.ministryApprovalService.getMinistryPendingSubmissions(
-        ministryId,
-        tenantId,
-        req.user._id,
-        parseInt(page),
-        parseInt(limit),
-      );
+      const result =
+        await this.ministryApprovalService.getMinistryPendingSubmissions(
+          ministryId,
+          tenantId,
+          req.user._id,
+          parseInt(page),
+          parseInt(limit),
+        );
 
       return res.status(HttpStatus.OK).json({
         message: 'Submissões pendentes encontradas',
@@ -74,7 +79,10 @@ export class MinistryApprovalController {
         pagination: result.pagination,
       });
     } catch (error) {
-      this.logger.error(`[getMinistryPendingSubmissions] Erro: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getMinistryPendingSubmissions] Erro: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });
@@ -87,12 +95,14 @@ export class MinistryApprovalController {
    */
   @Put('submissions/:submissionId/approve')
   @Authorize({
-    anyOf: [{
-      membership: {
-        roles: [MembershipRole.Leader],
-        tenantFrom: 'user',
-      }
-    }]
+    anyOf: [
+      {
+        membership: {
+          roles: [MembershipRole.Leader],
+          tenantFrom: 'user',
+        },
+      },
+    ],
   })
   async approveVolunteerSubmission(
     @Param('submissionId') submissionId: string,
@@ -101,7 +111,9 @@ export class MinistryApprovalController {
     @Res() res: Response,
   ) {
     try {
-      this.logger.log(`[approveVolunteerSubmission] Aprovando submissão ${submissionId}`);
+      this.logger.log(
+        `[approveVolunteerSubmission] Aprovando submissão ${submissionId}`,
+      );
 
       const tenantId = req.user?.tenantId;
       if (!tenantId) {
@@ -110,19 +122,23 @@ export class MinistryApprovalController {
         });
       }
 
-      const result = await this.ministryApprovalService.approveVolunteerSubmission(
-        submissionId,
-        approvalDto,
-        tenantId,
-        req.user._id,
-      );
+      const result =
+        await this.ministryApprovalService.approveVolunteerSubmission(
+          submissionId,
+          approvalDto,
+          tenantId,
+          req.user._id,
+        );
 
       return res.status(HttpStatus.OK).json({
         message: `Submissão ${approvalDto.status === 'approved' ? 'aprovada' : 'rejeitada'} com sucesso`,
         data: result,
       });
     } catch (error) {
-      this.logger.error(`[approveVolunteerSubmission] Erro: ${error.message}`, error.stack);
+      this.logger.error(
+        `[approveVolunteerSubmission] Erro: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });
@@ -134,13 +150,15 @@ export class MinistryApprovalController {
    */
   @Get('ministries/:ministryId/stats')
   @Authorize({
-    anyOf: [{
-      membership: {
-        roles: [MembershipRole.Leader],
-        ministryParam: 'ministryId',
-        tenantFrom: 'user',
-      }
-    }]
+    anyOf: [
+      {
+        membership: {
+          roles: [MembershipRole.Leader],
+          ministryParam: 'ministryId',
+          tenantFrom: 'user',
+        },
+      },
+    ],
   })
   async getMinistryApprovalStats(
     @Param('ministryId') ministryId: string,
@@ -148,7 +166,9 @@ export class MinistryApprovalController {
     @Res() res: Response,
   ) {
     try {
-      this.logger.log(`[getMinistryApprovalStats] Buscando estatísticas para ministério ${ministryId}`);
+      this.logger.log(
+        `[getMinistryApprovalStats] Buscando estatísticas para ministério ${ministryId}`,
+      );
 
       const tenantId = req.user?.tenantId;
       if (!tenantId) {
@@ -168,7 +188,10 @@ export class MinistryApprovalController {
         data: stats,
       });
     } catch (error) {
-      this.logger.error(`[getMinistryApprovalStats] Erro: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getMinistryApprovalStats] Erro: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });
@@ -181,12 +204,14 @@ export class MinistryApprovalController {
    */
   @Get('leader/pending')
   @Authorize({
-    anyOf: [{
-      membership: {
-        roles: [MembershipRole.Leader],
-        tenantFrom: 'user',
-      }
-    }]
+    anyOf: [
+      {
+        membership: {
+          roles: [MembershipRole.Leader],
+          tenantFrom: 'user',
+        },
+      },
+    ],
   })
   async getLeaderPendingSubmissions(
     @Query('page') page: string = '1',
@@ -195,7 +220,9 @@ export class MinistryApprovalController {
     @Res() res: Response,
   ) {
     try {
-      this.logger.log(`[getLeaderPendingSubmissions] Buscando submissões pendentes para líder ${req.user._id}`);
+      this.logger.log(
+        `[getLeaderPendingSubmissions] Buscando submissões pendentes para líder ${req.user._id}`,
+      );
 
       const tenantId = req.user?.tenantId;
       if (!tenantId) {
@@ -204,12 +231,13 @@ export class MinistryApprovalController {
         });
       }
 
-      const result = await this.ministryApprovalService.getLeaderPendingSubmissions(
-        req.user._id,
-        tenantId,
-        parseInt(page),
-        parseInt(limit),
-      );
+      const result =
+        await this.ministryApprovalService.getLeaderPendingSubmissions(
+          req.user._id,
+          tenantId,
+          parseInt(page),
+          parseInt(limit),
+        );
 
       return res.status(HttpStatus.OK).json({
         message: 'Submissões pendentes encontradas',
@@ -217,7 +245,10 @@ export class MinistryApprovalController {
         pagination: result.pagination,
       });
     } catch (error) {
-      this.logger.error(`[getLeaderPendingSubmissions] Erro: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getLeaderPendingSubmissions] Erro: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });
@@ -229,12 +260,14 @@ export class MinistryApprovalController {
    */
   @Get('leader/history')
   @Authorize({
-    anyOf: [{
-      membership: {
-        roles: [MembershipRole.Leader],
-        tenantFrom: 'user',
-      }
-    }]
+    anyOf: [
+      {
+        membership: {
+          roles: [MembershipRole.Leader],
+          tenantFrom: 'user',
+        },
+      },
+    ],
   })
   async getLeaderApprovalHistory(
     @Query('page') page: string = '1',
@@ -243,7 +276,9 @@ export class MinistryApprovalController {
     @Res() res: Response,
   ) {
     try {
-      this.logger.log(`[getLeaderApprovalHistory] Buscando histórico do líder ${req.user._id}`);
+      this.logger.log(
+        `[getLeaderApprovalHistory] Buscando histórico do líder ${req.user._id}`,
+      );
 
       const tenantId = req.user?.tenantId;
       if (!tenantId) {
@@ -252,12 +287,13 @@ export class MinistryApprovalController {
         });
       }
 
-      const result = await this.ministryApprovalService.getLeaderApprovalHistory(
-        req.user._id,
-        tenantId,
-        parseInt(page),
-        parseInt(limit),
-      );
+      const result =
+        await this.ministryApprovalService.getLeaderApprovalHistory(
+          req.user._id,
+          tenantId,
+          parseInt(page),
+          parseInt(limit),
+        );
 
       return res.status(HttpStatus.OK).json({
         message: 'Histórico de aprovações encontrado',
@@ -265,7 +301,10 @@ export class MinistryApprovalController {
         pagination: result.pagination,
       });
     } catch (error) {
-      this.logger.error(`[getLeaderApprovalHistory] Erro: ${error.message}`, error.stack);
+      this.logger.error(
+        `[getLeaderApprovalHistory] Erro: ${error.message}`,
+        error.stack,
+      );
       return res.status(HttpStatus.BAD_REQUEST).json({
         message: error.message,
       });

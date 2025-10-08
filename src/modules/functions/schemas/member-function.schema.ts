@@ -28,16 +28,16 @@ export class MemberFunction extends Document {
   @Prop({ required: true, type: Types.ObjectId, ref: 'Function' })
   functionId: Types.ObjectId;
 
-  @Prop({ 
-    required: true, 
+  @Prop({
+    required: true,
     enum: Object.values(MemberFunctionStatus),
-    default: MemberFunctionStatus.PENDING 
+    default: MemberFunctionStatus.PENDING,
   })
   status: MemberFunctionStatus;
 
-  @Prop({ 
+  @Prop({
     enum: Object.values(MemberFunctionLevel),
-    default: MemberFunctionLevel.INICIANTE 
+    default: MemberFunctionLevel.INICIANTE,
   })
   level?: MemberFunctionLevel;
 
@@ -60,9 +60,18 @@ export class MemberFunction extends Document {
   createdBy?: string; // ID do usuário que criou o vínculo
 }
 
-export const MemberFunctionSchema = SchemaFactory.createForClass(MemberFunction);
+export const MemberFunctionSchema =
+  SchemaFactory.createForClass(MemberFunction);
 
 // Índices para performance e unicidade
-MemberFunctionSchema.index({ tenantId: 1, memberId: 1, ministryId: 1, functionId: 1 }, { unique: true });
-MemberFunctionSchema.index({ tenantId: 1, ministryId: 1, functionId: 1, status: 1 });
+MemberFunctionSchema.index(
+  { tenantId: 1, memberId: 1, ministryId: 1, functionId: 1 },
+  { unique: true },
+);
+MemberFunctionSchema.index({
+  tenantId: 1,
+  ministryId: 1,
+  functionId: 1,
+  status: 1,
+});
 MemberFunctionSchema.index({ memberId: 1, isActive: 1 });

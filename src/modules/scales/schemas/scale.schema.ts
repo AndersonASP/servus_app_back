@@ -59,7 +59,11 @@ export class Scale extends Document {
   @Prop({ type: [ScaleAssignment], default: [] })
   assignments: ScaleAssignment[];
 
-  @Prop({ enum: ['draft', 'published', 'completed', 'cancelled'], default: 'draft', index: true })
+  @Prop({
+    enum: ['draft', 'published', 'completed', 'cancelled'],
+    default: 'draft',
+    index: true,
+  })
   status: ScaleStatus;
 
   @Prop({ default: false })

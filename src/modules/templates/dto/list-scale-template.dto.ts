@@ -26,5 +26,3 @@ export class ListScaleTemplateDto {
   @IsOptional()
   limit?: number;
 }
-
-

@@ -73,5 +73,3 @@ export class CreateScaleTemplateDto {
   @Min(0)
   reminderDaysBefore?: number;
 }
-
-

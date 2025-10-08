@@ -90,13 +90,16 @@ export class PolicyGuard implements CanActivate {
 
       const userPermissions = await this.getUserPermissions(userId, req);
       console.log('🔍 PolicyGuard - Permissões do usuário:', userPermissions);
-      console.log('🔍 PolicyGuard - Permissões requeridas:', requiresPerm.permissions);
-      
+      console.log(
+        '🔍 PolicyGuard - Permissões requeridas:',
+        requiresPerm.permissions,
+      );
+
       const hasPermission = this.checkPermissions(
         userPermissions,
         requiresPerm,
       );
-      
+
       console.log('🔍 PolicyGuard - Tem permissão?', hasPermission);
 
       if (!hasPermission) {
@@ -113,11 +116,13 @@ export class PolicyGuard implements CanActivate {
       AUTHZ_KEY,
       [ctx.getHandler(), ctx.getClass()],
     );
-    
+
     console.log('🔍 PolicyGuard - Policy encontrada:', policy);
-    
+
     if (!policy) {
-      console.log('✅ PolicyGuard - Nenhuma policy encontrada, liberando acesso');
+      console.log(
+        '✅ PolicyGuard - Nenhuma policy encontrada, liberando acesso',
+      );
       return true;
     }
 
@@ -143,12 +148,9 @@ export class PolicyGuard implements CanActivate {
 
       // Usa o tenantSlug já processado pelo TenantMiddleware
       if (!tenantSlug) {
-        tenantSlug = req.tenantSlug || getTenantSlug(
-          req,
-          tenantFrom,
-          tenantParam,
-          tenantHeader,
-        );
+        tenantSlug =
+          req.tenantSlug ||
+          getTenantSlug(req, tenantFrom, tenantParam, tenantHeader);
         if (!tenantSlug) throw new NotFoundException('tenantId é obrigatório.');
 
         // Verifica se é um ObjectId válido antes de fazer a query
@@ -183,13 +185,13 @@ export class PolicyGuard implements CanActivate {
       // monta $or de memberships aceitos
       const or: any[] = [];
       const userId = user._id || user.sub;
-      
+
       console.log('🔍 PolicyGuard - userId:', userId);
       console.log('🔍 PolicyGuard - user._id:', user._id);
       console.log('🔍 PolicyGuard - user.sub:', user.sub);
       console.log('🔍 PolicyGuard - tenant._id:', tenant._id);
       console.log('🔍 PolicyGuard - m.roles:', m.roles);
-      
+
       for (const role of m.roles) {
         const cond: any = {
           user: new Types.ObjectId(userId),
@@ -203,7 +205,9 @@ export class PolicyGuard implements CanActivate {
 
         // Para líderes, não verificar ministério específico - a validação será feita no service
         if (role === MembershipRole.Leader) {
-          console.log('🔍 PolicyGuard - Líder detectado, permitindo acesso a qualquer ministério');
+          console.log(
+            '🔍 PolicyGuard - Líder detectado, permitindo acesso a qualquer ministério',
+          );
           // Líder pode ter membership em qualquer ministério, a validação específica será feita no service
           cond.ministry = { $exists: true }; // Apenas verificar se tem algum ministério
         } else if (ministryOid) {
@@ -217,7 +221,10 @@ export class PolicyGuard implements CanActivate {
 
       if (!or.length) continue;
 
-      console.log('🔍 PolicyGuard - Query final:', JSON.stringify({ $or: or }, null, 2));
+      console.log(
+        '🔍 PolicyGuard - Query final:',
+        JSON.stringify({ $or: or }, null, 2),
+      );
       const has = await this.memModel.exists({ $or: or });
       console.log('🔍 PolicyGuard - Resultado da query:', has);
       if (has) {
@@ -227,7 +234,11 @@ export class PolicyGuard implements CanActivate {
     }
 
     console.log('❌ PolicyGuard - Todas as regras falharam. Negando acesso.');
-    console.log('❌ PolicyGuard - User:', { _id: user._id, role: user.role, email: user.email });
+    console.log('❌ PolicyGuard - User:', {
+      _id: user._id,
+      role: user.role,
+      email: user.email,
+    });
     console.log('❌ PolicyGuard - Tenant:', tenantSlug);
     throw new ForbiddenException(
       'Você não tem permissão para acessar este recurso.',
@@ -257,19 +268,25 @@ export class PolicyGuard implements CanActivate {
       user: userIdObjectId,
       isActive: true,
     });
-    console.log('🔍 PolicyGuard - Memberships encontrados:', memberships.length);
+    console.log(
+      '🔍 PolicyGuard - Memberships encontrados:',
+      memberships.length,
+    );
 
     // Se não há memberships, usa o role direto do JWT
     if (memberships.length === 0) {
       const userRole = req.user?.role;
-      console.log('🔍 PolicyGuard - Nenhum membership encontrado, usando role do JWT:', userRole);
-      
+      console.log(
+        '🔍 PolicyGuard - Nenhum membership encontrado, usando role do JWT:',
+        userRole,
+      );
+
       if (userRole && ROLE_PERMISSIONS[userRole]) {
         const rolePermissions = ROLE_PERMISSIONS[userRole];
         console.log('🔍 PolicyGuard - Permissões do role:', rolePermissions);
         return rolePermissions;
       }
-      
+
       console.log('🔍 PolicyGuard - Role não encontrado ou sem permissões');
       return [];
     }

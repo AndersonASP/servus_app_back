@@ -1,4 +1,10 @@
-import { IsOptional, IsBoolean, IsNumber, IsString, Min } from 'class-validator';
+import {
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class UpdateMinistryFunctionDto {
   @IsOptional()

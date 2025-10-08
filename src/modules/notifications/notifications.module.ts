@@ -20,7 +20,12 @@ import {
     ]),
   ],
   controllers: [NotificationsController, FeedbackController],
-  providers: [NotificationsService, NotificationService, EmailService, FeedbackService],
+  providers: [
+    NotificationsService,
+    NotificationService,
+    EmailService,
+    FeedbackService,
+  ],
   exports: [NotificationService, EmailService, FeedbackService],
 })
 export class NotificationsModule {}

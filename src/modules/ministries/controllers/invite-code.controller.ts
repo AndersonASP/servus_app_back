@@ -35,7 +35,8 @@ export class InviteCodeController {
     @Res() res: Response,
   ) {
     try {
-      const result = await this.inviteCodeService.validateInviteCode(validateDto);
+      const result =
+        await this.inviteCodeService.validateInviteCode(validateDto);
       return res.status(HttpStatus.OK).json(result);
     } catch (error) {
       return res.status(HttpStatus.BAD_REQUEST).json({
@@ -54,7 +55,8 @@ export class InviteCodeController {
     @Res() res: Response,
   ) {
     try {
-      const result = await this.inviteCodeService.registerWithInviteCode(registerDto);
+      const result =
+        await this.inviteCodeService.registerWithInviteCode(registerDto);
       return res.status(HttpStatus.CREATED).json({
         message: 'Usuário registrado com sucesso',
         data: result,
@@ -135,7 +137,8 @@ export class InviteCodeController {
 
       // TODO: Verificar permissões do usuário para este ministério
 
-      const result = await this.inviteCodeService.getMinistryInviteCodes(ministryId);
+      const result =
+        await this.inviteCodeService.getMinistryInviteCodes(ministryId);
 
       return res.status(HttpStatus.OK).json({
         message: 'Códigos de convite encontrados',

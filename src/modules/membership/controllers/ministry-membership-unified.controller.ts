@@ -33,9 +33,7 @@ export interface UpdateMinistryMembershipDto {
 @Controller('ministry-memberships')
 @UseGuards(PolicyGuard)
 export class MinistryMembershipUnifiedController {
-  constructor(
-    private readonly membershipService: MembershipService,
-  ) {}
+  constructor(private readonly membershipService: MembershipService) {}
 
   /**
    * POST /ministry-memberships
@@ -45,14 +43,24 @@ export class MinistryMembershipUnifiedController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
+    ],
   })
   async addUserToMinistry(
     @Body() createDto: CreateMinistryMembershipDto,
-    @Req() req: any
+    @Req() req: any,
   ) {
     console.log('🎬 [MinistryMembershipController] addUserToMinistry iniciado');
     console.log('📋 [MinistryMembershipController] Dados recebidos:', {
@@ -60,41 +68,52 @@ export class MinistryMembershipUnifiedController {
       ministryId: createDto.ministryId,
       role: createDto.role,
       createdByRole: createDto.createdByRole,
-      reqUser: req.user
+      reqUser: req.user,
     });
-    
+
     try {
       // Obter tenantId e branchId usando o helper padrão
       const { tenantId, branchId } = resolveTenantAndBranchScope(req.user);
-      
+
       console.log('🔍 [MinistryMembershipController] Scope resolvido:', {
         tenantId,
         branchId,
         tenantIdType: typeof tenantId,
-        branchIdType: typeof branchId
+        branchIdType: typeof branchId,
       });
-      
+
       if (!tenantId) {
-        console.log('❌ [MinistryMembershipController] Tenant ID não encontrado');
+        console.log(
+          '❌ [MinistryMembershipController] Tenant ID não encontrado',
+        );
         throw new BadRequestException('Tenant ID é obrigatório');
       }
-      
-      console.log('✅ [MinistryMembershipController] Chamando membershipService.addUserToMinistry...');
-      
+
+      console.log(
+        '✅ [MinistryMembershipController] Chamando membershipService.addUserToMinistry...',
+      );
+
       const result = await this.membershipService.addUserToMinistry(
         createDto.userId,
         createDto.ministryId,
         createDto.role,
         req.user?.id,
-        createDto.createdByRole || req.user?.role
+        createDto.createdByRole || req.user?.role,
       );
-      
-      console.log('✅ [MinistryMembershipController] addUserToMinistry concluído com sucesso');
+
+      console.log(
+        '✅ [MinistryMembershipController] addUserToMinistry concluído com sucesso',
+      );
       return result;
-      
     } catch (error) {
-      console.error('❌ [MinistryMembershipController] Erro em addUserToMinistry:', error);
-      console.error('❌ [MinistryMembershipController] Stack trace:', error.stack);
+      console.error(
+        '❌ [MinistryMembershipController] Erro em addUserToMinistry:',
+        error,
+      );
+      console.error(
+        '❌ [MinistryMembershipController] Stack trace:',
+        error.stack,
+      );
       throw error;
     }
   }
@@ -107,29 +126,39 @@ export class MinistryMembershipUnifiedController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
+    ],
   })
   async removeUserFromMinistry(
     @Param('userId') userId: string,
     @Param('ministryId') ministryId: string,
-    @Req() req: any
+    @Req() req: any,
   ) {
     // Obter tenantId e branchId usando o helper padrão
     const { tenantId, branchId } = resolveTenantAndBranchScope(req.user);
-    
+
     if (!tenantId) {
       throw new BadRequestException('Tenant ID é obrigatório');
     }
-    
+
     return await this.membershipService.unlinkMemberFromMinistry(
       tenantId,
       ministryId,
       userId,
       req.user?.sub || req.user?._id,
-      branchId
+      branchId,
     );
   }
 
@@ -141,10 +170,20 @@ export class MinistryMembershipUnifiedController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
+    ],
   })
   async getMinistryMembers(
     @Param('ministryId') ministryId: string,
@@ -152,15 +191,20 @@ export class MinistryMembershipUnifiedController {
     @Query('includeInactive') includeInactive?: boolean,
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
-    @Req() req?: any
+    @Req() req?: any,
   ) {
     const tenantId = req.headers['x-tenant-id'];
-    return await this.membershipService.getMinistryMembersSimple(ministryId, {
-      role,
-      includeInactive: includeInactive === true,
-      limit: limit ? parseInt(limit.toString()) : undefined,
-      offset: offset ? parseInt(offset.toString()) : undefined,
-    }, req.user, tenantId);
+    return await this.membershipService.getMinistryMembersSimple(
+      ministryId,
+      {
+        role,
+        includeInactive: includeInactive === true,
+        limit: limit ? parseInt(limit.toString()) : undefined,
+        offset: offset ? parseInt(offset.toString()) : undefined,
+      },
+      req.user,
+      tenantId,
+    );
   }
 
   /**
@@ -171,15 +215,25 @@ export class MinistryMembershipUnifiedController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
+    ],
   })
   async getUserMinistries(
     @Param('userId') userId: string,
     @Query('includeInactive') includeInactive?: boolean,
-    @Query('role') role?: MembershipRole
+    @Query('role') role?: MembershipRole,
   ) {
     return await this.membershipService.getUserMinistries(userId, {
       includeInactive: includeInactive === true,
@@ -191,15 +245,25 @@ export class MinistryMembershipUnifiedController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
+    ],
   })
   async getMyMinistries(
     @Req() req: any,
     @Query('includeInactive') includeInactive?: boolean,
-    @Query('role') role?: MembershipRole
+    @Query('role') role?: MembershipRole,
   ) {
     const userId = req.user._id;
     return await this.membershipService.getUserMinistries(userId, {
@@ -216,21 +280,31 @@ export class MinistryMembershipUnifiedController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
+    ],
   })
   async updateMinistryMembership(
     @Param('userId') userId: string,
     @Param('ministryId') ministryId: string,
     @Body() updateData: UpdateMinistryMembershipDto,
-    @Req() req: any
+    @Req() req: any,
   ) {
     return await this.membershipService.updateMinistryMembership(
       userId,
       ministryId,
-      updateData
+      updateData,
     );
   }
 
@@ -242,10 +316,20 @@ export class MinistryMembershipUnifiedController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
+    ],
   })
   async getMinistryStats(@Param('ministryId') ministryId: string) {
     return await this.membershipService.getMinistryStats(ministryId);
@@ -259,18 +343,28 @@ export class MinistryMembershipUnifiedController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
+    ],
   })
   async checkUserInMinistry(
     @Param('userId') userId: string,
-    @Param('ministryId') ministryId: string
+    @Param('ministryId') ministryId: string,
   ) {
     const isInMinistry = await this.membershipService.isUserInMinistry(
       userId,
-      ministryId
+      ministryId,
     );
     return { isInMinistry };
   }
@@ -283,15 +377,22 @@ export class MinistryMembershipUnifiedController {
   @Authorize({
     anyOf: [
       { global: [Role.ServusAdmin] },
-      { membership: { roles: [MembershipRole.TenantAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.BranchAdmin], tenantFrom: 'header' } },
-      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } }
-    ]
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
+    ],
   })
-  async getUserIntegrity(
-    @Param('userId') userId: string,
-    @Req() req: any
-  ) {
+  async getUserIntegrity(@Param('userId') userId: string, @Req() req: any) {
     const tenantId = req.headers['x-tenant-id'] || req.user?.tenantId;
     if (!tenantId) {
       throw new BadRequestException('Tenant ID é obrigatório');

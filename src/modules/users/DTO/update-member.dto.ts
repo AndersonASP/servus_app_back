@@ -1,4 +1,11 @@
-import { IsEmail, IsOptional, IsString, IsEnum, IsDateString, ValidateNested } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsDateString,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { MembershipRole } from '../../../common/enums/role.enum';
 import { AddressDto } from './create-member.dto';

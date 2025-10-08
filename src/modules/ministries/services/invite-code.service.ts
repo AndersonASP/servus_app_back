@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { InviteCode } from '../schemas/invite-code.schema';
@@ -7,16 +11,19 @@ import { Branch } from '../../branches/schemas/branch.schema';
 import { Tenant } from '../../tenants/schemas/tenant.schema';
 import { User } from '../../users/schema/user.schema';
 import { Membership } from '../../membership/schemas/membership.schema';
-import { 
-  CreateInviteCodeDto, 
-  ValidateInviteCodeDto, 
+import {
+  CreateInviteCodeDto,
+  ValidateInviteCodeDto,
   RegisterWithInviteDto,
   InviteCodeResponseDto,
-  InviteCodeValidationDto 
+  InviteCodeValidationDto,
 } from '../dto/invite-code.dto';
 import { MembershipRole } from 'src/common/enums/role.enum';
 import { FunctionsService } from '../../functions/services/functions.service';
-import { MemberFunctionService, CreateMemberFunctionDto } from '../../functions/services/member-function.service';
+import {
+  MemberFunctionService,
+  CreateMemberFunctionDto,
+} from '../../functions/services/member-function.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -38,11 +45,11 @@ export class InviteCodeService {
   private generateInviteCode(): string {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sem 0, O, I, 1
     let code = '';
-    
+
     for (let i = 0; i < 4; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    
+
     return code;
   }
 
@@ -65,9 +72,11 @@ export class InviteCodeService {
     do {
       code = this.generateInviteCode();
       attempts++;
-      
+
       if (attempts > maxAttempts) {
-        throw new BadRequestException('Não foi possível gerar um código único. Tente novamente.');
+        throw new BadRequestException(
+          'Não foi possível gerar um código único. Tente novamente.',
+        );
       }
     } while (await this.codeExists(code));
 
@@ -85,7 +94,13 @@ export class InviteCodeService {
     createInviteCodeDto: CreateInviteCodeDto,
   ): Promise<InviteCodeResponseDto> {
     console.log('🎫 Criando/regenerando código de convite...');
-    console.log('   - Ministry ID:', ministryId, '(tipo:', typeof ministryId, ')');
+    console.log(
+      '   - Ministry ID:',
+      ministryId,
+      '(tipo:',
+      typeof ministryId,
+      ')',
+    );
     console.log('   - Tenant ID:', tenantId, '(tipo:', typeof tenantId, ')');
     console.log('   - Branch ID:', branchId, '(tipo:', typeof branchId, ')');
     console.log('   - Created By:', createdBy, '(tipo:', typeof createdBy, ')');
@@ -109,7 +124,7 @@ export class InviteCodeService {
     console.log('   - Ministry encontrado:', !!ministry);
     console.log('   - Ministry name:', ministry?.name);
     console.log('   - Ministry isActive:', ministry?.isActive);
-    
+
     if (!ministry) {
       throw new NotFoundException('Ministério não encontrado');
     }
@@ -138,7 +153,7 @@ export class InviteCodeService {
 
       // Gerar novo código
       const newCode = await this.generateUniqueCode();
-      
+
       const inviteCodeData = {
         code: newCode,
         ministryId: new Types.ObjectId(ministryId),
@@ -147,7 +162,9 @@ export class InviteCodeService {
         createdBy: new Types.ObjectId(createdBy),
         isActive: true,
         usageCount: 0,
-        expiresAt: createInviteCodeDto.expiresAt ? new Date(createInviteCodeDto.expiresAt) : null,
+        expiresAt: createInviteCodeDto.expiresAt
+          ? new Date(createInviteCodeDto.expiresAt)
+          : null,
       };
 
       inviteCode = new this.inviteCodeModel(inviteCodeData);
@@ -180,7 +197,9 @@ export class InviteCodeService {
   /**
    * Valida um código de convite
    */
-  async validateInviteCode(validateDto: ValidateInviteCodeDto): Promise<InviteCodeValidationDto> {
+  async validateInviteCode(
+    validateDto: ValidateInviteCodeDto,
+  ): Promise<InviteCodeValidationDto> {
     console.log('🔍 Validando código de convite:', validateDto.code);
 
     const inviteCode = await this.inviteCodeModel.findOne({
@@ -199,9 +218,13 @@ export class InviteCodeService {
 
     // Buscar dados relacionados separadamente
     const [ministry, tenant, branch] = await Promise.all([
-      this.ministryModel.findById(inviteCode.ministryId).select('name isActive'),
+      this.ministryModel
+        .findById(inviteCode.ministryId)
+        .select('name isActive'),
       this.tenantModel.findById(inviteCode.tenantId).select('name'),
-      inviteCode.branchId ? this.branchModel.findById(inviteCode.branchId).select('name') : null,
+      inviteCode.branchId
+        ? this.branchModel.findById(inviteCode.branchId).select('name')
+        : null,
     ]);
 
     console.log('🔍 Dados relacionados encontrados:');
@@ -210,9 +233,27 @@ export class InviteCodeService {
     console.log('   - Branch:', branch);
 
     console.log('🔍 Dados do inviteCode encontrado:');
-    console.log('   - ministryId:', inviteCode.ministryId, '(tipo:', typeof inviteCode.ministryId, ')');
-    console.log('   - tenantId:', inviteCode.tenantId, '(tipo:', typeof inviteCode.tenantId, ')');
-    console.log('   - branchId:', inviteCode.branchId, '(tipo:', typeof inviteCode.branchId, ')');
+    console.log(
+      '   - ministryId:',
+      inviteCode.ministryId,
+      '(tipo:',
+      typeof inviteCode.ministryId,
+      ')',
+    );
+    console.log(
+      '   - tenantId:',
+      inviteCode.tenantId,
+      '(tipo:',
+      typeof inviteCode.tenantId,
+      ')',
+    );
+    console.log(
+      '   - branchId:',
+      inviteCode.branchId,
+      '(tipo:',
+      typeof inviteCode.branchId,
+      ')',
+    );
 
     // Verificar se o código expirou
     if (inviteCode.expiresAt && inviteCode.expiresAt < new Date()) {
@@ -227,7 +268,7 @@ export class InviteCodeService {
     console.log('   - Ministry encontrado:', !!ministry);
     console.log('   - Ministry isActive:', ministry?.isActive);
     console.log('   - Ministry name:', ministry?.name);
-    
+
     if (!ministry) {
       console.log('❌ Ministério não encontrado no banco');
       return {
@@ -235,7 +276,7 @@ export class InviteCodeService {
         message: 'Ministério não encontrado',
       };
     }
-    
+
     if (!ministry.isActive) {
       console.log('❌ Ministério está inativo');
       return {
@@ -243,7 +284,7 @@ export class InviteCodeService {
         message: 'Ministério não está mais ativo',
       };
     }
-    
+
     console.log('✅ Ministério está ativo');
 
     return {
@@ -260,7 +301,9 @@ export class InviteCodeService {
   /**
    * Registra um novo usuário usando código de convite
    */
-  async registerWithInviteCode(registerDto: RegisterWithInviteDto): Promise<any> {
+  async registerWithInviteCode(
+    registerDto: RegisterWithInviteDto,
+  ): Promise<any> {
     console.log('👤 Registrando usuário com código de convite...');
     console.log('   - Code:', registerDto.code);
     console.log('   - Name:', registerDto.name);
@@ -268,7 +311,9 @@ export class InviteCodeService {
     console.log('   - Phone:', registerDto.phone);
 
     // Validar código
-    const validation = await this.validateInviteCode({ code: registerDto.code });
+    const validation = await this.validateInviteCode({
+      code: registerDto.code,
+    });
     if (!validation.isValid) {
       console.log('❌ Código inválido:', validation.message);
       throw new BadRequestException(validation.message);
@@ -277,7 +322,9 @@ export class InviteCodeService {
     console.log('✅ Código válido:', validation);
 
     // Verificar se email já existe
-    const existingUser = await this.userModel.findOne({ email: registerDto.email });
+    const existingUser = await this.userModel.findOne({
+      email: registerDto.email,
+    });
     if (existingUser) {
       console.log('❌ Email já existe:', registerDto.email);
       throw new BadRequestException('Email já está em uso');
@@ -310,16 +357,36 @@ export class InviteCodeService {
 
     // Criar membership (INATIVO até aprovação de função)
     console.log('🔍 Dados de validação para membership:');
-    console.log('   - tenantId:', validation.tenantId, '(tipo:', typeof validation.tenantId, ')');
-    console.log('   - branchId:', validation.branchId, '(tipo:', typeof validation.branchId, ')');
-    console.log('   - ministryId:', validation.ministryId, '(tipo:', typeof validation.ministryId, ')');
+    console.log(
+      '   - tenantId:',
+      validation.tenantId,
+      '(tipo:',
+      typeof validation.tenantId,
+      ')',
+    );
+    console.log(
+      '   - branchId:',
+      validation.branchId,
+      '(tipo:',
+      typeof validation.branchId,
+      ')',
+    );
+    console.log(
+      '   - ministryId:',
+      validation.ministryId,
+      '(tipo:',
+      typeof validation.ministryId,
+      ')',
+    );
 
     // Verificar se os IDs são válidos antes de converter
     try {
       const tenantObjectId = new Types.ObjectId(validation.tenantId!);
       const ministryObjectId = new Types.ObjectId(validation.ministryId!);
-      const branchObjectId = validation.branchId ? new Types.ObjectId(validation.branchId) : null;
-      
+      const branchObjectId = validation.branchId
+        ? new Types.ObjectId(validation.branchId)
+        : null;
+
       console.log('✅ IDs convertidos com sucesso:');
       console.log('   - tenantObjectId:', tenantObjectId);
       console.log('   - ministryObjectId:', ministryObjectId);
@@ -351,15 +418,19 @@ export class InviteCodeService {
       // Incrementar contador de uso do código
       await this.inviteCodeModel.findOneAndUpdate(
         { code: registerDto.code.toUpperCase() },
-        { $inc: { usageCount: 1 } }
+        { $inc: { usageCount: 1 } },
       );
 
       console.log('✅ Contador de uso incrementado');
 
       // ✅ NÃO criar MemberFunctions automaticamente para invites
       // As funções serão criadas apenas quando o líder aprovar e escolher as funções
-      console.log('ℹ️ MemberFunctions não serão criadas automaticamente para invites');
-      console.log('ℹ️ As funções serão atribuídas quando o líder aprovar o voluntário');
+      console.log(
+        'ℹ️ MemberFunctions não serão criadas automaticamente para invites',
+      );
+      console.log(
+        'ℹ️ As funções serão atribuídas quando o líder aprovar o voluntário',
+      );
 
       console.log('✅ Usuário registrado e vinculado ao ministério (PENDENTE)');
 
@@ -391,7 +462,9 @@ export class InviteCodeService {
   /**
    * Busca códigos de convite de um ministério
    */
-  async getMinistryInviteCodes(ministryId: string): Promise<InviteCodeResponseDto[]> {
+  async getMinistryInviteCodes(
+    ministryId: string,
+  ): Promise<InviteCodeResponseDto[]> {
     const inviteCodes = await this.inviteCodeModel
       .find({ ministryId: new Types.ObjectId(ministryId) })
       .populate('ministryId', 'name')
@@ -400,7 +473,7 @@ export class InviteCodeService {
       .populate('createdBy', 'name email')
       .sort({ createdAt: -1 });
 
-    return inviteCodes.map(code => ({
+    return inviteCodes.map((code) => ({
       code: code.code,
       ministryId: code.ministryId.toString(),
       ministryName: (code.ministryId as any).name,
