@@ -14,6 +14,7 @@ import {
 import { MembershipService } from '../services/membership.service';
 import { MembershipRole } from '../../../common/enums/role.enum';
 import { PolicyGuard } from '../../../common/guards/policy.guard';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { Authorize } from '../../../common/decorators/authorize/authorize.decorator';
 import { Role } from '../../../common/enums/role.enum';
 import { resolveTenantAndBranchScope } from '../../../common/utils/helpers/user-scope.util';
@@ -273,9 +274,22 @@ export class MinistryMembershipUnifiedController {
   }
 
   /**
-   * PUT /ministry-memberships/user/:userId/ministry/:ministryId
-   * Atualizar vínculo de ministério
+   * GET /ministry-memberships/my-ministries
+   * Listar ministérios do usuário autenticado (apenas JWT, sem restrições de role)
    */
+  @Get('my-ministries')
+  @UseGuards(JwtAuthGuard)
+  async getMyMinistriesSimple(
+    @Req() req: any,
+    @Query('includeInactive') includeInactive?: boolean,
+    @Query('role') role?: MembershipRole,
+  ) {
+    const userId = req.user._id || req.user.sub;
+    return await this.membershipService.getUserMinistries(userId, {
+      includeInactive: includeInactive === true,
+      role,
+    });
+  }
   @Put('user/:userId/ministry/:ministryId')
   @Authorize({
     anyOf: [

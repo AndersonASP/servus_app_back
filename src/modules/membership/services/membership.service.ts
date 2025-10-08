@@ -1456,7 +1456,7 @@ export class MembershipService {
 
     const memberships = await this.membershipModel
       .find(query)
-      .populate('ministry', 'name description')
+      .populate('ministry', 'name description maxBlockedDays')
       .sort({ createdAt: -1 });
 
     console.log(`✅ Encontrados ${memberships.length} ministérios`);
