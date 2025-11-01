@@ -195,6 +195,7 @@ export class AuthService {
       // Contexto de segurança (será preenchido abaixo)
       tenantId: null as string | null, // ObjectId como string
       branchId: null as string | null,
+      ministryId: null as string | null, // ObjectId como string
       membershipRole: null as string | null,
       permissions: [] as string[],
     };
@@ -276,20 +277,25 @@ export class AuthService {
         });
 
         if (memberships.length > 0) {
-          // 🆕 Atualizar claims de segurança com dados do tenant específico
-          const mainMembership = memberships[0];
+          // 🆕 Atualizar claims de segurança priorizando liderança quando existir
+          const prioritizedMembership =
+            findLeaderPrimaryMembership(memberships as any) ||
+            findHighestPriorityMembership(memberships as any) ||
+            memberships[0];
+
           console.log('🔍 [AUTH] Usando membership principal:');
           console.log('   - Role do usuário:', user.role);
-          console.log('   - Role do membership:', mainMembership.role);
-          console.log('   - Membership ativo:', mainMembership.isActive);
+          console.log('   - Role do membership:', prioritizedMembership.role);
+          console.log('   - Membership ativo:', prioritizedMembership.isActive);
 
           securityClaims.tenantId = tenant._id.toString(); // ObjectId como string
           securityClaims.branchId =
-            (mainMembership.branch as any)?.branchId || null;
-          securityClaims.membershipRole = mainMembership.role;
+            (prioritizedMembership.branch as any)?.branchId || null;
+          securityClaims.ministryId = (prioritizedMembership.ministry as any)?._id?.toString() || null;
+          securityClaims.membershipRole = prioritizedMembership.role;
           securityClaims.permissions = getCombinedPermissions(
             user.role,
-            mainMembership.role,
+            prioritizedMembership.role,
           );
 
           console.log('🔍 [AUTH] Claims de segurança definidos:');
@@ -390,19 +396,24 @@ export class AuthService {
             permissions: securityClaims.permissions.length,
           });
         } else {
-          // 🆕 Atualizar claims de segurança com dados do primeiro membership
-          const firstMembership = allMemberships[0];
-          if (firstMembership.tenant) {
-            // firstMembership.tenant é um ObjectId
-            const tenantId = firstMembership.tenant.toString();
+          // 🆕 Atualizar claims de segurança usando membership de maior prioridade
+          const prioritizedMembership =
+            findLeaderPrimaryMembership(allMemberships as any) ||
+            findHighestPriorityMembership(allMemberships as any) ||
+            allMemberships[0];
+
+          if (prioritizedMembership?.tenant) {
+            // prioritizedMembership.tenant é um ObjectId (string)
+            const tenantId = prioritizedMembership.tenant.toString();
 
             securityClaims.tenantId = tenantId;
             securityClaims.branchId =
-              (firstMembership.branch as any)?.branchId || null;
-            securityClaims.membershipRole = firstMembership.role;
+              (prioritizedMembership.branch as any)?.branchId || null;
+            securityClaims.ministryId = (prioritizedMembership.ministry as any)?._id?.toString() || null;
+            securityClaims.membershipRole = prioritizedMembership.role;
             securityClaims.permissions = getCombinedPermissions(
               user.role,
-              firstMembership.role,
+              prioritizedMembership.role,
             );
 
             // 🆕 Atualizar o tenantId do usuário se estiver null

@@ -133,6 +133,7 @@ export const ROLE_PERMISSIONS = {
     PERMS.MANAGE_MINISTRY_SCALES,
     PERMS.MANAGE_MINISTRY_TEMPLATES,
     PERMS.VIEW_MINISTRY_REPORTS,
+    PERMS.VIEW_EVENTS, // Adicionado para permitir visualização de eventos
   ],
 } as const;
 

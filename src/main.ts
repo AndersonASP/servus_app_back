@@ -13,6 +13,7 @@ import {
 
 // ⬇️ importe o pipe customizado
 import { ValidateDtoPipe } from './common/pipes/validate-dto.pipe';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
 async function bootstrap() {
   // ⬇️ Carrega as variáveis de ambiente primeiro
@@ -62,6 +63,9 @@ async function bootstrap() {
 
   // ✅ Validação global (substitui o ValidationPipe nativo)
   app.useGlobalPipes(new ValidateDtoPipe());
+
+  // ✅ Filtro global de exceções para padronizar respostas de erro
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   // Swagger
   const config = new DocumentBuilder()

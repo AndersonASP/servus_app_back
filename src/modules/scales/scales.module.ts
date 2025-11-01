@@ -4,6 +4,8 @@ import { ScalesController } from './scales.controller';
 import { ScalesAdvancedController } from './controllers/scales-advanced.controller';
 import { ScalesService } from './scales.service';
 import { Scale, ScaleSchema } from './schemas/scale.schema';
+import { ScaleTemplate, ScaleTemplateSchema } from '../templates/schemas/scale-template.schema';
+import { Function, FunctionSchema } from '../functions/schemas/function.schema';
 import {
   VolunteerAvailability,
   VolunteerAvailabilitySchema,
@@ -45,6 +47,8 @@ import {
   imports: [
     MongooseModule.forFeature([
       { name: Scale.name, schema: ScaleSchema },
+      { name: ScaleTemplate.name, schema: ScaleTemplateSchema },
+      { name: Function.name, schema: FunctionSchema },
       { name: VolunteerAvailability.name, schema: VolunteerAvailabilitySchema },
       { name: MinistrySettings.name, schema: MinistrySettingsSchema },
       { name: SubstitutionRequest.name, schema: SubstitutionRequestSchema },

@@ -159,6 +159,42 @@ export class MemberFunctionController {
   }
 
   /**
+   * GET /member-functions/ministry/:ministryId/function/:functionId/approved
+   * Listar membros aprovados para uma função específica em um ministério
+   */
+  @Get('ministry/:ministryId/function/:functionId/approved')
+  @Authorize({
+    anyOf: [
+      { global: [Role.ServusAdmin] },
+      {
+        membership: {
+          roles: [MembershipRole.TenantAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      {
+        membership: {
+          roles: [MembershipRole.BranchAdmin],
+          tenantFrom: 'header',
+        },
+      },
+      { membership: { roles: [MembershipRole.Leader], tenantFrom: 'header' } },
+    ],
+  })
+  async getApprovedMembersByFunction(
+    @Param('ministryId') ministryId: string,
+    @Param('functionId') functionId: string,
+    @Request() req: any,
+  ): Promise<MemberFunctionResponseDto[]> {
+    const { tenantId } = resolveTenantAndBranchScope(req.user);
+    return await this.memberFunctionService.getApprovedMembersByFunction(
+      ministryId,
+      functionId,
+      tenantId,
+    );
+  }
+
+  /**
    * POST /member-functions
    * Criar nova função de membro
    */

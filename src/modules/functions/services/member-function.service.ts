@@ -527,6 +527,65 @@ export class MemberFunctionService {
     return memberFunctions.map((mf) => this.mapToResponseDto(mf));
   }
 
+  async getApprovedMembersByFunction(
+    ministryId: string,
+    functionId: string,
+    tenantId?: string,
+  ): Promise<MemberFunctionResponseDto[]> {
+    console.log(
+      '🔍 [MemberFunctionService] Buscando membros aprovados para função...',
+    );
+    console.log('   - Ministry ID:', ministryId);
+    console.log('   - Function ID:', functionId);
+    console.log('   - Tenant ID:', tenantId);
+
+    const query: any = {
+      ministryId: new Types.ObjectId(ministryId),
+      functionId: new Types.ObjectId(functionId),
+      status: MemberFunctionStatus.APROVADO,
+      isActive: true,
+    };
+
+    if (tenantId === 'servus-system') {
+      console.log(
+        '🔓 [MemberFunctionService] ServusAdmin detectado - pulando filtro de tenantId',
+      );
+      // Não adicionar filtro de tenantId para servus_admin
+    } else {
+      if (tenantId && tenantId !== 'undefined' && tenantId !== 'null') {
+        try {
+          query.tenantId = new Types.ObjectId(tenantId);
+        } catch (error) {
+          console.error(
+            '❌ [MemberFunctionService] Erro ao converter tenantId para ObjectId:',
+            tenantId,
+            error,
+          );
+          throw new BadRequestException('tenantId inválido');
+        }
+      }
+    }
+
+    console.log(
+      '🔍 [MemberFunctionService] Query:',
+      JSON.stringify(query, null, 2),
+    );
+
+    const memberFunctions = await this.memberFunctionModel
+      .find(query)
+      .populate('functionId', 'name description slug')
+      .populate('ministryId', 'name')
+      .populate('memberId', 'name email')
+      .sort({ createdAt: -1 });
+
+    console.log(
+      '📋 [MemberFunctionService] MemberFunctions aprovadas encontradas:',
+      memberFunctions.length,
+    );
+
+    return memberFunctions.map((mf) => this.mapToResponseDto(mf));
+  }
+
   async deleteMemberFunction(memberFunctionId: string): Promise<void> {
     const result =
       await this.memberFunctionModel.findByIdAndDelete(memberFunctionId);
@@ -538,11 +597,11 @@ export class MemberFunctionService {
   private mapToResponseDto(memberFunction: any): MemberFunctionResponseDto {
     return {
       id: memberFunction._id.toString(),
-      userId: memberFunction.memberId?.toString() || memberFunction.memberId,
+      userId: memberFunction.memberId?._id?.toString() || memberFunction.memberId?.toString() || memberFunction.memberId,
       ministryId:
-        memberFunction.ministryId?.toString() || memberFunction.ministryId,
+        memberFunction.ministryId?._id?.toString() || memberFunction.ministryId?.toString() || memberFunction.ministryId,
       functionId:
-        memberFunction.functionId?.toString() || memberFunction.functionId,
+        memberFunction.functionId?._id?.toString() || memberFunction.functionId?.toString() || memberFunction.functionId,
       status: memberFunction.status,
       level: memberFunction.level,
       priority: memberFunction.priority,

@@ -38,9 +38,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       roles: roles, // ← ADICIONADO: array de roles
       name: payload.name,
       picture: payload.picture,
-      // Incluir tenantId e branchId do token
+      // Incluir tenantId, branchId e ministryId do token
       tenantId: payload.tenantId,
       branchId: payload.branchId,
+      ministryId: payload.ministryId,
       membershipRole: payload.membershipRole,
       permissions: payload.permissions,
     };

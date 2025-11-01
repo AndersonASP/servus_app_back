@@ -6,6 +6,8 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Scale } from './schemas/scale.schema';
+import { ScaleTemplate } from '../templates/schemas/scale-template.schema';
+import { Function } from '../functions/schemas/function.schema';
 import {
   CreateScaleDto,
   UpdateScaleDto,
@@ -14,7 +16,11 @@ import {
 
 @Injectable()
 export class ScalesService {
-  constructor(@InjectModel(Scale.name) private scaleModel: Model<Scale>) {}
+  constructor(
+    @InjectModel(Scale.name) private scaleModel: Model<Scale>,
+    @InjectModel(ScaleTemplate.name) private templateModel: Model<ScaleTemplate>,
+    @InjectModel(Function.name) private functionModel: Model<Function>,
+  ) {}
 
   async create(
     tenantId: string,
@@ -24,37 +30,89 @@ export class ScalesService {
     userRoles: string[],
     userMinistryId?: string,
   ) {
+    // Se ministryId não foi fornecido, buscar do template
+    let ministryId = dto.ministryId;
+    if (!ministryId && dto.templateId) {
+      // Buscar template para obter ministryId
+      const template = await this.templateModel.findOne({
+        _id: new Types.ObjectId(dto.templateId),
+        tenantId: new Types.ObjectId(tenantId),
+      }).lean();
+      
+      if (template) {
+        ministryId = template.ministryId?.toString();
+      }
+    }
+
+    if (!ministryId) {
+      throw new ForbiddenException(
+        'Ministério não encontrado no template.',
+      );
+    }
+
     // Verificar se o usuário é líder do ministério ou admin
     if (
       !this.isTenantOrBranchAdmin(userRoles) &&
-      userMinistryId !== dto.ministryId
+      userMinistryId !== ministryId
     ) {
+      console.log('🔍 [ScalesService] Validação de permissões:');
+      console.log('   - userMinistryId:', userMinistryId);
+      console.log('   - ministryId:', ministryId);
+      console.log('   - userRoles:', userRoles);
+      console.log('   - isTenantOrBranchAdmin:', this.isTenantOrBranchAdmin(userRoles));
+      
       throw new ForbiddenException(
         'Você só pode criar escalas para o seu próprio ministério.',
       );
     }
+
+    // Buscar nomes das funções para preencher functionName nos assignments
+    const assignmentsWithNames = await Promise.all(
+      (dto.assignments || []).map(async (assignment) => {
+        const functionDoc = await this.functionModel.findById(assignment.functionId).lean();
+        return {
+          ...assignment,
+          functionId: new Types.ObjectId(assignment.functionId),
+          functionName: functionDoc?.name || 'Função não encontrada',
+          assignedMembers:
+            assignment.assignedMembers?.map((id) => new Types.ObjectId(id)) ||
+            [],
+        };
+      })
+    );
 
     const scale = new this.scaleModel({
       ...dto,
       tenantId: new Types.ObjectId(tenantId),
       branchId: branchId ? new Types.ObjectId(branchId) : null,
       eventId: new Types.ObjectId(dto.eventId),
-      ministryId: new Types.ObjectId(dto.ministryId),
-      templateId: new Types.ObjectId(dto.templateId),
+      ministryId: new Types.ObjectId(ministryId),
+      templateId: dto.templateId ? new Types.ObjectId(dto.templateId) : null,
       eventDate: new Date(dto.eventDate),
-      assignments:
-        dto.assignments?.map((assignment) => ({
-          ...assignment,
-          functionId: new Types.ObjectId(assignment.functionId),
-          assignedMembers:
-            assignment.assignedMembers?.map((id) => new Types.ObjectId(id)) ||
-            [],
-        })) || [],
+      assignments: assignmentsWithNames,
       createdBy: new Types.ObjectId(userId),
       updatedBy: new Types.ObjectId(userId),
     });
 
-    return scale.save();
+    const savedScale = await scale.save();
+    
+    // Converter ObjectIds para strings na resposta
+    return {
+      ...savedScale.toObject(),
+      _id: (savedScale._id as Types.ObjectId).toString(),
+      tenantId: savedScale.tenantId.toString(),
+      branchId: savedScale.branchId?.toString(),
+      eventId: savedScale.eventId.toString(),
+      ministryId: savedScale.ministryId.toString(),
+      templateId: savedScale.templateId?.toString() ?? null,
+      createdBy: savedScale.createdBy.toString(),
+      updatedBy: savedScale.updatedBy?.toString(),
+      assignments: savedScale.assignments.map(assignment => ({
+        ...assignment,
+        functionId: assignment.functionId.toString(),
+        assignedMembers: assignment.assignedMembers.map(id => id.toString()),
+      })),
+    };
   }
 
   async list(
@@ -105,8 +163,26 @@ export class ScalesService {
       this.scaleModel.countDocuments(filter),
     ]);
 
+    // Converter ObjectIds para strings na resposta
+    const serializedScales = scales.map(scale => ({
+      ...scale.toObject(),
+      _id: (scale._id as Types.ObjectId).toString(),
+      tenantId: scale.tenantId.toString(),
+      branchId: scale.branchId?.toString(),
+      eventId: scale.eventId.toString(),
+      ministryId: scale.ministryId.toString(),
+      templateId: scale.templateId?.toString() ?? null,
+      createdBy: scale.createdBy.toString(),
+      updatedBy: scale.updatedBy?.toString(),
+      assignments: scale.assignments.map(assignment => ({
+        ...assignment,
+        functionId: assignment.functionId.toString(),
+        assignedMembers: assignment.assignedMembers.map(id => id.toString()),
+      })),
+    }));
+
     return {
-      items: scales,
+      items: serializedScales,
       total,
       page,
       limit,

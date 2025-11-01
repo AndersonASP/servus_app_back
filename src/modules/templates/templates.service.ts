@@ -43,8 +43,8 @@ export class TemplatesService {
     }
     // Validação de duplicidade por (tenantId, branchId, eventType, name)
     const exists = await this.templateModel.exists({
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
       eventType: dto.eventType,
       name: dto.name.trim(),
     } as any);
@@ -55,8 +55,8 @@ export class TemplatesService {
     }
 
     const created = await this.templateModel.create({
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
       ministryId: new Types.ObjectId(dto.ministryId),
       name: dto.name.trim(),
       description: dto.description?.trim(),
@@ -65,11 +65,24 @@ export class TemplatesService {
       autoAssign: dto.autoAssign ?? false,
       allowOverbooking: dto.allowOverbooking ?? false,
       reminderDaysBefore: dto.reminderDaysBefore ?? 2,
-      createdBy: userId,
-      updatedBy: userId,
+      createdBy: new Types.ObjectId(userId),
+      updatedBy: new Types.ObjectId(userId),
     });
 
-    return created.toObject();
+    // Converter ObjectIds para strings na resposta
+    return {
+      ...created.toObject(),
+      _id: (created._id as Types.ObjectId).toString(),
+      tenantId: created.tenantId.toString(),
+      branchId: created.branchId?.toString(),
+      ministryId: created.ministryId.toString(),
+      createdBy: created.createdBy.toString(),
+      updatedBy: created.updatedBy?.toString(),
+      functionRequirements: created.functionRequirements.map(req => ({
+        ...req,
+        functionId: req.functionId.toString(),
+      })),
+    };
   }
 
   async list(
@@ -81,11 +94,11 @@ export class TemplatesService {
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
 
     const filter: FilterQuery<ScaleTemplate> = {
-      tenantId,
+      tenantId: new Types.ObjectId(tenantId),
     } as any;
 
     if (branchId) {
-      filter.branchId = branchId as any;
+      filter.branchId = new Types.ObjectId(branchId) as any;
     } else {
       filter.branchId = null as any;
     }
@@ -112,8 +125,23 @@ export class TemplatesService {
     ]);
 
     const pages = Math.ceil(total / limit) || 1;
+    // Converter ObjectIds para strings na resposta
+    const serializedItems = items.map((template) => ({
+      ...template.toObject(),
+      _id: (template._id as Types.ObjectId).toString(),
+      tenantId: template.tenantId.toString(),
+      branchId: template.branchId?.toString(),
+      ministryId: template.ministryId.toString(),
+      createdBy: template.createdBy.toString(),
+      updatedBy: template.updatedBy?.toString(),
+      functionRequirements: template.functionRequirements.map(req => ({
+        ...req,
+        functionId: req.functionId.toString(),
+      })),
+    }));
+
     return {
-      items: items.map((d) => d.toObject()),
+      items: serializedItems,
       total,
       page,
       limit,
@@ -124,11 +152,25 @@ export class TemplatesService {
   async findOne(tenantId: string, branchId: string | null, id: string) {
     const doc = await this.templateModel.findOne({
       _id: id,
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
     } as any);
     if (!doc) throw new NotFoundException('Template não encontrado');
-    return doc.toObject();
+    
+    // Converter ObjectIds para strings na resposta
+    return {
+      ...doc.toObject(),
+      _id: (doc._id as Types.ObjectId).toString(),
+      tenantId: doc.tenantId.toString(),
+      branchId: doc.branchId?.toString(),
+      ministryId: doc.ministryId.toString(),
+      createdBy: doc.createdBy.toString(),
+      updatedBy: doc.updatedBy?.toString(),
+      functionRequirements: doc.functionRequirements.map(req => ({
+        ...req,
+        functionId: req.functionId.toString(),
+      })),
+    };
   }
 
   async update(
@@ -140,8 +182,8 @@ export class TemplatesService {
   ) {
     const current = await this.templateModel.findOne({
       _id: id,
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
     } as any);
     if (!current) throw new NotFoundException('Template não encontrado');
 
@@ -183,8 +225,8 @@ export class TemplatesService {
     if (userId) {
       const current = await this.templateModel.findOne({
         _id: id,
-        tenantId,
-        branchId: branchId ?? null,
+        tenantId: new Types.ObjectId(tenantId),
+        branchId: branchId ? new Types.ObjectId(branchId) : null,
       } as any);
       if (!current) throw new NotFoundException('Template não encontrado');
       const leaderMinistries = await this.getLeaderMinistryIds(
@@ -203,8 +245,8 @@ export class TemplatesService {
 
     const res = await this.templateModel.deleteOne({
       _id: id,
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
     } as any);
     if (res.deletedCount === 0)
       throw new NotFoundException('Template não encontrado');
@@ -217,12 +259,12 @@ export class TemplatesService {
     branchId: string | null,
   ): Promise<string[]> {
     const query: any = {
-      user: userId as any,
-      tenant: tenantId as any,
+      user: new Types.ObjectId(userId),
+      tenant: new Types.ObjectId(tenantId),
       role: MembershipRole.Leader,
       isActive: true,
     };
-    if (branchId !== null) query.branch = branchId as any;
+    if (branchId !== null) query.branch = new Types.ObjectId(branchId);
     else query.branch = null;
 
     const memberships = await this.membershipModel

@@ -44,22 +44,65 @@ export class EventsService {
     console.log('   - userMinistryId:', userMinistryId);
     console.log('   - dto completo:', JSON.stringify(dto, null, 2));
 
-    // Apenas admins podem criar eventos globais
+    // Verificar se é admin ou líder
     const isAdmin = this.isTenantOrBranchAdmin(userRoles);
     console.log('   - isTenantOrBranchAdmin:', isAdmin);
 
+    // Se não for admin, verificar se é líder
+    let isLeader = false;
+    let leaderMinistryIds: string[] = [];
     if (!isAdmin) {
-      console.log('❌ [EventsService] Usuário não é admin, negando acesso');
-      throw new ForbiddenException(
-        'Apenas administradores podem criar eventos.',
+      leaderMinistryIds = await this.getLeaderMinistryIds(
+        userId,
+        tenantId,
+        branchId,
       );
+      isLeader = leaderMinistryIds.length > 0;
+      console.log('   - isLeader:', isLeader);
+      console.log('   - leaderMinistryIds:', leaderMinistryIds);
+
+      if (!isLeader) {
+        console.log('❌ [EventsService] Usuário não é admin nem líder, negando acesso');
+        throw new ForbiddenException(
+          'Apenas administradores ou líderes de ministério podem criar eventos.',
+        );
+      }
+
+      // Validações específicas para líderes
+      if (!dto.ministryId || dto.ministryId.trim() === '') {
+        console.log('❌ [EventsService] Líder deve informar o ministryId');
+        throw new ForbiddenException(
+          'Líder deve criar eventos para o ministério do qual é líder.',
+        );
+      }
+
+      // Verificar se o ministryId do payload está na lista de ministérios do líder
+      // Comparar como strings para garantir compatibilidade
+      const dtoMinistryIdStr = dto.ministryId.trim();
+      const hasPermission = leaderMinistryIds.some(
+        (id) => id.toString() === dtoMinistryIdStr,
+      );
+      
+      if (!hasPermission) {
+        console.log('❌ [EventsService] Líder tentando criar evento para ministério diferente do seu');
+        console.log('   - dto.ministryId:', dtoMinistryIdStr);
+        console.log('   - leaderMinistryIds:', leaderMinistryIds);
+        throw new ForbiddenException(
+          'Você só pode criar eventos para o ministério do qual é líder.',
+        );
+      }
+
+      // Líderes só podem criar eventos específicos de ministério
+      dto.eventType = 'ministry_specific';
+      dto.isGlobal = false;
+      console.log('✅ [EventsService] Evento ajustado para ministry_specific (não global)');
     }
 
-    console.log('✅ [EventsService] Usuário é admin, criando evento...');
+    console.log('✅ [EventsService] Usuário autorizado, criando evento...');
 
     const created = await this.eventModel.create({
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
       ministryId: dto.ministryId
         ? new Types.ObjectId(dto.ministryId)
         : undefined,
@@ -69,8 +112,8 @@ export class EventsService {
       eventTime: dto.eventTime,
       recurrenceType: dto.recurrenceType,
       recurrencePattern: dto.recurrencePattern,
-      eventType: dto.eventType || 'global',
-      isGlobal: dto.isGlobal ?? true,
+      eventType: dto.eventType || (isAdmin ? 'global' : 'ministry_specific'),
+      isGlobal: dto.isGlobal ?? (isAdmin ? true : false),
       specialNotes: dto.specialNotes?.trim(),
       status: 'draft',
       createdBy: new Types.ObjectId(userId),
@@ -111,10 +154,10 @@ export class EventsService {
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
 
     const filter: FilterQuery<Event> = {
-      tenantId,
+      tenantId: new Types.ObjectId(tenantId),
     } as any;
 
-    if (branchId) filter.branchId = branchId as any;
+    if (branchId) filter.branchId = new Types.ObjectId(branchId) as any;
     else filter.branchId = null as any;
     if (query.ministryId) filter.ministryId = query.ministryId as any;
     if (query.status) filter.status = query.status;
@@ -140,10 +183,14 @@ export class EventsService {
         branchId,
       );
       if (leaderMinistries.length > 0) {
+        const leaderMinistryObjectIds = leaderMinistries
+          .filter((id) => !!id)
+          .map((id) => new Types.ObjectId(id));
+
         filter.$or = [
           { isOrdinary: true },
-          { ministryId: { $in: leaderMinistries as any } },
-          { createdBy: userId as any },
+          { ministryId: { $in: leaderMinistryObjectIds } },
+          { createdBy: new Types.ObjectId(userId) },
         ] as any;
       }
     }
@@ -171,8 +218,8 @@ export class EventsService {
   ) {
     const doc = await this.eventModel.findOne({
       _id: id,
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
     } as any);
     if (!doc) throw new NotFoundException('Evento não encontrado');
     // Restrição de líder
@@ -207,8 +254,8 @@ export class EventsService {
   ) {
     const current = await this.eventModel.findOne({
       _id: id,
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
     } as any);
     if (!current) throw new NotFoundException('Evento não encontrado');
 
@@ -238,18 +285,26 @@ export class EventsService {
     }
 
     const updated = await this.eventModel.findOneAndUpdate(
-      { _id: id, tenantId, branchId: branchId ?? null } as any,
-      { ...dto, updatedBy: userId },
+      { 
+        _id: new Types.ObjectId(id), 
+        tenantId: new Types.ObjectId(tenantId), 
+        branchId: branchId ? new Types.ObjectId(branchId) : null 
+      } as any,
+      { ...dto, updatedBy: new Types.ObjectId(userId) },
       { new: true },
     );
 
+    if (!updated) {
+      throw new NotFoundException('Evento não encontrado');
+    }
+
     // Regenerar instâncias quando data/recorrência mudar
     if (dto.eventDate || dto.recurrenceType || dto.recurrencePattern) {
-      await this.instanceModel.deleteMany({ eventId: id } as any);
+      await this.instanceModel.deleteMany({ eventId: new Types.ObjectId(id) } as any);
       await this.generateInstancesForEvent(id);
     }
 
-    return updated!.toObject();
+    return updated.toObject();
   }
 
   async remove(
@@ -263,8 +318,8 @@ export class EventsService {
     if (userId) {
       const current = await this.eventModel.findOne({
         _id: id,
-        tenantId,
-        branchId: branchId ?? null,
+        tenantId: new Types.ObjectId(tenantId),
+        branchId: branchId ? new Types.ObjectId(branchId) : null,
       } as any);
       if (!current) throw new NotFoundException('Evento não encontrado');
       const leaderMinistries = await this.getLeaderMinistryIds(
@@ -288,8 +343,8 @@ export class EventsService {
 
     const res = await this.eventModel.deleteOne({
       _id: new Types.ObjectId(id),
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
     } as any);
     if (res.deletedCount === 0)
       throw new NotFoundException('Evento não encontrado');
@@ -317,8 +372,8 @@ export class EventsService {
   ) {
     const event = await this.eventModel.findOne({
       _id: eventId,
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
     } as any);
     if (!event) throw new NotFoundException('Evento não encontrado');
 
@@ -370,8 +425,8 @@ export class EventsService {
 
     // Criar exceção com data normalizada (início do dia)
     await this.exceptionModel.create({
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
       eventId: new Types.ObjectId(eventId),
       instanceDate: startOfDay,
       type: 'skip',
@@ -381,8 +436,8 @@ export class EventsService {
     // Cancelar instâncias pré-calculadas do dia
     await this.instanceModel.updateMany(
       {
-        tenantId,
-        branchId: branchId ?? null,
+        tenantId: new Types.ObjectId(tenantId),
+        branchId: branchId ? new Types.ObjectId(branchId) : null,
         eventId: new Types.ObjectId(eventId),
         instanceDate: { $gte: startOfDay, $lte: endOfDay },
       } as any,
@@ -584,8 +639,8 @@ export class EventsService {
   ) {
     const event = await this.eventModel.findOne({
       _id: eventId,
-      tenantId,
-      branchId: branchId ?? null,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
     } as any);
     if (!event) throw new NotFoundException('Evento não encontrado');
 
@@ -614,9 +669,9 @@ export class EventsService {
       throw new BadRequestException('Data inválida');
 
     await this.exceptionModel.create({
-      tenantId,
-      branchId: branchId ?? null,
-      eventId,
+      tenantId: new Types.ObjectId(tenantId),
+      branchId: branchId ? new Types.ObjectId(branchId) : null,
+      eventId: new Types.ObjectId(eventId),
       fromDate,
       type: 'cancel_after',
       createdBy: new Types.ObjectId(userId),
@@ -625,8 +680,8 @@ export class EventsService {
     // Cancelar instâncias futuras já pré-calculadas
     await this.instanceModel.updateMany(
       {
-        tenantId,
-        branchId: branchId ?? null,
+        tenantId: new Types.ObjectId(tenantId),
+        branchId: branchId ? new Types.ObjectId(branchId) : null,
         eventId,
         instanceDate: { $gte: fromDate },
       } as any,
@@ -875,13 +930,15 @@ export class EventsService {
     branchId: string | null,
   ): Promise<string[]> {
     const query: any = {
-      user: userId as any,
-      tenant: tenantId as any,
+      user: new Types.ObjectId(userId),
+      tenant: new Types.ObjectId(tenantId),
       role: MembershipRole.Leader,
       isActive: true,
     };
-    if (branchId !== null) query.branch = branchId as any;
-    else query.branch = null;
+    // Se branchId foi fornecido explicitamente, filtrar por ela; caso contrário, não restringir por branch
+    if (branchId) {
+      query.branch = new Types.ObjectId(branchId);
+    }
 
     const memberships = await this.membershipModel
       .find(query)
@@ -996,7 +1053,7 @@ export class EventsService {
     console.log('📊 [EventsService] Buscando instâncias pré-calculadas');
 
     const filter: FilterQuery<EventInstance> = {
-      tenantId: tenantId as any,
+      tenantId: new Types.ObjectId(tenantId),
       instanceDate: {
         $gte: startOfMonth,
         $lte: endOfMonth,
@@ -1004,7 +1061,7 @@ export class EventsService {
     } as any;
 
     if (branchId) {
-      filter.branchId = branchId as any;
+      filter.branchId = new Types.ObjectId(branchId) as any;
     } else {
       filter.branchId = null as any;
     }
@@ -1041,7 +1098,7 @@ export class EventsService {
     const exceptions =
       eventIds.length > 0
         ? await this.exceptionModel
-            .find({ tenantId, eventId: { $in: eventIds as any } } as any)
+            .find({ tenantId: new Types.ObjectId(tenantId), eventId: { $in: eventIds as any } } as any)
             .lean()
         : [];
     const cancelAfterMap = new Map<string, Date>();
@@ -1136,13 +1193,13 @@ export class EventsService {
 
     // Buscar eventos que podem ter recorrências no período
     const eventFilter: FilterQuery<Event> = {
-      tenantId: tenantId as any,
+      tenantId: new Types.ObjectId(tenantId),
       recurrenceType: { $ne: 'none' },
       status: { $in: ['draft', 'published'] },
     } as any;
 
     if (branchId) {
-      eventFilter.branchId = branchId as any;
+      eventFilter.branchId = new Types.ObjectId(branchId) as any;
     } else {
       eventFilter.branchId = null as any;
     }
@@ -1173,7 +1230,7 @@ export class EventsService {
     ).filter(Boolean);
     if (eventIds.length > 0) {
       const exceptions = await this.exceptionModel
-        .find({ tenantId, eventId: { $in: eventIds as any } } as any)
+        .find({ tenantId: new Types.ObjectId(tenantId), eventId: { $in: eventIds as any } } as any)
         .lean();
       const skipSet = new Set<string>();
       const cancelAfterMap = new Map<string, Date>();

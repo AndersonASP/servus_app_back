@@ -38,8 +38,9 @@ export class CreateScaleDto {
   @IsString()
   ministryId: string;
 
+  @IsOptional()
   @IsString()
-  templateId: string;
+  templateId?: string;
 
   @IsString()
   name: string;

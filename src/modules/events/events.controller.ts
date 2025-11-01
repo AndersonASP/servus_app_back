@@ -24,9 +24,13 @@ export class EventsController {
     return branchId === 'null' || branchId === 'undefined' ? null : branchId;
   }
 
-  // Rota para Tenant Admin (sem branch)
+  // Rota para Tenant Admin (sem branch) e Leaders
   @Post('tenants/:tenantId/events')
-  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_TENANT])
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_TENANT,
+    PERMS.MANAGE_MINISTRY_EVENTS,
+  ])
   async createForTenant(
     @Param('tenantId') tenantId: string,
     @Req() req: any,
@@ -289,9 +293,13 @@ export class EventsController {
     );
   }
 
-  // Deletar evento para Tenant Admin
+  // Deletar evento para Tenant Admin ou Líder
   @Delete('tenants/:tenantId/events/:id')
-  @RequiresPerm([PERMS.MANAGE_ALL_TENANTS, PERMS.MANAGE_TENANT])
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_TENANT,
+    PERMS.MANAGE_MINISTRY_EVENTS,
+  ])
   async removeForTenant(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,

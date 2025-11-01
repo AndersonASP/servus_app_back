@@ -19,17 +19,48 @@ import {
 import { RequiresPerm } from '../../common/decorators/requires-perm.decorator';
 import { PERMS } from '../../common/enums/role.enum';
 
-@Controller('scales')
+@Controller()
 export class ScalesController {
   constructor(private readonly scalesService: ScalesService) {}
 
-  @Post()
+  @Post('tenants/:tenantId/scales')
   @RequiresPerm([
     PERMS.MANAGE_ALL_TENANTS,
     PERMS.MANAGE_BRANCH_SCALES,
     PERMS.MANAGE_MINISTRY_SCALES,
   ])
-  async create(
+  async createForTenant(
+    @Param('tenantId') tenantId: string,
+    @Req() req: any,
+    @Body() dto: CreateScaleDto,
+    @Res() res: any,
+  ) {
+    const userId: string | undefined = req.user?.sub;
+    if (!userId) throw new Error('userId ausente');
+
+    const result = await this.scalesService.create(
+      tenantId,
+      null, // branchId null para tenant
+      userId,
+      dto,
+      req.user.roles,
+      req.user.ministryId,
+    );
+
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Escala criada com sucesso.',
+    });
+  }
+
+  @Post('tenants/:tenantId/branches/:branchId/scales')
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_BRANCH_SCALES,
+    PERMS.MANAGE_MINISTRY_SCALES,
+  ])
+  async createForBranch(
     @Param('tenantId') tenantId: string,
     @Param('branchId') branchId: string,
     @Req() req: any,
@@ -55,7 +86,38 @@ export class ScalesController {
     });
   }
 
-  @Get()
+  @Get('tenants/:tenantId/scales')
+  @RequiresPerm([
+    PERMS.MANAGE_ALL_TENANTS,
+    PERMS.MANAGE_BRANCH_SCALES,
+    PERMS.MANAGE_MINISTRY_SCALES,
+    PERMS.VIEW_SCALES,
+  ])
+  async listForTenant(
+    @Param('tenantId') tenantId: string,
+    @Query() query: ListScaleDto,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const userId: string | undefined = req.user?.sub;
+    if (!userId) throw new Error('userId ausente');
+
+    const result = await this.scalesService.list(
+      tenantId,
+      null, // branchId null para tenant
+      query,
+      userId,
+      req.user.roles,
+      req.user.ministryId,
+    );
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  }
+
+  @Get('tenants/:tenantId/branches/:branchId/scales')
   @RequiresPerm([
     PERMS.MANAGE_ALL_TENANTS,
     PERMS.MANAGE_BRANCH_SCALES,

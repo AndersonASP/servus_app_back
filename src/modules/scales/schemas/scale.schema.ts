@@ -35,8 +35,8 @@ export class Scale extends Document {
   @Prop({ type: Types.ObjectId, ref: 'Ministry', required: true, index: true })
   ministryId: Types.ObjectId; // ministério responsável por esta escala
 
-  @Prop({ type: Types.ObjectId, ref: 'ScaleTemplate', required: true })
-  templateId: Types.ObjectId; // template usado para criar esta escala
+  @Prop({ type: Types.ObjectId, ref: 'ScaleTemplate', required: false })
+  templateId?: Types.ObjectId; // template usado para criar esta escala (opcional para escalas criadas sem template)
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId; // líder do ministério que criou

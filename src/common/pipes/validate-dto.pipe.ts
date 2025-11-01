@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { ValidationErrorResponseDto } from '../dto/error-response.dto';
 
 @Injectable()
 export class ValidateDtoPipe implements PipeTransform {
@@ -39,7 +40,14 @@ export class ValidateDtoPipe implements PipeTransform {
       });
 
       if (errors.length > 0) {
-        throw new BadRequestException(this.formatErrors(errors));
+        // Criar resposta de erro padronizada
+        const validationErrors = this.formatErrors(errors);
+        const errorResponse = new ValidationErrorResponseDto(
+          'Dados inválidos. Verifique as informações fornecidas.',
+          validationErrors,
+        );
+        
+        throw new BadRequestException(errorResponse);
       }
 
       return object;
@@ -59,10 +67,17 @@ export class ValidateDtoPipe implements PipeTransform {
     );
   }
 
-  private formatErrors(errors: any[]) {
-    return errors.map((err) => ({
-      field: err.property,
-      constraints: err.constraints,
-    }));
+  private formatErrors(errors: any[]): Record<string, string[]> {
+    const validationErrors: Record<string, string[]> = {};
+    
+    errors.forEach((err) => {
+      const field = err.property;
+      const constraints = err.constraints || {};
+      
+      // Converter constraints para array de strings
+      validationErrors[field] = Object.values(constraints) as string[];
+    });
+    
+    return validationErrors;
   }
 }
